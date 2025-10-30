@@ -1,0 +1,140 @@
+import { query, mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export const searchSuppliers = query({
+  args: {
+    q: v.optional(v.string()),
+    category: v.optional(v.string()),
+    location: v.optional(v.string()),
+    lat: v.optional(v.float64()),
+    lng: v.optional(v.float64()),
+    radiusKm: v.optional(v.float64()),
+    minRating: v.optional(v.float64()),
+    verified: v.optional(v.boolean()),
+    limit: v.optional(v.int64()),
+    offset: v.optional(v.int64()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Number(args.limit ?? 20);
+    const offset = Number(args.offset ?? 0);
+
+    let all = await ctx.db.query("suppliers").collect();
+
+    if (args.q && args.q.trim()) {
+      const q = args.q.toLowerCase();
+      all = all.filter(s =>
+        (s.business_name?.toLowerCase().includes(q)) ||
+        (s.description?.toLowerCase().includes(q))
+      );
+    }
+
+    if (args.category) {
+      all = all.filter(s => s.category === args.category);
+    }
+
+    if (args.location) {
+      const loc = args.location.toLowerCase();
+      all = all.filter(s => (s.location || "").toLowerCase().includes(loc));
+    }
+
+    if (args.minRating && args.minRating > 0) {
+      all = all.filter(s => (s.rating ?? 0) >= (args.minRating as number));
+    }
+
+    if (args.verified) {
+      all = all.filter(s => s.verified === true);
+    }
+
+    if (args.lat !== undefined && args.lng !== undefined) {
+      const lat = args.lat as number;
+      const lng = args.lng as number;
+      const radius = args.radiusKm ?? 50;
+
+      all = all
+        .map(s => {
+          if (s.latitude != null && s.longitude != null) {
+            const d = haversineKm(lat, lng, s.latitude, s.longitude);
+            return { ...s, distance: d } as typeof s & { distance: number };
+          }
+          return { ...s, distance: Number.POSITIVE_INFINITY } as typeof s & { distance: number };
+        })
+        .filter(s => s.distance <= radius)
+        .sort((a, b) => a.distance - b.distance);
+    }
+
+    const sliced = all.slice(offset, offset + limit);
+    return { suppliers: sliced };
+  }
+});
+
+export const getSupplierDetails = query({
+  args: { id: v.string() },
+  handler: async (ctx, { id }) => {
+    const supplier = await ctx.db.get(id as any).catch(async () => {
+      // fallback: try find by field id stored elsewhere
+      const byFilter = await ctx.db.query("suppliers").filter(q => q.eq(q.field("_id"), id as any)).first();
+      return byFilter ?? null;
+    });
+
+    const s = supplier ?? await ctx.db.query("suppliers").filter(q => q.eq(q.field("_id"), id as any)).first();
+    if (!s) {
+      return { supplier: null, reviews: [] };
+    }
+
+    const reviews = await ctx.db.query("reviews").filter(q => q.eq(q.field("supplierId"), s._id as unknown as string)).collect();
+    return { supplier: s, reviews };
+  }
+});
+
+export const updateSupplierProfile = mutation({
+  args: {
+    business_name: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+    description: v.optional(v.string()),
+    category: v.string(),
+    address: v.optional(v.string()),
+    city: v.string(),
+    state: v.string(),
+    website: v.optional(v.string()),
+    business_hours: v.optional(v.record(v.string(), v.string())),
+    social_links: v.optional(v.record(v.string(), v.string())),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Non autorisé");
+
+    const userId = identity.subject;
+    const supplier = await ctx.db.query("suppliers").filter(q => q.eq(q.field("userId"), userId)).first();
+    if (!supplier) throw new Error("Profil fournisseur non trouvé");
+
+    await ctx.db.patch(supplier._id, {
+      business_name: args.business_name,
+      email: args.email,
+      phone: args.phone,
+      description: args.description,
+      category: args.category,
+      address: args.address,
+      city: args.city,
+      state: args.state,
+      location: `${args.city}, ${args.state}`,
+      website: args.website,
+      business_hours: args.business_hours,
+      social_links: args.social_links,
+      updated_at: new Date().toISOString(),
+    });
+
+    return { success: true };
+  }
+});
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function toRad(v: number) { return v * Math.PI / 180; }

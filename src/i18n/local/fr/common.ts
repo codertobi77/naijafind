@@ -1,0 +1,98 @@
+export const common = {
+  // Navigation
+  "nav.home": "Accueil",
+  "nav.categories": "Catégories", 
+  "nav.about": "À propos",
+  "nav.contact": "Contact",
+  "nav.help": "Aide",
+  "nav.faq": "FAQ",
+  "nav.privacy": "Confidentialité",
+  "nav.login": "Connexion",
+  "nav.register": "Inscription",
+  "nav.dashboard": "Tableau de bord",
+  "nav.logout": "Déconnexion",
+  "nav.search": "Recherche",
+
+  // Common buttons
+  "btn.search": "Rechercher",
+  "btn.filter": "Filtrer",
+  "btn.reset": "Réinitialiser",
+  "btn.submit": "Soumettre",
+  "btn.cancel": "Annuler",
+  "btn.save": "Enregistrer",
+  "btn.edit": "Modifier",
+  "btn.delete": "Supprimer",
+  "btn.view": "Voir",
+  "btn.contact": "Contacter",
+  "btn.call": "Appeler",
+  "btn.email": "Email",
+  "btn.website": "Site web",
+  "btn.directions": "Itinéraire",
+  "btn.back": "Retour",
+  "btn.next": "Suivant",
+  "btn.previous": "Précédent",
+  "btn.close": "Fermer",
+  "btn.open": "Ouvrir",
+  "btn.show_more": "Voir plus",
+  "btn.show_less": "Voir moins",
+
+  // Common labels
+  "label.name": "Nom",
+  "label.email": "Email",
+  "label.phone": "Téléphone",
+  "label.address": "Adresse",
+  "label.city": "Ville",
+  "label.state": "État",
+  "label.country": "Pays",
+  "label.description": "Description",
+  "label.category": "Catégorie",
+  "label.rating": "Note",
+  "label.reviews": "Avis",
+  "label.distance": "Distance",
+  "label.location": "Localisation",
+  "label.price": "Prix",
+  "label.date": "Date",
+  "label.time": "Heure",
+  "label.status": "Statut",
+  "label.type": "Type",
+  "label.language": "Langue",
+
+  // Status
+  "status.active": "Actif",
+  "status.inactive": "Inactif",
+  "status.pending": "En attente",
+  "status.approved": "Approuvé",
+  "status.rejected": "Rejeté",
+  "status.verified": "Vérifié",
+  "status.unverified": "Non vérifié",
+
+  // Messages
+  "msg.loading": "Chargement...",
+  "msg.no_results": "Aucun résultat trouvé",
+  "msg.error": "Une erreur s'est produite",
+  "msg.success": "Succès",
+  "msg.saved": "Enregistré avec succès",
+  "msg.deleted": "Supprimé avec succès",
+  "msg.updated": "Mis à jour avec succès",
+  "msg.created": "Créé avec succès",
+
+  // Distance units
+  "distance.km": "km",
+  "distance.miles": "miles",
+  "distance.nearby": "À proximité",
+  "distance.within": "Dans un rayon de",
+
+  // Time
+  "time.now": "Maintenant",
+  "time.today": "Aujourd'hui",
+  "time.yesterday": "Hier",
+  "time.week": "Cette semaine",
+  "time.month": "Ce mois",
+  "time.year": "Cette année",
+
+  // Footer
+  "footer.rights": "Tous droits réservés",
+  "footer.powered_by": "Propulsé par Readdy"
+};
+
+export default common;
