@@ -4,12 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "create-admin": "node scripts/create-admin.js",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@auth/core": "^0.37.0",
+    "@clerk/clerk-js": "^5.103.1",
+    "@clerk/clerk-react": "^5.53.4",
     "@convex-dev/auth": "^0.0.90",
     "@stripe/react-stripe-js": "4.0.2",
     "@supabase/supabase-js": "2.57.4",

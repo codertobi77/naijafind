@@ -1,8 +1,11 @@
 
 import { useState, useEffect } from 'react';
-import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { useQuery, useConvexAuth } from 'convex/react';
+import { useSearchParams, Link } from 'react-router-dom';
+import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
+import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import { useTranslation } from 'react-i18next';
+import LanguageSelector from '../../components/base/LanguageSelector';
 
 interface Supplier {
   id: string;
@@ -20,9 +23,8 @@ interface Supplier {
 }
 
 export default function Search() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const { isAuthenticated, isLoading } = useConvexAuth();
   const meData = useQuery(api.users.me, {});
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,27 +85,7 @@ export default function Search() {
     handleScrollToResults();
   }, [filters]);
 
-  const handleAddBusinessClick = () => {
-    if (!isLoading) {
-      if (!isAuthenticated) {
-        // Rediriger vers l'inscription avec type supplier
-        navigate('/auth/register?type=supplier');
-      } else {
-        // Vérifier si l'utilisateur est déjà un fournisseur
-        if (meData?.user?.user_type === 'supplier') {
-          navigate('/dashboard');
-        } else {
-          // Rediriger vers une page de conversion ou créer le profil supplier
-          navigate('/dashboard?action=become-supplier');
-        }
-      }
-    }
-  };
-
-  const categories = [
-    'Agriculture', 'Textile', 'Électronique', 'Alimentation', 
-    'Construction', 'Automobile', 'Commerce général'
-  ];
+  const categories = useQuery(api.categories.getAllCategories, {});
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -117,20 +99,42 @@ export default function Search() {
               </Link>
             </div>
             <nav className="hidden md:flex space-x-8">
-              <Link to="/" className="text-gray-700 hover:text-green-600 font-medium">Accueil</Link>
-              <a href="#" className="text-gray-700 hover:text-green-600 font-medium">Catégories</a>
-              <a href="#" className="text-gray-700 hover:text-green-600 font-medium">Fournisseurs</a>
-              <a href="#" className="text-gray-700 hover:text-green-600 font-medium">À propos</a>
+              <Link to="/" className="text-green-600 font-medium">{t('nav.home')}</Link>
+              <Link to="/search" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.search')}</Link>
+              <Link to="/categories" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.categories')}</Link>
+              <Link to="/about" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.about')}</Link>
             </nav>
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <button 
-                onClick={handleAddBusinessClick}
-                disabled={isLoading}
-                className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="hidden sm:inline">Ajouter votre entreprise</span>
-                <span className="sm:hidden">Ajouter</span>
-              </button>
+              <LanguageSelector />
+              <SignedOut>
+                <Link to="/auth/login" className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium whitespace-nowrap text-sm sm:text-base">
+                  {t('nav.login')}
+                </Link>
+                <Link to="/auth/register" className="border border-green-600 text-green-600 px-3 sm:px-4 py-2 rounded-lg hover:bg-green-50 transition-colors font-medium whitespace-nowrap text-sm sm:text-base hidden sm:block">
+                  {t('nav.register')}
+                </Link>
+                <Link to="/auth/register" className="border border-green-600 text-green-600 px-3 py-2 rounded-lg hover:bg-green-50 transition-colors font-medium whitespace-nowrap text-sm sm:hidden">
+                  {t('nav.register')}
+                </Link>
+              </SignedOut>
+              <SignedIn>
+                {meData?.user?.user_type === 'supplier' && (
+                  <Link 
+                    to="/dashboard"
+                    className="text-gray-700 hover:text-green-600 font-medium px-3 py-2 rounded-lg transition-colors hidden sm:block"
+                  >
+                    {t('nav.dashboard')}
+                  </Link>
+                )}
+                <UserButton 
+                  afterSignOutUrl="/"
+                  appearance={{
+                    elements: {
+                      avatarBox: "w-10 h-10"
+                    }
+                  }}
+                />
+              </SignedIn>
             </div>
           </div>
         </div>
@@ -156,14 +160,14 @@ export default function Search() {
                 />
                 {!filters.query && (
                   <div className="mt-2 text-xs text-gray-600 flex flex-wrap gap-2">
-                    Suggestions :
+                    Suggestions :
                     {citySuggestions.map(c => (
                       <button key={c} className="underline text-green-700 hover:text-green-900 px-2"
                         onClick={()=>setFilters({...filters, query: c})}>{c}</button>
                     ))}
-                    {categories.slice(0,2).map(cat => (
-                      <button key={cat} className="underline text-blue-700 hover:text-blue-900 px-2"
-                        onClick={()=>setFilters({...filters, category: cat})}>{cat}</button>
+                    {categories && categories.slice(0,2).map(cat => (
+                      <button key={cat._id} className="underline text-blue-700 hover:text-blue-900 px-2"
+                        onClick={()=>setFilters({...filters, category: cat.name})}>{cat.name}</button>
                     ))}
                   </div>
                 )}
@@ -201,8 +205,8 @@ export default function Search() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm pr-8"
                 >
                   <option value="">Toutes catégories</option>
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
+                  {categories?.map(cat => (
+                    <option key={cat._id} value={cat.name}>{cat.name}</option>
                   ))}
                 </select>
                 <div className="text-xs text-gray-600 mt-1">Filtrez par catégorie</div>

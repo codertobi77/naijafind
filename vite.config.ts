@@ -16,7 +16,6 @@ export default defineConfig({
       imports: [
         {
           'react': [
-            'React',
             'useState',
             'useEffect',
             'useContext',
@@ -73,7 +72,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src')
-    }
+    },
+    dedupe: ['react', 'react-dom']
   },
   server: {
     port: 3000,

@@ -1,30 +1,18 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
-import { authTables } from "@convex-dev/auth/server";
 
 export default defineSchema({
-  // Fusionner les champs d'authTables avec nos champs personnalisés
   users: defineTable({
-    // Champs de Convex Auth (optionnels dans authTables)
-    name: v.optional(v.string()),
-    image: v.optional(v.string()),
     email: v.optional(v.string()),
-    emailVerificationTime: v.optional(v.number()),
     phone: v.optional(v.string()),
-    phoneVerificationTime: v.optional(v.number()),
-    isAnonymous: v.optional(v.boolean()),
-    // Nos champs personnalisés
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
-    user_type: v.optional(v.string()), // 'user' | 'supplier'
+    user_type: v.optional(v.string()), // 'user' | 'supplier' | 'admin'
+    is_admin: v.optional(v.boolean()),
     created_at: v.optional(v.string()),
   })
-    .index("email", ["email"])
+    .index("email", ["email"]) 
     .index("phone", ["phone"]),
-  authSessions: authTables.authSessions,
-  authAccounts: authTables.authAccounts,
-  authRefreshTokens: authTables.authRefreshTokens,
-  authVerificationCodes: authTables.authVerificationCodes,
   suppliers: defineTable({
     userId: v.string(), // id de l'utilisateur propriétaire
     business_name: v.string(),
@@ -77,4 +65,15 @@ export default defineSchema({
     status: v.optional(v.string()),
     created_at: v.string(),
   }),
+  categories: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    icon: v.optional(v.string()),
+    is_active: v.optional(v.boolean()),
+    order: v.optional(v.int64()),
+    created_at: v.string(),
+    created_by: v.optional(v.string()), // userId de l'admin qui a créé
+  })
+    .index("name", ["name"])
+    .index("is_active", ["is_active"]),
 });

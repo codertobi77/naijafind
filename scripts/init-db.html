@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Initialisation Convex - NaijaFind</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #16a34a;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e5e5e5;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-bottom: 20px;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #16a34a;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+    button:hover {
+      background: #15803d;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 6px;
+      display: none;
+    }
+    .result.success {
+      background: #d1fae5;
+      color: #065f46;
+      border: 1px solid #6ee7b7;
+    }
+    .result.error {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+    .result.show {
+      display: block;
+    }
+    .info {
+      background: #eff6ff;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      color: #1e40af;
+      font-size: 14px;
+    }
+    code {
+      background: #f3f4f6;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🌱 Initialisation Convex</h1>
+    <p class="subtitle">Initialisez votre base de données avec les catégories de base</p>
+    
+    <div class="info">
+      <strong>📝 Note :</strong> Entrez l'URL de votre endpoint Convex. 
+      Vous pouvez la trouver dans le Dashboard Convex sous "HTTP Routes".
+      <br><br>
+      Format attendu : <code>https://votre-projet.convex.site</code>
+    </div>
+
+    <input 
+      type="text" 
+      id="convexUrl" 
+      placeholder="https://votre-projet.convex.site"
+      value=""
+    />
+
+    <button id="initBtn" onclick="initializeDatabase()">
+      🔄 Initialiser les catégories
+    </button>
+
+    <div id="result" class="result"></div>
+  </div>
+
+  <script>
+    async function initializeDatabase() {
+      const url = document.getElementById('convexUrl').value.trim();
+      const btn = document.getElementById('initBtn');
+      const resultDiv = document.getElementById('result');
+
+      if (!url) {
+        alert('Veuillez entrer l\'URL de votre endpoint Convex');
+        return;
+      }
+
+      // Nettoyer l'URL (enlever le trailing slash)
+      const cleanUrl = url.replace(/\/$/, '');
+      const endpoint = `${cleanUrl}/init`;
+
+      btn.disabled = true;
+      btn.textContent = 'Initialisation en cours...';
+      resultDiv.className = 'result';
+      resultDiv.textContent = '';
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          resultDiv.className = 'result success show';
+          resultDiv.innerHTML = `
+            <strong>✅ Succès !</strong><br>
+            ${data.message || 'Catégories initialisées avec succès'}<br>
+            ${data.created?.length ? `<br><strong>Créées :</strong> ${data.created.join(', ')}` : ''}
+            ${data.skipped?.length ? `<br><strong>Ignorées (déjà existantes) :</strong> ${data.skipped.join(', ')}` : ''}
+          `;
+        } else {
+          throw new Error(data.error || 'Erreur inconnue');
+        }
+      } catch (error) {
+        resultDiv.className = 'result error show';
+        resultDiv.innerHTML = `
+          <strong>❌ Erreur</strong><br>
+          ${error.message || 'Impossible de se connecter à l\'endpoint Convex'}<br><br>
+          <strong>Vérifiez :</strong><br>
+          • Que votre projet Convex est déployé<br>
+          • Que l'URL est correcte<br>
+          • Que la route <code>/init</code> est accessible
+        `;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🔄 Initialiser les catégories';
+      }
+    }
+
+    // Permettre l'exécution avec Enter
+    document.getElementById('convexUrl').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        initializeDatabase();
+      }
+    });
+  </script>
+</body>
+</html>
+

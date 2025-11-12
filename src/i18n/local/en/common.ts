@@ -10,6 +10,7 @@ export const common = {
   "nav.login": "Login",
   "nav.register": "Register",
   "nav.dashboard": "Dashboard",
+  "nav.profile": "Profile",
   "nav.logout": "Logout",
   "nav.search": "Search",
 

@@ -1,14 +1,36 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useConvexAuth } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
+import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import { useTranslation } from 'react-i18next';
+import LanguageSelector from '../../components/base/LanguageSelector';
 
 export default function Categories() {
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const meData = useQuery(api.users.me, {});
+  const categoriesData = useQuery(api.categories.getAllCategories, {});
+  const allSuppliers = useQuery(api.suppliers.searchSuppliers, { limit: BigInt(1000) });
+
+  // Calculer le nombre de suppliers par catégorie
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (allSuppliers?.suppliers) {
+      const counts: Record<string, number> = {};
+      allSuppliers.suppliers.forEach((supplier: any) => {
+        const cat = supplier.category || supplier.business_name;
+        if (cat) {
+          counts[cat] = (counts[cat] || 0) + 1;
+        }
+      });
+      setCategoryCounts(counts);
+    }
+  }, [allSuppliers]);
 
   const handleAddBusinessClick = () => {
     if (!isLoading) {
@@ -27,80 +49,14 @@ export default function Categories() {
     }
   };
 
-  const categories = [
-    {
-      name: 'Agriculture',
-      icon: 'ri-plant-line',
-      count: 5200,
-      description: 'Produits agricoles, équipements, semences et services',
-      subcategories: ['Céréales', 'Légumes', 'Fruits', 'Équipements agricoles', 'Semences'],
-      image: 'Nigerian agricultural farm with green crops, farmers working in fields, traditional and modern farming equipment, fertile farmland, natural outdoor lighting'
-    },
-    {
-      name: 'Textile',
-      icon: 'ri-shirt-line',
-      count: 3800,
-      description: 'Tissus, vêtements, accessoires de mode',
-      subcategories: ['Tissus traditionnels', 'Vêtements', 'Accessoires', 'Chaussures', 'Bijoux'],
-      image: 'Colorful Nigerian traditional fabrics and textiles, vibrant patterns, Ankara prints, textile market stalls, beautiful fabric displays, warm lighting'
-    },
-    {
-      name: 'Électronique',
-      icon: 'ri-smartphone-line',
-      count: 2900,
-      description: 'Appareils électroniques, composants, accessoires',
-      subcategories: ['Smartphones', 'Ordinateurs', 'Télévisions', 'Accessoires', 'Composants'],
-      image: 'Modern electronics store with smartphones tablets computers, LED displays, high-tech gadgets, professional retail environment, bright lighting'
-    },
-    {
-      name: 'Alimentation',
-      icon: 'ri-restaurant-line',
-      count: 4100,
-      description: 'Produits alimentaires, boissons, épices',
-      subcategories: ['Épices', 'Boissons', 'Produits frais', 'Conserves', 'Snacks'],
-      image: 'Nigerian food market with fresh fruits vegetables spices, colorful food displays, traditional ingredients, bustling market atmosphere, natural lighting'
-    },
-    {
-      name: 'Construction',
-      icon: 'ri-building-line',
-      count: 2300,
-      description: 'Matériaux de construction, outils, équipements',
-      subcategories: ['Ciment', 'Acier', 'Outils', 'Équipements', 'Finitions'],
-      image: 'Construction site in Nigeria with building materials, cement bags, steel rods, construction equipment, workers in safety gear, industrial setting'
-    },
-    {
-      name: 'Automobile',
-      icon: 'ri-car-line',
-      count: 1800,
-      description: 'Véhicules, pièces détachées, accessoires auto',
-      subcategories: ['Voitures', 'Motos', 'Pièces détachées', 'Accessoires', 'Services'],
-      image: 'Nigerian car dealership with various vehicles, modern showroom, cars displayed professionally, automotive service center, bright showroom lighting'
-    },
-    {
-      name: 'Santé & Beauté',
-      icon: 'ri-heart-pulse-line',
-      count: 1950,
-      description: 'Produits de santé, cosmétiques, bien-être',
-      subcategories: ['Cosmétiques', 'Médicaments', 'Équipements médicaux', 'Soins naturels', 'Fitness'],
-      image: 'Nigerian beauty and health products store, cosmetics display, natural skincare products, modern pharmacy setting, clean professional environment'
-    },
-    {
-      name: 'Éducation',
-      icon: 'ri-book-line',
-      count: 1200,
-      description: 'Livres, fournitures scolaires, équipements éducatifs',
-      subcategories: ['Livres', 'Fournitures', 'Équipements', 'Formation', 'E-learning'],
-      image: 'Nigerian educational bookstore with textbooks, school supplies, learning materials, students browsing books, academic environment, natural lighting'
-    },
-    {
-      name: 'Services',
-      icon: 'ri-service-line',
-      count: 3400,
-      description: 'Services professionnels, consulting, maintenance',
-      subcategories: ['Consulting', 'Maintenance', 'Nettoyage', 'Sécurité', 'Transport'],
-      image: 'Nigerian professional services office, business consultants working, modern office environment, professional meeting, corporate setting'
-    }
-  ];
+  // Mapper les catégories avec les counts
+  const categories = categoriesData?.map(cat => ({
+    name: cat.name,
+    icon: cat.icon || 'ri-folder-line',
+    count: categoryCounts[cat.name] || 0,
+    description: cat.description || '',
+    image: `Nigerian ${cat.name.toLowerCase()} industry with professional business setting, modern office, traditional and modern products displayed, warm natural lighting`
+  })) || [];
 
   const filteredCategories = categories.filter(category =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -119,23 +75,39 @@ export default function Categories() {
               </Link>
             </div>
             <nav className="hidden md:flex space-x-8">
-              <Link to="/" className="text-gray-700 hover:text-green-600 font-medium">Accueil</Link>
-              <Link to="/search" className="text-gray-700 hover:text-green-600 font-medium">Recherche</Link>
-              <Link to="/categories" className="text-green-600 font-medium">Catégories</Link>
-              <Link to="/about" className="text-gray-700 hover:text-green-600 font-medium">À propos</Link>
+              <Link to="/" className="text-green-600 font-medium">{t('nav.home')}</Link>
+              <Link to="/search" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.search')}</Link>
+              <Link to="/categories" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.categories')}</Link>
+              <Link to="/about" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.about')}</Link>
             </nav>
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <Link to="/auth/login" className="text-gray-700 hover:text-green-600 font-medium text-sm sm:text-base">
-                Connexion
-              </Link>
-              <button 
-                onClick={handleAddBusinessClick}
-                disabled={isLoading}
-                className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="hidden sm:inline">Ajouter votre entreprise</span>
-                <span className="sm:hidden">Ajouter</span>
-              </button>
+              <LanguageSelector />
+              <SignedOut>
+                <Link to="/auth/login" className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium whitespace-nowrap text-sm sm:text-base">
+                  {t('nav.login')}
+                </Link>
+                <Link to="/auth/register" className="border border-green-600 text-green-600 px-3 sm:px-4 py-2 rounded-lg hover:bg-green-50 transition-colors font-medium whitespace-nowrap text-sm sm:text-base hidden sm:block">
+                  {t('nav.register')}
+                </Link>
+              </SignedOut>
+              <SignedIn>
+                {meData?.user?.user_type === 'supplier' && (
+                  <Link 
+                    to="/dashboard"
+                    className="text-gray-700 hover:text-green-600 font-medium px-3 py-2 rounded-lg transition-colors hidden sm:block"
+                  >
+                    {t('nav.dashboard')}
+                  </Link>
+                )}
+                <UserButton 
+                  afterSignOutUrl="/"
+                  appearance={{
+                    elements: {
+                      avatarBox: "w-10 h-10"
+                    }
+                  }}
+                />
+              </SignedIn>
             </div>
           </div>
         </div>
@@ -172,10 +144,10 @@ export default function Categories() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {filteredCategories.map((category, index) => (
-              <div key={index} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow cursor-pointer">
+              <div key={category.name} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow cursor-pointer">
                 <div className="h-40 sm:h-48 relative">
                   <img
-                    src={`https://readdy.ai/api/search-image?query=$%7Bcategory.image%7D&width=400&height=300&seq=cat-${index}&orientation=landscape`}
+                    src={`https://readdy.ai/api/search-image?query=${encodeURIComponent(category.image)}&width=400&height=300&seq=cat-${index}&orientation=landscape`}
                     alt={category.name}
                     className="w-full h-full object-cover object-top"
                   />
@@ -196,22 +168,6 @@ export default function Categories() {
                   </div>
                   
                   <p className="text-gray-600 mb-4 text-sm sm:text-base">{category.description}</p>
-                  
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">Sous-catégories populaires :</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {category.subcategories.slice(0, 3).map((sub, subIndex) => (
-                        <span key={subIndex} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                          {sub}
-                        </span>
-                      ))}
-                      {category.subcategories.length > 3 && (
-                        <span className="text-xs text-gray-500">
-                          +{category.subcategories.length - 3} autres
-                        </span>
-                      )}
-                    </div>
-                  </div>
                   
                   <Link
                     to={`/search?category=${encodeURIComponent(category.name)}`}

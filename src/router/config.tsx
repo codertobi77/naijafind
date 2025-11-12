@@ -13,6 +13,8 @@ const Help = lazy(() => import('../pages/help/page'));
 const Privacy = lazy(() => import('../pages/privacy/page'));
 const Login = lazy(() => import('../pages/auth/login'));
 const Register = lazy(() => import('../pages/auth/register'));
+const ChooseRole = lazy(() => import('../pages/auth/choose-role'));
+const SupplierSetup = lazy(() => import('../pages/auth/supplier-setup'));
 const Dashboard = lazy(() => import('../pages/dashboard/page'));
 const NotFound = lazy(() => import('../pages/NotFound'));
 const Admin = lazy(() => import('../pages/admin/page'));
@@ -61,6 +63,14 @@ const routes: RouteObject[] = [
   {
     path: '/auth/register',
     element: <Register />,
+  },
+  {
+    path: '/auth/choose-role',
+    element: <ChooseRole />,
+  },
+  {
+    path: '/auth/supplier-setup',
+    element: <SupplierSetup />,
   },
   {
     path: '/dashboard',

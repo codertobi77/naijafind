@@ -8,9 +8,11 @@
  * @module
  */
 
-import type * as auth from "../auth.js";
+import type * as admin from "../admin.js";
+import type * as categories from "../categories.js";
 import type * as dashboard from "../dashboard.js";
 import type * as http from "../http.js";
+import type * as init from "../init.js";
 import type * as orders from "../orders.js";
 import type * as products from "../products.js";
 import type * as reviews from "../reviews.js";
@@ -32,9 +34,11 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
-  auth: typeof auth;
+  admin: typeof admin;
+  categories: typeof categories;
   dashboard: typeof dashboard;
   http: typeof http;
+  init: typeof init;
   orders: typeof orders;
   products: typeof products;
   reviews: typeof reviews;

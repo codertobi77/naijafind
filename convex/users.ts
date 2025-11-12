@@ -3,7 +3,7 @@ import { v } from "convex/values";
 
 export const ensureUser = mutation({
   args: {
-    user_type: v.string(), // 'user' | 'supplier'
+    user_type: v.string(), // 'user' | 'supplier' | 'admin'
     phone: v.optional(v.string()),
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
@@ -25,6 +25,10 @@ export const ensureUser = mutation({
       // Ne mettre à jour user_type que s'il n'existe pas déjà
       if (!existing.user_type) {
         patchData.user_type = args.user_type;
+        // Si c'est un admin, mettre aussi is_admin
+        if (args.user_type === 'admin') {
+          patchData.is_admin = true;
+        }
       }
       
       // Mettre à jour les autres champs s'ils sont fournis et différents
@@ -53,6 +57,7 @@ export const ensureUser = mutation({
     const id = await ctx.db.insert("users", {
       email: identity.email ?? "",
       user_type: args.user_type,
+      is_admin: args.user_type === 'admin',
       phone: args.phone,
       firstName: args.firstName,
       lastName: args.lastName,

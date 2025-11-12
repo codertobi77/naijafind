@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import LanguageSelector from '../../components/base/LanguageSelector';
 import { useQuery, useConvexAuth } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
+import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
 
 interface Supplier {
   id: string;
@@ -29,6 +30,7 @@ export default function Home() {
   const [location, setLocation] = useState('');
   const [category, setCategory] = useState('');
   const featuredSuppliers = useQuery(api.suppliers.searchSuppliers, { limit: BigInt(3), verified: true });
+  const categories = useQuery(api.categories.getAllCategories, {});
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
 
   const handleAddBusinessClick = () => {
@@ -183,15 +185,35 @@ export default function Home() {
             </nav>
             <div className="flex items-center space-x-2 sm:space-x-4">
               <LanguageSelector />
-              <Link to="/auth/login" className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium whitespace-nowrap text-sm sm:text-base">
-                {t('nav.login')}
-              </Link>
-              <Link to="/auth/register" className="border border-green-600 text-green-600 px-3 sm:px-4 py-2 rounded-lg hover:bg-green-50 transition-colors font-medium whitespace-nowrap text-sm sm:text-base hidden sm:block">
-                {t('nav.register')}
-              </Link>
-              <Link to="/auth/register" className="border border-green-600 text-green-600 px-3 py-2 rounded-lg hover:bg-green-50 transition-colors font-medium whitespace-nowrap text-sm sm:hidden">
-                {t('nav.register')}
-              </Link>
+              <SignedOut>
+                <Link to="/auth/login" className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium whitespace-nowrap text-sm sm:text-base">
+                  {t('nav.login')}
+                </Link>
+                <Link to="/auth/register" className="border border-green-600 text-green-600 px-3 sm:px-4 py-2 rounded-lg hover:bg-green-50 transition-colors font-medium whitespace-nowrap text-sm sm:text-base hidden sm:block">
+                  {t('nav.register')}
+                </Link>
+                <Link to="/auth/register" className="border border-green-600 text-green-600 px-3 py-2 rounded-lg hover:bg-green-50 transition-colors font-medium whitespace-nowrap text-sm sm:hidden">
+                  {t('nav.register')}
+                </Link>
+              </SignedOut>
+              <SignedIn>
+                {meData?.user?.user_type === 'supplier' && (
+                  <Link 
+                    to="/dashboard"
+                    className="text-gray-700 hover:text-green-600 font-medium px-3 py-2 rounded-lg transition-colors hidden sm:block"
+                  >
+                    {t('nav.dashboard')}
+                  </Link>
+                )}
+                <UserButton 
+                  afterSignOutUrl="/"
+                  appearance={{
+                    elements: {
+                      avatarBox: "w-10 h-10"
+                    }
+                  }}
+                />
+              </SignedIn>
             </div>
           </div>
         </div>
@@ -251,12 +273,11 @@ export default function Home() {
                     className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm pr-8"
                   >
                     <option value="">{t('categories.view_all')}</option>
-                    <option value="Agriculture">Agriculture</option>
-                    <option value="Textile">Textile</option>
-                    <option value="Électronique">Électronique</option>
-                    <option value="Alimentation">Alimentation</option>
-                    <option value="Construction">Construction</option>
-                    <option value="Automobile">Automobile</option>
+                    {categories?.map((cat) => (
+                      <option key={cat._id} value={cat.name}>
+                        {cat.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -309,24 +330,19 @@ export default function Home() {
           </div>
           
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
-            {[
-              { name: 'Agriculture', icon: 'ri-plant-line', count: '5,200+' },
-              { name: 'Textile', icon: 'ri-shirt-line', count: '3,800+' },
-              { name: 'Électronique', icon: 'ri-smartphone-line', count: '2,900+' },
-              { name: 'Alimentation', icon: 'ri-restaurant-line', count: '4,100+' },
-              { name: 'Construction', icon: 'ri-building-line', count: '2,300+' },
-              { name: 'Automobile', icon: 'ri-car-line', count: '1,800+' }
-            ].map((category, index) => (
+            {categories?.map((category) => (
               <Link
-                key={index}
+                key={category._id}
                 to={`/search?category=${encodeURIComponent(category.name)}`}
                 className="bg-white rounded-xl p-4 sm:p-6 text-center hover:shadow-lg transition-shadow cursor-pointer"
               >
                 <div className="w-12 sm:w-16 h-12 sm:h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                  <i className={`${category.icon} text-xl sm:text-2xl text-green-600`}></i>
+                  <i className={`${category.icon || 'ri-folder-line'} text-xl sm:text-2xl text-green-600`}></i>
                 </div>
                 <h3 className="font-semibold text-gray-900 mb-1 sm:mb-2 text-sm sm:text-base">{category.name}</h3>
-                <p className="text-xs sm:text-sm text-gray-600">{category.count}</p>
+                {category.description && (
+                  <p className="text-xs sm:text-sm text-gray-600 line-clamp-2">{category.description}</p>
+                )}
               </Link>
             ))}
           </div>

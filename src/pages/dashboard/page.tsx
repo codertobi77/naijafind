@@ -35,6 +35,7 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -617,106 +618,214 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link to="/" className="text-xl sm:text-2xl font-bold text-green-600" style={{ fontFamily: "Pacifico, serif" }}>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <aside className={`fixed left-0 top-0 h-full w-64 bg-gradient-to-b from-green-50 to-white border-r border-green-100 transform transition-transform duration-300 z-40 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+        <div className="flex flex-col h-full">
+          {/* Logo */}
+          <div className="p-6 border-b border-green-100">
+            <Link to="/" className="flex items-center space-x-2">
+              <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
+                <i className="ri-store-line text-white text-xl"></i>
+              </div>
+              <span className="text-xl font-bold text-green-600" style={{ fontFamily: "Pacifico, serif" }}>
                 NaijaFind
-              </Link>
-              <span className="hidden sm:inline ml-4 text-gray-400">|</span>
-              <span className="hidden sm:inline ml-4 text-gray-700 font-medium">Tableau de bord fournisseur</span>
-            </div>
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              {/* Plan Badge */}
-              <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                currentPlan === 'premium' ? 'bg-purple-100 text-purple-800' :
-                currentPlan === 'basic' ? 'bg-blue-100 text-blue-800' :
-                'bg-gray-100 text-gray-800'
-              }`}>
-                {planConfig.name}
-              </div>
-              {/* Notifications */}
-              <div className="relative">
-                <button ref={notifRef}
-                  className={`p-2 text-gray-400 hover:text-gray-600 relative`} onClick={()=>setNotifOpen(o=>!o)}>
-                  <i className="ri-notification-line text-xl"></i>
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-xs text-white rounded-full px-1 min-w-[16px] h-[16px] flex items-center justify-center">{unreadCount}</span>
-                  )}
+              </span>
+            </Link>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 px-4 py-6 overflow-y-auto">
+            <div className="space-y-2">
+              {[
+                { id: 'overview', label: 'Aperçu', icon: 'ri-dashboard-line', premium: false },
+                { id: 'profile', label: 'Profil', icon: 'ri-building-line', premium: false },
+                { id: 'products', label: 'Produits', icon: 'ri-product-hunt-line', premium: false },
+                { id: 'orders', label: 'Commandes', icon: 'ri-shopping-cart-line', premium: false },
+                { id: 'reviews', label: 'Avis', icon: 'ri-star-line', premium: false },
+                { id: 'analytics', label: 'Analytics', icon: 'ri-bar-chart-line', premium: !planConfig.canAccessAnalytics },
+                { id: 'subscription', label: 'Abonnement', icon: 'ri-vip-crown-line', premium: false },
+                { id: 'team', label: 'Équipe', icon: 'ri-team-line', premium: false }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    if (tab.premium) {
+                      showUpgradePrompt('analytics');
+                    } else {
+                      setActiveTab(tab.id);
+                      setSidebarOpen(false); // Close sidebar on mobile after selection
+                    }
+                  }}
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+                    activeTab === tab.id
+                      ? 'bg-green-600 text-white shadow-md'
+                      : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
+                  } ${tab.premium ? 'opacity-60' : ''}`}
+                >
+                  <i className={`${tab.icon} text-lg`}></i>
+                  <span className="font-medium">{tab.label}</span>
+                  {tab.premium && <i className="ri-lock-line text-sm ml-auto"></i>}
                 </button>
-                {notifOpen && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white border rounded shadow z-50 max-h-80 overflow-y-auto">
-                    <div className="px-4 py-2 border-b font-bold text-gray-700 flex justify-between items-center">
-                      Notifications
-                      <button className="text-xs text-gray-400 hover:text-gray-700" onClick={()=>setNotifOpen(false)}><i className="ri-close-line"></i></button>
-                    </div>
-                    {notifications.length === 0 && <div className="p-4 text-gray-500">Aucune notification</div>}
-                    {notifications.map(n=>(
-                      <div key={n.id} className={`px-4 py-3 flex justify-between items-start space-x-2 border-b last:border-0 ${n.read ? 'bg-gray-50' : 'bg-yellow-50'}`} >
-                        <div className="flex-1 text-sm">
-                          <div className="font-semibold mb-1">{n.type==='order'?<i className="ri-shopping-cart-line text-green-600"></i>:n.type==='review'?<i className="ri-star-line text-yellow-600"></i>:<i className="ri-information-line text-blue-500"></i>} <span className="ml-2">{n.message}</span></div>
-                          <div className="text-xs text-gray-400">{new Date(n.created_at).toLocaleString('fr-FR')}</div>
-                        </div>
-                        {!n.read && <button className="text-xs text-green-600 mr-2" onClick={()=>handleMarkRead(n.id)}>Marquer comme lu</button>}
-                        <button className="text-xs text-red-500" onClick={()=>handleDeleteNotif(n.id)}><i className="ri-delete-bin-line"></i></button>
+              ))}
+            </div>
+          </nav>
+
+          {/* User Profile Section */}
+          <div className="p-4 border-t border-green-100">
+            <div className="flex items-center space-x-3 px-2 py-2 rounded-lg hover:bg-green-50 transition-colors cursor-pointer">
+              <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
+                <i className="ri-user-line text-white"></i>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{data?.profile?.business_name || 'Mon entreprise'}</p>
+                <p className="text-xs text-gray-500 truncate">{planConfig.name} Plan</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
+      )}
+
+      {/* Main Content Area */}
+      <div className="flex-1 lg:pl-64 flex flex-col min-h-screen">
+        {/* Top Header */}
+        <header className="sticky top-0 z-20 bg-white shadow-sm border-b border-gray-200">
+          <div className="px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <div className="flex items-center space-x-4">
+                {/* Mobile Menu Button */}
+                <button
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className="lg:hidden p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+                >
+                  <i className="ri-menu-line text-xl"></i>
+                </button>
+                
+                {/* Page Title */}
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">
+                    {activeTab === 'overview' && 'Aperçu'}
+                    {activeTab === 'profile' && 'Profil entreprise'}
+                    {activeTab === 'products' && 'Produits'}
+                    {activeTab === 'orders' && 'Commandes'}
+                    {activeTab === 'reviews' && 'Avis'}
+                    {activeTab === 'analytics' && 'Analytics'}
+                    {activeTab === 'subscription' && 'Abonnement'}
+                    {activeTab === 'team' && 'Équipe'}
+                  </h1>
+                </div>
+              </div>
+
+                {/* Plan Badge */}
+                <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  currentPlan === 'premium' ? 'bg-purple-100 text-purple-800' :
+                  currentPlan === 'basic' ? 'bg-blue-100 text-blue-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {planConfig.name}
+                </div>
+                
+                {/* Notifications */}
+                <div className="relative">
+                  <button ref={notifRef}
+                    className={`p-2 text-gray-400 hover:text-gray-600 relative rounded-lg hover:bg-gray-100`} onClick={()=>setNotifOpen(o=>!o)}>
+                    <i className="ri-notification-line text-xl"></i>
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-xs text-white rounded-full px-1 min-w-[18px] h-[18px] flex items-center justify-center">{unreadCount}</span>
+                    )}
+                  </button>
+                  {notifOpen && (
+                    <div className="absolute right-0 mt-2 w-80 bg-white border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+                      <div className="px-4 py-3 border-b font-bold text-gray-700 flex justify-between items-center bg-gray-50">
+                        Notifications
+                        <button className="text-xs text-gray-400 hover:text-gray-700" onClick={()=>setNotifOpen(false)}><i className="ri-close-line"></i></button>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              
-              <div className="relative">
-                <button className="flex items-center space-x-2 text-gray-700 hover:text-gray-900">
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <i className="ri-user-line text-green-600"></i>
-                  </div>
-                  <span className="hidden sm:inline font-medium truncate max-w-32">{data?.profile?.business_name}</span>
-                  <i className="ri-arrow-down-s-line hidden sm:inline"></i>
+                      {notifications.length === 0 && <div className="p-4 text-gray-500 text-center">Aucune notification</div>}
+                      {notifications.map(n=>(
+                        <div key={n.id} className={`px-4 py-3 flex justify-between items-start space-x-2 border-b last:border-0 ${n.read ? 'bg-white' : 'bg-yellow-50'}`} >
+                          <div className="flex-1 text-sm">
+                            <div className="font-semibold mb-1">{n.type==='order'?<i className="ri-shopping-cart-line text-green-600"></i>:n.type==='review'?<i className="ri-star-line text-yellow-600"></i>:<i className="ri-information-line text-blue-500"></i>} <span className="ml-2">{n.message}</span></div>
+                            <div className="text-xs text-gray-400">{new Date(n.created_at).toLocaleString('fr-FR')}</div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {!n.read && <button className="text-xs text-green-600 hover:text-green-700" onClick={()=>handleMarkRead(n.id)}>Marquer lu</button>}
+                            <button className="text-xs text-red-500 hover:text-red-700" onClick={()=>handleDeleteNotif(n.id)}><i className="ri-delete-bin-line"></i></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {/* User Menu */}
+                <div className="relative">
+                  <button className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 px-2 py-1 rounded-lg hover:bg-gray-100">
+                    <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                      <i className="ri-user-line text-white text-sm"></i>
+                    </div>
+                    <span className="hidden sm:inline font-medium truncate max-w-32">{data?.profile?.business_name || 'Utilisateur'}</span>
+                    <i className="ri-arrow-down-s-line hidden sm:inline text-sm"></i>
+                  </button>
+                </div>
+                
+                {/* Logout */}
+                <button
+                  onClick={handleLogout}
+                  className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100"
+                  title="Déconnexion"
+                >
+                  <i className="ri-logout-box-line text-xl"></i>
                 </button>
               </div>
-              
-              <button
-                onClick={handleLogout}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <i className="ri-logout-box-line text-xl"></i>
-              </button>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        {/* Welcome Section */}
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-            Bienvenue, {data?.profile?.business_name}
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Gérez votre entreprise et suivez vos performances
-          </p>
-        </div>
+        {/* Main Content */}
+        <main className="flex-1 bg-gray-50 overflow-y-auto">
+          <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            {/* Welcome Section - Only show on overview */}
+            {activeTab === 'overview' && (
+              <div className="mb-6 sm:mb-8">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                      Bienvenue, {data?.profile?.business_name}
+                    </h2>
+                    <p className="text-gray-600 mt-2">
+                      Gérez votre entreprise et suivez vos performances
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
-        {/* Status Messages */}
-        {saveStatus === 'success' && (
-          <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
-            <i className="ri-check-line mr-2"></i>
-            Profil mis à jour avec succès !
-          </div>
-        )}
+            {/* Status Messages */}
+            {saveStatus === 'success' && (
+              <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center">
+                <i className="ri-check-line mr-2"></i>
+                Profil mis à jour avec succès !
+              </div>
+            )}
 
-        {saveStatus === 'error' && (
-          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-            <i className="ri-error-warning-line mr-2"></i>
-            Erreur lors de la mise à jour. Veuillez réessayer.
-          </div>
-        )}
+            {saveStatus === 'error' && (
+              <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg flex items-center">
+                <i className="ri-error-warning-line mr-2"></i>
+                Erreur lors de la mise à jour. Veuillez réessayer.
+              </div>
+            )}
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+            {/* Stats Cards - Only show on overview */}
+            {activeTab === 'overview' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
             <div className="flex items-center">
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -769,51 +878,12 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-        </div>
+            )}
 
-        {/* Navigation Tabs */}
-        <div className="bg-white rounded-lg shadow-sm mb-6 sm:mb-8">
-          <div className="border-b border-gray-200">
-            <nav className="flex overflow-x-auto px-4 sm:px-8">
-              {[
-                { id: 'overview', label: 'Aperçu', icon: 'ri-dashboard-line', mobile: 'Aperçu' },
-                { id: 'profile', label: 'Profil entreprise', icon: 'ri-building-line', mobile: 'Profil' },
-                { id: 'products', label: 'Produits', icon: 'ri-product-hunt-line', mobile: 'Produits' },
-                { id: 'orders', label: 'Commandes', icon: 'ri-shopping-cart-line', mobile: 'Commandes' },
-                { id: 'reviews', label: 'Avis', icon: 'ri-star-line', mobile: 'Avis' },
-                { id: 'analytics', label: 'Analytics', icon: 'ri-bar-chart-line', mobile: 'Analytics', premium: !planConfig.canAccessAnalytics },
-                { id: 'subscription', label: 'Abonnement', icon: 'ri-vip-crown-line', mobile: 'Plan' },
-                { id: 'team', label: 'Équipe', icon: 'ri-team-line', mobile: 'Équipe' }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    if (tab.premium) {
-                      showUpgradePrompt('analytics');
-                    } else {
-                      setActiveTab(tab.id);
-                    }
-                  }}
-                  className={`py-4 px-2 sm:px-4 border-b-2 font-medium text-sm whitespace-nowrap relative ${
-                    activeTab === tab.id
-                      ? 'border-green-500 text-green-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } ${tab.premium ? 'opacity-60' : ''}`}
-                >
-                  <i className={`${tab.icon} mr-1 sm:mr-2`}></i>
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  <span className="sm:hidden">{tab.mobile}</span>
-                  {tab.premium && (
-                    <i className="ri-lock-line text-xs ml-1 text-yellow-600"></i>
-                  )}
-                </button>
-              ))}
-            </nav>
-          </div>
-
-          <div className="p-4 sm:p-8">
-            {activeTab === 'overview' && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+            {/* Content Sections */}
+            <div className="space-y-6">
+              {activeTab === 'overview' && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
                 {/* Commandes récentes */}
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Commandes récentes</h3>
@@ -874,9 +944,9 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-            )}
+              )}
 
-            {activeTab === 'profile' && (
+              {activeTab === 'profile' && (
               <div>
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 space-y-4 sm:space-y-0">
                   <h3 className="text-lg font-semibold">Profil de votre entreprise</h3>
@@ -1982,8 +2052,9 @@ export default function Dashboard() {
                 )}
               </div>
             )}
+            </div>
           </div>
-        </div>
+        </main>
       </div>
 
       {/* Modal de mise à niveau */}
