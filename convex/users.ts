@@ -144,6 +144,19 @@ export const signUpSupplier = mutation({
   }
 });
 
+export const ensureUser = mutation({
+  args: {
+    user_type: v.optional(v.string()),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    email: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    return await ensureUserHelper(ctx, args);
+  }
+});
+
 export const me = query({
   args: {},
   handler: async (ctx) => {

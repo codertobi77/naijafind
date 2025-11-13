@@ -44,6 +44,7 @@ export default function Home() {
   const [location, setLocation] = useState('');
   const [category, setCategory] = useState('');
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const carouselRef = useRef<HTMLDivElement>(null);
   
   // Extract suppliers array from Convex response
@@ -123,6 +124,14 @@ export default function Home() {
               <Link to="/categories" className="px-4 py-2 rounded-lg text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium transition-all">{t('nav.categories')}</Link>
               <Link to="/about" className="px-4 py-2 rounded-lg text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium transition-all">{t('nav.about')}</Link>
             </nav>
+            {/* Mobile menu button */}
+            <button 
+              className="md:hidden text-gray-700"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              <i className="ri-menu-line text-2xl"></i>
+            </button>
             <div className="flex items-center space-x-2 sm:space-x-4">
               <LanguageSelector />
               <SignedOut>
@@ -151,6 +160,17 @@ export default function Home() {
                   }}
                 />
               </SignedIn>
+            {/* Mobile menu */}
+            {mobileMenuOpen && (
+              <div className="absolute top-16 left-0 right-0 bg-white border-b border-gray-200 shadow-lg md:hidden z-50">
+                <div className="flex flex-col py-2">
+                  <Link to="/" className="px-4 py-2 text-green-600 bg-green-50 font-medium" onClick={() => setMobileMenuOpen(false)}>{t('nav.home')}</Link>
+                  <Link to="/search" className="px-4 py-2 text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium" onClick={() => setMobileMenuOpen(false)}>{t('nav.search')}</Link>
+                  <Link to="/categories" className="px-4 py-2 text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium" onClick={() => setMobileMenuOpen(false)}>{t('nav.categories')}</Link>
+                  <Link to="/about" className="px-4 py-2 text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium" onClick={() => setMobileMenuOpen(false)}>{t('nav.about')}</Link>
+                </div>
+              </div>
+            )}
             </div>
           </div>
         </div>
