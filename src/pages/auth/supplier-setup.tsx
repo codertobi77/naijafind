@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@clerk/clerk-react';
+import { useAuth, useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
+import { useTranslation } from 'react-i18next';
+import LanguageSelector from '../../components/base/LanguageSelector';
 
 export default function SupplierSetup() {
-  const { user, isLoaded } = useAuth();
+  const { t } = useTranslation();
+  const { user } = useUser();
+  const { isLoaded } = useAuth();
   const navigate = useNavigate();
   const meData = useQuery(api.users.me, {});
   const categories = useQuery(api.categories.getAllCategories, {});
@@ -30,7 +34,7 @@ export default function SupplierSetup() {
     if (user) {
       setFormData(prev => ({
         ...prev,
-        phone: user.primaryPhoneNumber || prev.phone,
+        phone: user.primaryPhoneNumber?.phoneNumber || prev.phone,
       }));
     }
   }, [user]);
@@ -46,16 +50,16 @@ export default function SupplierSetup() {
     const newErrors: Record<string, string> = {};
 
     if (!formData.business_name.trim()) {
-      newErrors.business_name = 'Le nom de l\'entreprise est requis';
+      newErrors.business_name = t('supplier_setup.errors.business_name_required');
     }
     if (!formData.category) {
-      newErrors.category = 'La catégorie est requise';
+      newErrors.category = t('supplier_setup.errors.category_required');
     }
     if (!formData.city.trim()) {
-      newErrors.city = 'La ville est requise';
+      newErrors.city = t('supplier_setup.errors.city_required');
     }
     if (!formData.state.trim()) {
-      newErrors.state = 'L\'état est requis';
+      newErrors.state = t('supplier_setup.errors.state_required');
     }
 
     setErrors(newErrors);
@@ -70,7 +74,7 @@ export default function SupplierSetup() {
     }
 
     if (!user?.primaryEmailAddress?.emailAddress) {
-      alert('Email non disponible');
+      alert(t('supplier_setup.errors.email_not_available'));
       return;
     }
 
@@ -93,7 +97,7 @@ export default function SupplierSetup() {
 
       navigate('/dashboard');
     } catch (error: any) {
-      alert(error.message || 'Erreur lors de la création du profil supplier');
+      alert(error.message || t('supplier_setup.errors.profile_creation_error'));
     } finally {
       setLoading(false);
     }
@@ -104,188 +108,277 @@ export default function SupplierSetup() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Chargement...</p>
+          <p className="mt-4 text-gray-600">{t('loading')}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
-        <Link to="/" className="flex justify-center">
-          <span className="text-3xl font-bold text-green-600" style={{ fontFamily: 'Pacifico, serif' }}>
-            NaijaFind
-          </span>
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-0 left-0 w-96 h-96 bg-green-200 rounded-full filter blur-3xl opacity-20 -translate-x-1/2 -translate-y-1/2"></div>
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-300 rounded-full filter blur-3xl opacity-20 translate-x-1/2 translate-y-1/2"></div>
+      
+      <div className="sm:mx-auto sm:w-full sm:max-w-2xl px-4 relative z-10">
+        <Link to="/" className="flex justify-center group">
+          <div className="text-center">
+            <span className="text-4xl font-bold text-green-600 group-hover:text-green-700 transition-colors duration-300" style={{ fontFamily: 'Pacifico, serif' }}>
+              NaijaFind
+            </span>
+            <div className="h-1 w-20 bg-green-600 mx-auto mt-2 rounded-full group-hover:w-32 transition-all duration-300"></div>
+          </div>
         </Link>
-        <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-          Créer votre profil fournisseur
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Complétez les informations de votre entreprise pour commencer
-        </p>
+        <div className="mt-8 text-center animate-fade-in">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+            <i className="ri-store-line text-3xl text-green-600"></i>
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            {t('supplier_setup.title')}
+          </h2>
+          <p className="text-lg text-gray-600">
+            {t('supplier_setup.subtitle')}
+          </p>
+        </div>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl px-4 relative z-10">
+        <div className="bg-white py-10 px-6 shadow-2xl shadow-green-100 sm:rounded-2xl sm:px-10 border border-gray-100">
+          {/* Progress indicator */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-600">{t('supplier_setup.step', { current: 3, total: 3 })}</span>
+              <span className="text-sm font-medium text-green-600">{t('supplier_setup.almost_done')}</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="bg-green-600 h-2 rounded-full transition-all duration-500" style={{ width: '100%' }}></div>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Nom de l'entreprise */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nom de l'entreprise *
-              </label>
-              <input
-                type="text"
-                value={formData.business_name}
-                onChange={(e) => setFormData({...formData, business_name: e.target.value})}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                  errors.business_name ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="Ex: ABC Ltd"
-              />
-              {errors.business_name && (
-                <p className="mt-1 text-sm text-red-600">{errors.business_name}</p>
-              )}
+            {/* Informations de base */}
+            <div className="bg-green-50 p-4 rounded-xl border border-green-100">
+              <h3 className="text-sm font-semibold text-green-800 mb-4 flex items-center">
+                <i className="ri-building-line mr-2"></i>
+                {t('supplier_setup.basic_info')}
+              </h3>
+              <div className="space-y-4">
+                {/* Nom de l'entreprise */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('supplier_setup.business_name')} *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.business_name}
+                    onChange={(e) => setFormData({...formData, business_name: e.target.value})}
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${
+                      errors.business_name ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
+                    }`}
+                    placeholder={t('supplier_setup.business_name_placeholder')}
+                  />
+                  {errors.business_name && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center">
+                      <i className="ri-error-warning-line mr-1"></i>
+                      {errors.business_name}
+                    </p>
+                  )}
+                </div>
+
+                {/* Catégorie */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('supplier_setup.category')} *
+                  </label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all appearance-none bg-white ${
+                      errors.category ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    }`}
+                  >
+                    <option value="">{t('supplier_setup.select_category')}</option>
+                    {categories?.map((cat) => (
+                      <option key={cat._id} value={cat.name}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.category && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center">
+                      <i className="ri-error-warning-line mr-1"></i>
+                      {errors.category}
+                    </p>
+                  )}
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('supplier_setup.description')}
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    rows={3}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                    placeholder={t('supplier_setup.description_placeholder')}
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Catégorie */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Catégorie *
-              </label>
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData({...formData, category: e.target.value})}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                  errors.category ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Sélectionnez une catégorie</option>
-                {categories?.map((cat) => (
-                  <option key={cat._id} value={cat.name}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-              {errors.category && (
-                <p className="mt-1 text-sm text-red-600">{errors.category}</p>
-              )}
-            </div>
+            {/* Informations de contact */}
+            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+              <h3 className="text-sm font-semibold text-blue-800 mb-4 flex items-center">
+                <i className="ri-phone-line mr-2"></i>
+                {t('supplier_setup.contact_info')}
+              </h3>
+              <div className="space-y-4">
+                {/* Téléphone */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('supplier_setup.phone')}
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                    placeholder={t('supplier_setup.phone_placeholder')}
+                  />
+                </div>
 
-            {/* Description */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="Décrivez votre entreprise..."
-              />
-            </div>
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('supplier_setup.email')}
+                  </label>
+                  <input
+                    type="email"
+                    value={user.primaryEmailAddress?.emailAddress || ''}
+                    disabled
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-500"
+                  />
+                </div>
 
-            {/* Téléphone */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Téléphone
-              </label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="+234 800 123 4567"
-              />
+                {/* Site web */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('supplier_setup.website')}
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.website}
+                    onChange={(e) => setFormData({...formData, website: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                    placeholder={t('supplier_setup.website_placeholder')}
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Adresse */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Adresse
-              </label>
-              <input
-                type="text"
-                value={formData.address}
-                onChange={(e) => setFormData({...formData, address: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="Adresse complète"
-              />
-            </div>
+            <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+              <h3 className="text-sm font-semibold text-purple-800 mb-4 flex items-center">
+                <i className="ri-map-pin-line mr-2"></i>
+                {t('supplier_setup.address_info')}
+              </h3>
+              <div className="space-y-4">
+                {/* Adresse */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('supplier_setup.address')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) => setFormData({...formData, address: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                    placeholder={t('supplier_setup.address_placeholder')}
+                  />
+                </div>
 
-            {/* Ville et État */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ville *
-                </label>
-                <input
-                  type="text"
-                  value={formData.city}
-                  onChange={(e) => setFormData({...formData, city: e.target.value})}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                    errors.city ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Lagos"
-                />
-                {errors.city && (
-                  <p className="mt-1 text-sm text-red-600">{errors.city}</p>
-                )}
+                {/* Ville */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('supplier_setup.city')} *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.city}
+                    onChange={(e) => setFormData({...formData, city: e.target.value})}
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${
+                      errors.city ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
+                    }`}
+                    placeholder={t('supplier_setup.city_placeholder')}
+                  />
+                  {errors.city && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center">
+                      <i className="ri-error-warning-line mr-1"></i>
+                      {errors.city}
+                    </p>
+                  )}
+                </div>
+
+                {/* État */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('supplier_setup.state')} *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.state}
+                    onChange={(e) => setFormData({...formData, state: e.target.value})}
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${
+                      errors.state ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
+                    }`}
+                    placeholder={t('supplier_setup.state_placeholder')}
+                  />
+                  {errors.state && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center">
+                      <i className="ri-error-warning-line mr-1"></i>
+                      {errors.state}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  État *
-                </label>
-                <input
-                  type="text"
-                  value={formData.state}
-                  onChange={(e) => setFormData({...formData, state: e.target.value})}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                    errors.state ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Lagos"
-                />
-                {errors.state && (
-                  <p className="mt-1 text-sm text-red-600">{errors.state}</p>
-                )}
-              </div>
             </div>
 
-            {/* Site web */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Site web
-              </label>
-              <input
-                type="url"
-                value={formData.website}
-                onChange={(e) => setFormData({...formData, website: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="https://www.example.com"
-              />
-            </div>
-
-            {/* Boutons */}
-            <div className="flex gap-4 pt-4">
+            {/* Boutons d'action */}
+            <div className="flex flex-col sm:flex-row gap-4 pt-4">
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all font-medium"
+              >
+                {t('supplier_setup.cancel')}
+              </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all font-medium shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Création...' : 'Créer mon profil'}
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
+                    {t('supplier_setup.creating_profile')}
+                  </span>
+                ) : (
+                  t('supplier_setup.create_profile')
+                )}
               </button>
-              <Link
-                to="/"
-                className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors font-medium text-center"
-              >
-                Annuler
-              </Link>
             </div>
           </form>
+        </div>
+
+        <div className="mt-6 text-center">
+          <Link to="/" className="inline-flex items-center text-gray-600 hover:text-green-600 font-medium transition-colors group">
+            <i className="ri-arrow-left-line mr-2 group-hover:-translate-x-1 transition-transform"></i>
+            {t('supplier_setup.home')}
+          </Link>
         </div>
       </div>
     </div>
   );
 }
-

@@ -1,0 +1,29 @@
+export const about = {
+  "about.title": "À propos de NaijaFind",
+  "about.subtitle": "La plateforme de référence pour connecter les entreprises avec les meilleurs fournisseurs du Nigeria",
+  "about.mission_title": "Notre Mission",
+  "about.mission_text1": "NaijaFind révolutionne la façon dont les entreprises trouvent et se connectent avec les fournisseurs au Nigeria. Notre plateforme géolocalisée permet de découvrir facilement les meilleurs partenaires commerciaux dans tout le pays.",
+  "about.mission_text2": "Nous croyons en la puissance de l'économie nigériane et nous nous engageons à faciliter les connexions qui stimulent la croissance des entreprises locales.",
+  "about.stat_suppliers": "Fournisseurs actifs",
+  "about.stat_states": "États couverts",
+  "about.values_title": "Nos Valeurs",
+  "about.values_subtitle": "Les principes qui guident notre travail et notre engagement envers la communauté des affaires nigériane",
+  "about.value_trust_title": "Confiance",
+  "about.value_trust_text": "Nous vérifions tous nos fournisseurs pour garantir la qualité et la fiabilité de nos partenaires.",
+  "about.value_access_title": "Accessibilité",
+  "about.value_access_text": "Notre plateforme est accessible à tous, des petites entreprises aux grandes corporations.",
+  "about.value_innovation_title": "Innovation",
+  "about.value_innovation_text": "Nous utilisons les dernières technologies pour améliorer l'expérience de recherche et de connexion.",
+  "about.team_title": "Notre Équipe",
+  "about.team_subtitle": "Des experts passionnés par le développement de l'écosystème entrepreneurial nigérian",
+  "about.team_ceo": "CEO & Fondateur",
+  "about.team_cto": "Directrice Technique",
+  "about.team_cco": "Directeur Commercial",
+  "about.cta_title": "Rejoignez la communauté NaijaFind",
+  "about.cta_subtitle": "Que vous soyez fournisseur ou acheteur, découvrez comment NaijaFind peut transformer votre activité",
+  "about.cta_become_supplier": "Devenir fournisseur",
+  "about.cta_search_suppliers": "Rechercher des fournisseurs",
+  "about.add_business": "Ajouter votre entreprise"
+};
+
+export default about;

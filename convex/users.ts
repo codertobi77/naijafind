@@ -1,71 +1,67 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-export const ensureUser = mutation({
-  args: {
-    user_type: v.string(), // 'user' | 'supplier' | 'admin'
-    phone: v.optional(v.string()),
-    firstName: v.optional(v.string()),
-    lastName: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Non autorisé");
+// Helper function to ensure user exists
+async function ensureUserHelper(ctx: any, args: any) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Non autorisé");
 
-    const existing = await ctx.db
-      .query("users")
-      .filter(q => q.eq(q.field("email"), identity.email ?? ""))
-      .first();
+  // Use email from args if provided, otherwise use identity email
+  const userEmail = args.email || identity.email;
+  
+  const existing = await ctx.db
+    .query("users")
+    .filter((q: any) => q.eq(q.field("email"), userEmail ?? ""))
+    .first();
 
-    const now = new Date().toISOString();
-    if (existing) {
-      // S'assurer que created_at existe, sinon l'ajouter
-      const patchData: any = {};
-      
-      // Ne mettre à jour user_type que s'il n'existe pas déjà
-      if (!existing.user_type) {
-        patchData.user_type = args.user_type;
-        // Si c'est un admin, mettre aussi is_admin
-        if (args.user_type === 'admin') {
-          patchData.is_admin = true;
-        }
+  const now = new Date().toISOString();
+  if (existing) {
+    // S'assurer que created_at existe, sinon l'ajouter
+    const patchData: any = {};
+    
+    // Ne mettre à jour user_type que s'il n'existe pas déjà
+    if (!existing.user_type) {
+      patchData.user_type = args.user_type;
+      // Si c'est un admin, mettre aussi is_admin
+      if (args.user_type === 'admin') {
+        patchData.is_admin = true;
       }
-      
-      // Mettre à jour les autres champs s'ils sont fournis et différents
-      if (args.phone && args.phone !== existing.phone) {
-        patchData.phone = args.phone;
-      }
-      if (args.firstName && args.firstName !== existing.firstName) {
-        patchData.firstName = args.firstName;
-      }
-      if (args.lastName && args.lastName !== existing.lastName) {
-        patchData.lastName = args.lastName;
-      }
-      
-      if (!existing.created_at) {
-        patchData.created_at = now;
-      }
-      
-      // Ne patcher que si on a des changements à faire
-      if (Object.keys(patchData).length > 0) {
-        await ctx.db.patch(existing._id, patchData);
-      }
-      
-      return { id: existing._id };
     }
-
-    const id = await ctx.db.insert("users", {
-      email: identity.email ?? "",
-      user_type: args.user_type,
-      is_admin: args.user_type === 'admin',
-      phone: args.phone,
-      firstName: args.firstName,
-      lastName: args.lastName,
-      created_at: now,
-    });
-    return { id };
+    
+    // Mettre à jour les autres champs s'ils sont fournis et différents
+    if (args.phone && args.phone !== existing.phone) {
+      patchData.phone = args.phone;
+    }
+    if (args.firstName && args.firstName !== existing.firstName) {
+      patchData.firstName = args.firstName;
+    }
+    if (args.lastName && args.lastName !== existing.lastName) {
+      patchData.lastName = args.lastName;
+    }
+    
+    if (!existing.created_at) {
+      patchData.created_at = now;
+    }
+    
+    // Ne patcher que si on a des changements à faire
+    if (Object.keys(patchData).length > 0) {
+      await ctx.db.patch(existing._id, patchData);
+    }
+    
+    return { id: existing._id };
   }
-});
+
+  const id = await ctx.db.insert("users", {
+    email: userEmail ?? "",
+    user_type: args.user_type,
+    is_admin: args.user_type === 'admin',
+    phone: args.phone,
+    firstName: args.firstName,
+    lastName: args.lastName,
+    created_at: now,
+  });
+  return { id };
+}
 
 export const signUpBuyer = mutation({
   args: {
@@ -78,7 +74,7 @@ export const signUpBuyer = mutation({
     if (!identity) throw new Error("Non autorisé");
 
     // S'assurer que l'utilisateur existe et a le type buyer
-    await ensureUser.handler(ctx, { 
+    await ensureUserHelper(ctx, { 
       user_type: 'user',
       firstName: args.firstName,
       lastName: args.lastName,
@@ -108,16 +104,17 @@ export const signUpSupplier = mutation({
     if (!identity) throw new Error("Non autorisé");
 
     // S'assurer que l'utilisateur existe et a le type supplier
-    await ensureUser.handler(ctx, { 
+    await ensureUserHelper(ctx, { 
       user_type: 'supplier', 
       phone: args.phone,
       firstName: args.firstName,
       lastName: args.lastName,
+      email: args.email, // Add email to ensureUserHelper call
     });
 
     const existingSupplier = await ctx.db
       .query("suppliers")
-      .filter(q => q.eq(q.field("userId"), identity.subject))
+      .filter((q: any) => q.eq(q.field("userId"), identity.subject))
       .first();
     if (existingSupplier) {
       return { id: existingSupplier._id };
@@ -137,7 +134,7 @@ export const signUpSupplier = mutation({
       location: `${args.city}, ${args.state}`,
       website: args.website,
       rating: 0,
-      reviews_count: 0,
+      reviews_count: 0n,
       verified: false,
       created_at: now,
       updated_at: now,
@@ -153,14 +150,17 @@ export const me = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
 
+    // Use the same email logic as in ensureUserHelper
+    const userEmail = identity.email;
+    
     const user = await ctx.db
       .query("users")
-      .filter(q => q.eq(q.field("email"), identity.email ?? ""))
+      .filter((q: any) => q.eq(q.field("email"), userEmail ?? ""))
       .first();
 
     const supplier = await ctx.db
       .query("suppliers")
-      .filter(q => q.eq(q.field("userId"), identity.subject))
+      .filter((q: any) => q.eq(q.field("userId"), identity.subject))
       .first();
 
     return { user, supplier };

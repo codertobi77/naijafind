@@ -33,26 +33,6 @@ function App() {
 
         </button>
       )}
-      <button style={{position:'fixed',bottom:24,left:24,zIndex:45}} className="bg-gray-50 border border-green-700 text-green-700 px-4 py-2 rounded-full shadow hover:bg-white text-xs font-bold" onClick={()=>setShowOnboarding(true)}>
-        Voir le guide d'utilisation
-      </button>
-      {showOnboarding && (
-        <div style={{position:'fixed',inset:0,zIndex:100,background:'#0006'}} className="flex items-center justify-center">
-          <div className="bg-white p-6 max-w-lg w-full rounded-lg shadow-md relative">
-            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700" onClick={handleCloseOnboarding}><i className="ri-close-line text-2xl"></i></button>
-            <div className="mb-3 flex items-center gap-2 text-green-700 text-xl font-bold"><i className="ri-seedling-fill"></i> Bienvenue sur NaijaFind !</div>
-            <div className="mb-4 text-gray-800">Découvre comment profiter au maximum du service :</div>
-            <ul className="space-y-3 mb-5">
-              <li className="flex items-start gap-2"><i className="ri-search-line text-green-600 mt-1"></i> <span>Utilise la recherche et filtre les fournisseurs par catégorie, ville, note et distance.</span></li>
-              <li className="flex items-start gap-2"><i className="ri-upload-cloud-2-line text-green-600 mt-1"></i> <span>Ajoute ton entreprise gratuitement depuis le bouton en haut à droite.</span></li>
-              <li className="flex items-start gap-2"><i className="ri-dashboard-line text-green-600 mt-1"></i> <span>Accède à ton tableau de bord pour gérer produits, commandes et avis.</span></li>
-              <li className="flex items-start gap-2"><i className="ri-vip-crown-2-fill text-yellow-500 mt-1"></i> <span>Profite des analyses avancées et fonctionnalités premium (en souscrivant à un abonnement).</span></li>
-              <li className="flex items-start gap-2"><i className="ri-shield-user-line text-green-600 mt-1"></i> <span>Tes informations sont protégées, et notre équipe support reste disponible !</span></li>
-            </ul>
-            <button className="bg-green-600 hover:bg-green-700 text-white font-bold px-5 py-2 rounded" onClick={handleCloseOnboarding}>Découvrir</button>
-          </div>
-        </div>
-      )}
     </BrowserRouter>
   );
 }

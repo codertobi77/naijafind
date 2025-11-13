@@ -1,11 +1,11 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
 import { useTranslation } from 'react-i18next';
 import LanguageSelector from '../../components/base/LanguageSelector';
+import { useConvexQuery } from '../../hooks/useConvexQuery';
 
 interface Supplier {
   id: string;
@@ -25,9 +25,13 @@ interface Supplier {
 export default function Search() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
-  const meData = useQuery(api.users.me, {});
+  
+  // Using React Query for caching
+  const { data: meData } = useConvexQuery(api.users.me, {}, { staleTime: 2 * 60 * 1000 });
+  
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
   const [filters, setFilters] = useState({
     category: searchParams.get('category') || '',
     location: searchParams.get('location') || '',
@@ -38,6 +42,8 @@ export default function Search() {
   });
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [sortBy, setSortBy] = useState('relevance');
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 20;
 
   const cityOptions = Array.from(new Set(suppliers.map(s => s.location.split(',')[0].trim())));
   const citySuggestions = ['Lagos', 'Abuja', 'Ibadan', 'Port Harcourt']; // mock pop
@@ -56,13 +62,23 @@ export default function Search() {
     radiusKm: Number(filters.distance || '50'),
     minRating: filters.rating ? Number(filters.rating) : undefined,
     verified: filters.verified || undefined,
-    limit: BigInt(20),
-    offset: BigInt(0),
+    limit: BigInt(itemsPerPage),
+    offset: BigInt(currentPage * itemsPerPage),
+    sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | undefined,
   } as const;
-  const convexResult = useQuery(api.suppliers.searchSuppliers, queryArgs);
+  
+  // Use React Query with shorter cache time for search results (1 minute)
+  const { data: convexResult, isLoading: queryLoading } = useConvexQuery(
+    api.suppliers.searchSuppliers,
+    queryArgs,
+    { 
+      staleTime: 1 * 60 * 1000, // 1 minute - search results should be relatively fresh
+      gcTime: 3 * 60 * 1000 // Keep in cache for 3 minutes
+    }
+  );
 
   useEffect(() => {
-    setLoading(convexResult === undefined);
+    setLoading(queryLoading);
     if (!convexResult) return;
     const list = (convexResult.suppliers || []).map((s: any) => ({
       id: (s._id ?? s.id) as string,
@@ -79,41 +95,49 @@ export default function Search() {
       email: s.email ?? '',
     })) as Supplier[];
     setSuppliers(list);
-  }, [convexResult]);
+    setTotalCount(convexResult.total ?? list.length);
+  }, [convexResult, queryLoading]);
 
   useEffect(() => {
-    handleScrollToResults();
-  }, [filters]);
+    setCurrentPage(0); // Reset to first page when filters change
+  }, [filters, sortBy]);
 
-  const categories = useQuery(api.categories.getAllCategories, {});
+  // Cache categories with longer stale time
+  const { data: categories } = useConvexQuery(
+    api.categories.getAllCategories,
+    {},
+    { staleTime: 15 * 60 * 1000 } // 15 minutes
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-green-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link to="/" className="text-xl sm:text-2xl font-bold text-green-600" style={{ fontFamily: "Pacifico, serif" }}>
-                NaijaFind
+          <div className="flex justify-between items-center h-16 md:h-20">
+            <div className="flex items-center group">
+              <Link to="/" className="flex items-center space-x-2">
+                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
+                  <i className="ri-compass-3-fill text-white text-xl"></i>
+                </div>
+                <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent" style={{ fontFamily: "Pacifico, serif" }}>
+                  NaijaFind
+                </span>
               </Link>
             </div>
-            <nav className="hidden md:flex space-x-8">
-              <Link to="/" className="text-green-600 font-medium">{t('nav.home')}</Link>
-              <Link to="/search" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.search')}</Link>
-              <Link to="/categories" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.categories')}</Link>
-              <Link to="/about" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.about')}</Link>
+            <nav className="hidden md:flex space-x-1">
+              <Link to="/" className="px-4 py-2 rounded-lg text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium transition-all">{t('nav.home')}</Link>
+              <Link to="/search" className="px-4 py-2 rounded-lg text-green-600 bg-green-50 font-medium transition-all">{t('nav.search')}</Link>
+              <Link to="/categories" className="px-4 py-2 rounded-lg text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium transition-all">{t('nav.categories')}</Link>
+              <Link to="/about" className="px-4 py-2 rounded-lg text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium transition-all">{t('nav.about')}</Link>
             </nav>
             <div className="flex items-center space-x-2 sm:space-x-4">
               <LanguageSelector />
               <SignedOut>
-                <Link to="/auth/login" className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium whitespace-nowrap text-sm sm:text-base">
+                <Link to="/auth/login" className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 sm:px-6 py-2.5 rounded-xl hover:shadow-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-medium whitespace-nowrap text-sm sm:text-base transform hover:-translate-y-0.5">
                   {t('nav.login')}
                 </Link>
-                <Link to="/auth/register" className="border border-green-600 text-green-600 px-3 sm:px-4 py-2 rounded-lg hover:bg-green-50 transition-colors font-medium whitespace-nowrap text-sm sm:text-base hidden sm:block">
-                  {t('nav.register')}
-                </Link>
-                <Link to="/auth/register" className="border border-green-600 text-green-600 px-3 py-2 rounded-lg hover:bg-green-50 transition-colors font-medium whitespace-nowrap text-sm sm:hidden">
+                <Link to="/auth/register" className="border-2 border-green-600 text-green-600 px-4 sm:px-6 py-2.5 rounded-xl hover:bg-green-50 hover:border-green-700 transition-all duration-300 font-medium whitespace-nowrap text-sm sm:text-base hidden sm:block">
                   {t('nav.register')}
                 </Link>
               </SignedOut>
@@ -144,11 +168,23 @@ export default function Search() {
         <div className="flex flex-col lg:flex-row gap-6 sm:gap-8">
           {/* Filtres */}
           <div className="lg:w-1/4">
-            <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 sticky top-8">
-              <h3 className="font-semibold text-lg mb-4">Filtres</h3>
+            <div className="bg-white rounded-2xl shadow-soft p-6 sticky top-24 border border-gray-100">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold text-lg flex items-center">
+                  <i className="ri-filter-3-line mr-2 text-green-600"></i>
+                  Filtres
+                </h3>
+                <button 
+                  onClick={() => setFilters({category: '', location: '', query: '', distance: '50', rating: '', verified: false})}
+                  className="text-sm text-green-600 hover:text-green-700 font-medium"
+                >
+                  Réinitialiser
+                </button>
+              </div>
               {/* Recherche */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <i className="ri-search-line mr-1"></i>
                   Recherche
                 </label>
                 <input
@@ -156,7 +192,7 @@ export default function Search() {
                   value={filters.query}
                   onChange={(e) => setFilters({...filters, query: e.target.value})}
                   placeholder="Nom ou description..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm outline-none"
                 />
                 {!filters.query && (
                   <div className="mt-2 text-xs text-gray-600 flex flex-wrap gap-2">
@@ -175,13 +211,14 @@ export default function Search() {
 
               {/* Ville/état combo */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <i className="ri-map-pin-line mr-1"></i>
                   Ville principale
                 </label>
                 <select
                   value={filters.location}
                   onChange={(e) => setFilters({...filters, location: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm pr-8"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm pr-10 outline-none"
                 >
                   <option value="">Toutes villes</option>
                   {cityOptions.filter(Boolean).map(city => (
@@ -196,13 +233,14 @@ export default function Search() {
 
               {/* Catégorie */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <i className="ri-list-check mr-1"></i>
                   Catégorie
                 </label>
                 <select
                   value={filters.category}
                   onChange={(e) => setFilters({...filters, category: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm pr-8"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm pr-10 outline-none"
                 >
                   <option value="">Toutes catégories</option>
                   {categories?.map(cat => (
@@ -273,45 +311,55 @@ export default function Search() {
           {/* Résultats */}
           <div className="lg:w-3/4">
             {/* En-tête des résultats */}
-            <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6">
+            <div className="bg-white rounded-2xl shadow-soft p-6 mb-6 border border-gray-100">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
                     Résultats de recherche
                   </h1>
-                  <p className="text-gray-600 text-sm sm:text-base">
-                    {loading ? 'Recherche en cours...' : `${suppliers.length} fournisseurs trouvés`}
+                  <p className="text-gray-600 text-sm sm:text-base flex items-center">
+                    {loading ? (
+                      <>
+                        <i className="ri-loader-4-line animate-spin mr-2"></i>
+                        Recherche en cours...
+                      </>
+                    ) : (
+                      <>
+                        <i className="ri-checkbox-circle-line text-green-600 mr-2"></i>
+                        {suppliers.length} fournisseurs trouvés
+                      </>
+                    )}
                   </p>
                 </div>
                 <div className="flex items-center gap-4 w-full sm:w-auto">
-                  <div className="flex bg-gray-100 rounded-lg p-1">
+                  <div className="flex bg-gray-100 rounded-xl p-1.5 shadow-sm">
                     <button
                       onClick={() => setViewMode('list')}
-                      className={`px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                      className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
                         viewMode === 'list' 
-                          ? 'bg-white text-gray-900 shadow-sm' 
+                          ? 'bg-white text-gray-900 shadow-md' 
                           : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
-                      <i className="ri-list-unordered mr-1"></i>
+                      <i className="ri-list-unordered mr-2"></i>
                       <span className="hidden sm:inline">Liste</span>
                     </button>
                     <button
                       onClick={() => setViewMode('map')}
-                      className={`px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                      className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
                         viewMode === 'map' 
-                          ? 'bg-white text-gray-900 shadow-sm' 
+                          ? 'bg-white text-gray-900 shadow-md' 
                           : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
-                      <i className="ri-map-pin-line mr-1"></i>
+                      <i className="ri-map-pin-line mr-2"></i>
                       <span className="hidden sm:inline">Carte</span>
                     </button>
                   </div>
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm pr-8"
+                    className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm pr-10 outline-none"
                   >
                     <option value="relevance">Pertinence</option>
                     <option value="distance">Distance</option>
@@ -352,37 +400,45 @@ export default function Search() {
                 ))}
               </div>
             ) : (
-              <div className="space-y-4">
-                {suppliers.map(supplier => (
-                  <div key={supplier.id} className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow">
-                    <div className="p-4 sm:p-6">
-                      <div className="flex gap-4 sm:gap-6">
-                        <div className="w-16 sm:w-24 h-16 sm:h-24 flex-shrink-0">
-                          <img
-                            src={`https://readdy.ai/api/search-image?query=$%7Bsupplier.image_url%7D&width=200&height=200&seq=search-${supplier.id}&orientation=squarish`}
-                            alt={supplier.name}
-                            className="w-full h-full object-cover object-top rounded-lg"
-                          />
-                        </div>
+              <div className="space-y-6">
+                {suppliers.map((supplier: any) => {
+                  const supplierId = supplier.id;
+                  const supplierName = supplier.name;
+                  const imageQuery = encodeURIComponent(`${supplierName} ${supplier.category} business Nigeria professional storefront`);
+                                
+                  return (
+                    <div key={supplierId} className="bg-white rounded-2xl shadow-soft hover:shadow-medium transition-all duration-300 border border-gray-100 hover:-translate-y-1">
+                      <div className="p-6">
+                        <div className="flex gap-6">
+                          <div className="w-20 sm:w-28 h-20 sm:h-28 flex-shrink-0">
+                            <img
+                              src={`https://readdy.ai/api/search-image?query=${imageQuery}&width=200&height=200&seq=search-${supplierId}&orientation=squarish`}
+                              alt={supplierName}
+                              className="w-full h-full object-cover object-top rounded-xl shadow-sm"
+                            />
+                          </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-start justify-between mb-3">
                             <div className="flex-1 min-w-0">
-                              <h3 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center gap-2 mb-1">
+                              <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2 mb-2">
                                 <span className="truncate">{supplier.name}</span>
                                 {supplier.verified && (
-                                  <span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center flex-shrink-0">
+                                  <span className="badge badge-verified flex-shrink-0">
                                     <i className="ri-verified-badge-fill mr-1"></i>
                                     <span className="hidden sm:inline">Vérifié</span>
                                     <span className="sm:hidden">✓</span>
                                   </span>
                                 )}
                               </h3>
-                              <p className="text-green-600 text-sm font-medium">{supplier.category}</p>
+                              <p className="text-green-600 text-sm font-semibold flex items-center">
+                                <i className="ri-store-2-line mr-1"></i>
+                                {supplier.category}
+                              </p>
                             </div>
                             <div className="text-right ml-2 flex-shrink-0">
-                              <div className="flex items-center gap-1 mb-1 bg-yellow-50 px-2 py-1 rounded-lg">
-                                <i className="ri-star-fill text-yellow-400 text-sm"></i>
-                                <div className="font-medium text-sm">{supplier.rating}</div>
+                              <div className="flex items-center gap-1.5 mb-1 bg-gradient-to-br from-yellow-50 to-orange-50 px-3 py-2 rounded-xl border border-yellow-200">
+                                <i className="ri-star-fill text-yellow-500 text-sm"></i>
+                                <div className="font-bold text-sm text-gray-900">{supplier.rating}</div>
                                 <div className="text-gray-500 text-xs">({supplier.review_count})</div>
                               </div>
                               {supplier.distance && (
@@ -443,22 +499,55 @@ export default function Search() {
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                );
+              })}
+            </div>
+          )}
 
             {!loading && suppliers.length > 0 && (
               <div className="mt-8 flex justify-center">
                 <div className="flex items-center gap-2">
-                  <button className="px-3 py-2 text-gray-400 hover:text-gray-600 transition-colors">
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                    disabled={currentPage === 0}
+                    className="px-3 py-2 text-gray-600 hover:text-gray-900 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
                     <i className="ri-arrow-left-line"></i>
                   </button>
-                  <button className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm">1</button>
-                  <button className="px-3 py-2 text-gray-600 hover:text-gray-900 transition-colors text-sm">2</button>
-                  <button className="px-3 py-2 text-gray-600 hover:text-gray-900 transition-colors text-sm">3</button>
-                  <span className="px-3 py-2 text-gray-400 text-sm">...</span>
-                  <button className="px-3 py-2 text-gray-600 hover:text-gray-900 transition-colors text-sm">10</button>
-                  <button className="px-3 py-2 text-gray-600 hover:text-gray-900 transition-colors">
+                  
+                  {Array.from({ length: Math.min(5, Math.ceil(totalCount / itemsPerPage)) }, (_, i) => {
+                    const totalPages = Math.ceil(totalCount / itemsPerPage);
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i;
+                    } else if (currentPage < 3) {
+                      pageNum = i;
+                    } else if (currentPage >= totalPages - 3) {
+                      pageNum = totalPages - 5 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                          currentPage === pageNum
+                            ? 'bg-green-600 text-white'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        {pageNum + 1}
+                      </button>
+                    );
+                  })}
+                  
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(Math.ceil(totalCount / itemsPerPage) - 1, p + 1))}
+                    disabled={currentPage >= Math.ceil(totalCount / itemsPerPage) - 1}
+                    className="px-3 py-2 text-gray-600 hover:text-gray-900 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
                     <i className="ri-arrow-right-line"></i>
                   </button>
                 </div>

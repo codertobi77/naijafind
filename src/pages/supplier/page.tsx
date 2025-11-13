@@ -1,8 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useQuery, useConvexAuth } from 'convex/react';
+import { useConvexAuth } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
+import { useConvexQuery, useConvexQuerySkippable } from '../../hooks/useConvexQuery';
+import { useTranslation } from 'react-i18next';
 
 interface Supplier {
   id: string;
@@ -44,143 +45,114 @@ interface SimilarSupplier {
 }
 
 export default function SupplierDetail() {
+  const { t } = useTranslation();
   const { isAuthenticated } = useConvexAuth();
   const navigate = useNavigate();
   const { id: supplierId } = useParams<{ id: string }>();
-  const data = useQuery(api.suppliers.getSupplierDetails, { id: supplierId || '' });
+  
+  // Fetch supplier data from Convex with caching
+  const { data: supplierData, isLoading: supplierLoading } = useConvexQuerySkippable(
+    supplierId ? api.suppliers.getSupplierDetails : 'skip',
+    supplierId ? { id: supplierId } : undefined,
+    { staleTime: 5 * 60 * 1000 } // Cache supplier details for 5 minutes
+  );
+  
+  // Fetch similar suppliers based on category
+  const [supplierCategory, setSupplierCategory] = useState<string | null>(null);
+  const { data: similarSuppliersData } = useConvexQuerySkippable(
+    supplierCategory ? api.suppliers.searchSuppliers : 'skip',
+    supplierCategory ? { category: supplierCategory, limit: BigInt(4) } : undefined,
+    { staleTime: 10 * 60 * 1000 } // Cache similar suppliers for 10 minutes
+  );
 
-  if (!supplierId) return <div>Fournisseur inconnu.</div>;
-  // Ne rien afficher tant que les données du backend ne sont pas chargées
-  if (!data) return <div>Chargement...</div>;
-  if (!data.supplier) return <div>Fournisseur introuvable.</div>;
-  // Utiliser data.supplier et data.reviews strictement pour l'affichage
-  // ... Le reste du composant affiche uniquement les vrais fournisseurs
-
-  const [supplier, setSupplier] = useState<Supplier | null>(null);
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [similarSuppliers, setSimilarSuppliers] = useState<SimilarSupplier[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [showContactForm, setShowContactForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
-
+  
+  // Extract data from Convex response
+  const supplier = supplierData?.supplier as any; // Type assertion for Convex supplier data
+  const reviews = supplierData?.reviews || [];
+  const loading = supplierLoading;
+  
+  // Process similar suppliers (exclude current supplier)
+  const similarSuppliers = (similarSuppliersData?.suppliers || [])
+    .filter((s: any) => s._id !== supplierId)
+    .slice(0, 3)
+    .map((s: any) => ({
+      id: s._id || s.id,
+      name: s.business_name || s.name || 'Supplier',
+      category: s.category || '',
+      rating: s.rating || 0,
+      review_count: Number(s.reviews_count || 0),
+      image_url: `${s.business_name || s.name} ${s.category} business Nigeria`,
+    }));
+  
+  // Update category when supplier data is loaded
   useEffect(() => {
-    if (supplierId) {
-      // fetchSupplierDetails(id); // This function is no longer needed
+    if (supplier?.category && supplier.category !== supplierCategory) {
+      setSupplierCategory(supplier.category);
     }
-  }, [supplierId]);
+  }, [supplier?.category, supplierCategory]);
 
-  // const fetchSupplierDetails = async (supplierId: string) => {
-  //   try {
-  //     const response = await fetch(
-  //       `https://khqolgtkhonnguqqizrx.supabase.co/functions/v1/get-supplier-details?id=${supplierId}`
-  //     );
-
-  //     if (!response.ok) {
-  //       throw new Error(`Network response was not ok (${response.status})`);
-  //     }
-
-  //     const data = await response.json();
-
-  //     if (data.supplier) {
-  //       setSupplier(data.supplier);
-  //       setReviews(data.reviews || []);
-        
-  //       // Charger les entreprises similaires
-  //       await fetchSimilarSuppliers(data.supplier.category);
-  //     } else {
-  //       setSupplier(null);
-  //       setReviews([]);
-  //     }
-  //   } catch (error) {
-  //     console.error('Erreur lors du chargement:', error);
-  //     setSupplier(null);
-  //     setReviews([]);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  const fetchSimilarSuppliers = async (category: string) => {
-    try {
-      const response = await fetch(
-        `https://khqolgtkhonnguqqizrx.supabase.co/functions/v1/search-suppliers?category=${encodeURIComponent(category)}&limit=3`
-      );
-      const data = await response.json();
-      
-      if (data.suppliers && data.suppliers.length > 0) {
-        // Filtrer pour exclure le fournisseur actuel
-        const filtered = data.suppliers.filter((s: any) => s.id !== supplierId).slice(0, 3);
-        setSimilarSuppliers(filtered);
-      } else {
-        // Données de fallback
-        setSimilarSuppliers([
-          {
-            id: 'similar-1',
-            name: `Entreprise ${category} Premium`,
-            category: category,
-            rating: 4.8,
-            review_count: 156,
-            image_url: `Nigerian ${category} business professional company modern storefront`
-          },
-          {
-            id: 'similar-2',
-            name: `${category} Solutions Ltd`,
-            category: category,
-            rating: 4.6,
-            review_count: 89,
-            image_url: `Nigerian ${category} business professional company modern storefront`
-          },
-          {
-            id: 'similar-3',
-            name: `Best ${category} Nigeria`,
-            category: category,
-            rating: 4.9,
-            review_count: 234,
-            image_url: `Nigerian ${category} business professional company modern storefront`
-          }
-        ]);
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des entreprises similaires:', error);
-      // Données de fallback en cas d'erreur
-      setSimilarSuppliers([
-        {
-          id: 'similar-1',
-          name: `Entreprise ${supplier?.category || 'Commerce'} Premium`,
-          category: supplier?.category || 'Commerce',
-          rating: 4.8,
-          review_count: 156,
-          image_url: `Nigerian business professional company modern storefront`
-        },
-        {
-          id: 'similar-2',
-          name: `Solutions ${supplier?.category || 'Commerce'} Ltd`,
-          category: supplier?.category || 'Commerce',
-          rating: 4.6,
-          review_count: 89,
-          image_url: `Nigerian business professional company modern storefront`
-        },
-        {
-          id: 'similar-3',
-          name: `Best ${supplier?.category || 'Commerce'} Nigeria`,
-          category: supplier?.category || 'Commerce',
-          rating: 4.9,
-          review_count: 234,
-          image_url: `Nigerian business professional company modern storefront`
-        }
-      ]);
-    }
-  };
 
   const getDirections = () => {
-    if (supplier) {
-      const query = encodeURIComponent(`${supplier.address}, ${supplier.city}, ${supplier.state}, ${supplier.location}`);
+    if (transformedSupplier) {
+      const query = encodeURIComponent(`${transformedSupplier.address}, ${transformedSupplier.city}, ${transformedSupplier.state}, ${transformedSupplier.location}`);
       const url = `https://www.google.com/maps/dir/?api=1&destination=${query}`;
       window.open(url, '_blank');
     }
   };
+  
+  // Early returns for edge cases
+  if (!supplierId) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <i className="ri-error-warning-line text-6xl text-gray-400 mb-4"></i>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('supplier.missing_id')}</h2>
+          <p className="text-gray-600 mb-6">{t('supplier.no_id_provided')}</p>
+          <Link
+            to="/search"
+            className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
+          >
+            {t('supplier.back_to_search')}
+          </Link>
+        </div>
+      </div>
+    );
+  }
+  
+  // Transform supplier data to match component interface
+  const transformedSupplier: Supplier | null = supplier ? {
+    id: supplier._id || supplierId,
+    name: supplier.business_name || 'Supplier',
+    description: supplier.description || '',
+    category: supplier.category || '',
+    location: supplier.location || `${supplier.city || ''}, ${supplier.state || ''}`.trim(),
+    address: supplier.address || '',
+    city: supplier.city || '',
+    state: supplier.state || '',
+    latitude: supplier.latitude || 0,
+    longitude: supplier.longitude || 0,
+    phone: supplier.phone || '',
+    email: supplier.email || '',
+    website: supplier.website,
+    rating: supplier.rating || 0,
+    review_count: Number(supplier.reviews_count || 0),
+    verified: supplier.verified || false,
+    image_url: `${supplier.business_name || 'business'} ${supplier.category || ''} Nigeria professional storefront`,
+    created_at: supplier.created_at || new Date().toISOString(),
+  } : null;
+  
+  const transformedReviews: Review[] = reviews.map((r: any) => ({
+    id: r._id || r.id || '',
+    rating: r.rating || 0,
+    comment: r.comment || '',
+    created_at: r.created_at || new Date().toISOString(),
+    user_id: r.userId || '',
+    user_name: 'Client', // Convex reviews don't include user names by default
+  }));
 
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,24 +186,24 @@ export default function SupplierDetail() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement des détails...</p>
+          <p className="text-gray-600">{t('supplier.loading')}</p>
         </div>
       </div>
     );
   }
 
-  if (!supplier) {
+  if (!transformedSupplier) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <i className="ri-error-warning-line text-6xl text-gray-400 mb-4"></i>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Fournisseur introuvable</h2>
-          <p className="text-gray-600 mb-6">Le fournisseur que vous recherchez n'existe pas.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('supplier.not_found')}</h2>
+          <p className="text-gray-600 mb-6">{t('supplier.not_exist')}</p>
           <Link
             to="/search"
             className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
           >
-            Retour à la recherche
+            {t('supplier.back_to_search')}
           </Link>
         </div>
       </div>
@@ -251,16 +223,16 @@ export default function SupplierDetail() {
             </div>
             <nav className="hidden md:flex space-x-8">
               <Link to="/" className="text-gray-700 hover:text-green-600 font-medium">
-                Accueil
+                {t('nav.home')}
               </Link>
               <Link to="/search" className="text-gray-700 hover:text-green-600 font-medium">
-                Recherche
+                {t('nav.search')}
               </Link>
               <Link to="/categories" className="text-gray-700 hover:text-green-600 font-medium">
-                Catégories
+                {t('nav.categories')}
               </Link>
               <Link to="/about" className="text-gray-700 hover:text-green-600 font-medium">
-                À propos
+                {t('nav.about')}
               </Link>
             </nav>
             <div className="flex items-center space-x-2 sm:space-x-4">
@@ -268,19 +240,19 @@ export default function SupplierDetail() {
                 to="/auth/login"
                 className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium whitespace-nowrap text-sm sm:text-base"
               >
-                Connexion
+                {t('nav.login')}
               </Link>
               <Link
                 to="/auth/register"
                 className="border border-green-600 text-green-600 px-3 sm:px-4 py-2 rounded-lg hover:bg-green-50 transition-colors font-medium whitespace-nowrap text-sm sm:text-base hidden sm:block"
               >
-                Ajouter votre entreprise
+                {t('about.add_business')}
               </Link>
               <Link
                 to="/auth/register"
                 className="border border-green-600 text-green-600 px-3 py-2 rounded-lg hover:bg-green-50 transition-colors font-medium whitespace-nowrap text-sm sm:hidden"
               >
-                Ajouter
+                {t('about.add_business')}
               </Link>
             </div>
           </div>
@@ -301,13 +273,13 @@ export default function SupplierDetail() {
             </li>
             <li>
               <Link to="/search" className="text-gray-500 hover:text-gray-700 text-sm sm:text-base">
-                Recherche
+                {t('nav.search')}
               </Link>
             </li>
             <li>
               <i className="ri-arrow-right-s-line text-gray-400"></i>
             </li>
-            <li className="text-gray-900 font-medium text-sm sm:text-base truncate">{supplier.name}</li>
+            <li className="text-gray-900 font-medium text-sm sm:text-base truncate">{transformedSupplier.name}</li>
           </ol>
         </nav>
 
@@ -315,14 +287,14 @@ export default function SupplierDetail() {
         {submitStatus === 'success' && (
           <div className="mb-4 sm:mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
             <i className="ri-check-line mr-2"></i>
-            Votre message a été envoyé avec succès ! Le fournisseur vous contactera bientôt.
+            {t('supplier.contact_success')}
           </div>
         )}
 
         {submitStatus === 'error' && (
           <div className="mb-4 sm:mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
             <i className="ri-error-warning-line mr-2"></i>
-            Une erreur s'est produite lors de l'envoi. Veuillez réessayer.
+            {t('supplier.contact_error')}
           </div>
         )}
 
@@ -331,8 +303,8 @@ export default function SupplierDetail() {
           <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-8">
             <div className="w-full lg:w-1/3">
               <img
-                src={`https://readdy.ai/api/search-image?query=$%7BencodeURIComponent%28supplier.image_url%29%7D&width=400&height=300&seq=detail-${supplier.id}&orientation=landscape`}
-                alt={supplier.name}
+                src={`https://readdy.ai/api/search-image?query=${encodeURIComponent(transformedSupplier.image_url)}&width=400&height=300&seq=detail-${transformedSupplier.id}&orientation=landscape`}
+                alt={transformedSupplier.name}
                 className="w-full h-48 sm:h-56 lg:h-64 object-cover object-top rounded-lg"
               />
             </div>
@@ -341,15 +313,15 @@ export default function SupplierDetail() {
               <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-4 gap-4">
                 <div className="flex-1 min-w-0">
                   <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-                    <span className="break-words">{supplier.name}</span>
-                    {supplier.verified && (
+                    <span className="break-words">{transformedSupplier.name}</span>
+                    {transformedSupplier.verified && (
                       <span className="bg-green-500 text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium flex items-center w-fit">
                         <i className="ri-verified-badge-fill mr-1"></i>
-                        Vérifié
+                        {t('supplier.verified')}
                       </span>
                     )}
                   </h1>
-                  <p className="text-green-600 text-base sm:text-lg font-medium">{supplier.category}</p>
+                  <p className="text-green-600 text-base sm:text-lg font-medium">{transformedSupplier.category}</p>
                 </div>
 
                 <div className="text-left sm:text-right flex-shrink-0">
@@ -358,38 +330,38 @@ export default function SupplierDetail() {
                       {[1, 2, 3, 4, 5].map((star) => (
                         <i
                           key={star}
-                          className={`ri-star-${star <= supplier.rating ? 'fill' : 'line'} text-yellow-400 text-sm sm:text-base`}
+                          className={`ri-star-${star <= transformedSupplier.rating ? 'fill' : 'line'} text-yellow-400 text-sm sm:text-base`}
                         ></i>
                       ))}
                     </div>
-                    <span className="font-bold text-base sm:text-lg">{supplier.rating}</span>
+                    <span className="font-bold text-base sm:text-lg">{transformedSupplier.rating.toFixed(1)}</span>
                   </div>
-                  <p className="text-gray-600 text-sm sm:text-base">({supplier.review_count} avis)</p>
+                  <p className="text-gray-600 text-sm sm:text-base">({transformedSupplier.review_count} {t('supplier.reviews_count')})</p>
                 </div>
               </div>
 
-              <p className="text-gray-700 text-sm sm:text-base lg:text-lg mb-4 sm:mb-6 leading-relaxed">{supplier.description}</p>
+              <p className="text-gray-700 text-sm sm:text-base lg:text-lg mb-4 sm:mb-6 leading-relaxed">{transformedSupplier.description}</p>
 
               {/* Contact info grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
                 <div className="flex items-start text-gray-600 bg-gray-50 p-3 rounded-lg">
                   <i className="ri-map-pin-line mr-2 sm:mr-3 text-green-600 text-lg sm:text-xl mt-1 flex-shrink-0"></i>
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-gray-900 text-sm sm:text-base">Adresse complète</div>
-                    <div className="break-words text-xs sm:text-sm">{supplier.address}</div>
+                    <div className="font-medium text-gray-900 text-sm sm:text-base">{t('supplier.address')}</div>
+                    <div className="break-words text-xs sm:text-sm">{transformedSupplier.address}</div>
                     <div className="break-words text-xs sm:text-sm">
-                      {supplier.city}, {supplier.state}
+                      {transformedSupplier.city}, {transformedSupplier.state}
                     </div>
-                    <div className="break-words text-xs sm:text-sm">{supplier.location}</div>
+                    <div className="break-words text-xs sm:text-sm">{transformedSupplier.location}</div>
                   </div>
                 </div>
 
                 <div className="flex items-start text-gray-600 bg-gray-50 p-3 rounded-lg">
                   <i className="ri-phone-line mr-2 sm:mr-3 text-green-600 text-lg sm:text-xl flex-shrink-0"></i>
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-gray-900 text-sm sm:text-base">Téléphone</div>
-                    <a href={`tel:${supplier.phone}`} className="text-green-600 hover:underline break-all text-xs sm:text-sm">
-                      {supplier.phone}
+                    <div className="font-medium text-gray-900 text-sm sm:text-base">{t('supplier.phone')}</div>
+                    <a href={`tel:${transformedSupplier.phone}`} className="text-green-600 hover:underline break-all text-xs sm:text-sm">
+                      {transformedSupplier.phone}
                     </a>
                   </div>
                 </div>
@@ -397,25 +369,25 @@ export default function SupplierDetail() {
                 <div className="flex items-start text-gray-600 bg-gray-50 p-3 rounded-lg">
                   <i className="ri-mail-line mr-2 sm:mr-3 text-green-600 text-lg sm:text-xl flex-shrink-0"></i>
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-gray-900 text-sm sm:text-base">Email</div>
-                    <a href={`mailto:${supplier.email}`} className="text-green-600 hover:underline break-all text-xs sm:text-sm">
-                      {supplier.email}
+                    <div className="font-medium text-gray-900 text-sm sm:text-base">{t('supplier.email')}</div>
+                    <a href={`mailto:${transformedSupplier.email}`} className="text-green-600 hover:underline break-all text-xs sm:text-sm">
+                      {transformedSupplier.email}
                     </a>
                   </div>
                 </div>
 
-                {supplier.website && (
+                {transformedSupplier.website && (
                   <div className="flex items-start text-gray-600 bg-gray-50 p-3 rounded-lg">
                     <i className="ri-global-line mr-2 sm:mr-3 text-green-600 text-lg sm:text-xl flex-shrink-0"></i>
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium text-gray-900 text-sm sm:text-base">Site web</div>
+                      <div className="font-medium text-gray-900 text-sm sm:text-base">{t('supplier.website')}</div>
                       <a
-                        href={supplier.website.startsWith('http') ? supplier.website : `https://${supplier.website}`}
+                        href={transformedSupplier.website.startsWith('http') ? transformedSupplier.website : `https://${transformedSupplier.website}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-green-600 hover:underline break-all block text-xs sm:text-sm"
                       >
-                        {supplier.website}
+                        {transformedSupplier.website}
                       </a>
                     </div>
                   </div>
@@ -428,43 +400,43 @@ export default function SupplierDetail() {
                   className="bg-green-600 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base"
                 >
                   <i className="ri-mail-line mr-1 sm:mr-2"></i>
-                  Contacter
+                  {t('supplier.contact')}
                 </button>
                 <a
-                  href={`tel:${supplier.phone}`}
+                  href={`tel:${transformedSupplier.phone}`}
                   className="bg-blue-600 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base"
                 >
                   <i className="ri-phone-line mr-1 sm:mr-2"></i>
-                  Appeler
+                  {t('supplier.call')}
                 </a>
                 <button
-                  onClick={() => document.querySelector('#vapi-widget-floating-button')?.click()}
+                  onClick={() => (document.querySelector('#vapi-widget-floating-button') as HTMLElement)?.click?.()}
                   className="bg-purple-600 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-purple-700 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base"
                 >
                   <i className="ri-calendar-line mr-1 sm:mr-2"></i>
-                  <span className="hidden sm:inline">Prendre </span>RDV
+                  <span className="hidden sm:inline">{t('supplier.schedule')}</span>
                 </button>
-                {supplier.website && (
+                {transformedSupplier.website && (
                   <a
-                    href={supplier.website.startsWith('http') ? supplier.website : `https://${supplier.website}`}
+                    href={transformedSupplier.website.startsWith('http') ? transformedSupplier.website : `https://${transformedSupplier.website}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="border border-gray-300 text-gray-700 px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base"
                   >
                     <i className="ri-global-line mr-1 sm:mr-2"></i>
-                    <span className="hidden sm:inline">Site web</span>
-                    <span className="sm:hidden">Site</span>
+                    <span className="hidden sm:inline">{t('supplier.visit_website')}</span>
+                    <span className="sm:hidden">{t('supplier.website')}</span>
                   </a>
                 )}
                 <button className="border border-gray-300 text-gray-700 px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base">
                   <i className="ri-share-line mr-1 sm:mr-2"></i>
-                  <span className="hidden sm:inline">Partager</span>
-                  <span className="sm:hidden">Part.</span>
+                  <span className="hidden sm:inline">{t('supplier.share')}</span>
+                  <span className="sm:hidden">{t('supplier.share')}</span>
                 </button>
                 <button className="border border-gray-300 text-gray-700 px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base">
                   <i className="ri-heart-line mr-1 sm:mr-2"></i>
-                  <span className="hidden sm:inline">Favoris</span>
-                  <span className="sm:hidden">Fav.</span>
+                  <span className="hidden sm:inline">{t('supplier.favorite')}</span>
+                  <span className="sm:hidden">{t('supplier.favorite')}</span>
                 </button>
               </div>
             </div>
@@ -476,11 +448,11 @@ export default function SupplierDetail() {
           <div className="border-b border-gray-200 overflow-x-auto">
             <nav className="flex space-x-2 sm:space-x-4 lg:space-x-8 px-4 sm:px-6 lg:px-8 min-w-max">
               {[
-                { id: 'overview', label: 'Aperçu', icon: 'ri-information-line' },
-                { id: 'reviews', label: `Avis (${reviews.length})`, icon: 'ri-star-line' },
-                { id: 'location', label: 'Localisation', icon: 'ri-map-pin-line' },
-                { id: 'contact', label: 'Contact', icon: 'ri-phone-line' },
-                { id: 'gallery', label: 'Galerie', icon: 'ri-image-line' },
+                { id: 'overview', label: t('supplier.overview'), icon: 'ri-information-line' },
+                { id: 'reviews', label: `${t('supplier.reviews')} (${transformedReviews.length})`, icon: 'ri-star-line' },
+                { id: 'location', label: t('supplier.location'), icon: 'ri-map-pin-line' },
+                { id: 'contact', label: t('supplier.contact'), icon: 'ri-phone-line' },
+                { id: 'gallery', label: t('supplier.gallery'), icon: 'ri-image-line' },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -494,11 +466,11 @@ export default function SupplierDetail() {
                   <i className={`${tab.icon} mr-1 sm:mr-2`}></i>
                   <span className="hidden sm:inline">{tab.label}</span>
                   <span className="sm:hidden">
-                    {tab.id === 'overview' && 'Info'}
-                    {tab.id === 'reviews' && `Avis (${reviews.length})`}
-                    {tab.id === 'location' && 'Lieu'}
-                    {tab.id === 'contact' && 'Contact'}
-                    {tab.id === 'gallery' && 'Photos'}
+                    {tab.id === 'overview' && t('supplier.overview')}
+                    {tab.id === 'reviews' && `${t('supplier.reviews')} (${transformedReviews.length})`}
+                    {tab.id === 'location' && t('supplier.location')}
+                    {tab.id === 'contact' && t('supplier.contact')}
+                    {tab.id === 'gallery' && t('supplier.gallery')}
                   </span>
                 </button>
               ))}
@@ -508,28 +480,28 @@ export default function SupplierDetail() {
           <div className="p-4 sm:p-6 lg:p-8">
             {activeTab === 'overview' && (
               <div>
-                <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">À propos de {supplier.name}</h3>
+                <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">{t('supplier.about')}</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
                   <div className="lg:col-span-2">
-                    <p className="text-gray-700 mb-4 sm:mb-6 text-sm sm:text-base lg:text-lg leading-relaxed">{supplier.description}</p>
+                    <p className="text-gray-700 mb-4 sm:mb-6 text-sm sm:text-base lg:text-lg leading-relaxed">{transformedSupplier.description}</p>
 
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4 sm:p-6 mb-4 sm:mb-6">
                       <h4 className="font-semibold text-green-900 mb-3 flex items-center text-sm sm:text-base">
                         <i className="ri-information-line mr-2"></i>
-                        Informations importantes
+                        {t('supplier.important_info')}
                       </h4>
                       <ul className="space-y-2 text-green-800 text-xs sm:text-sm">
                         <li className="flex items-center">
                           <i className="ri-check-line mr-2 text-green-600 flex-shrink-0"></i>
-                          Entreprise vérifiée par NaijaFind
+                          {t('supplier.verified_by_naijafind')}
                         </li>
                         <li className="flex items-center">
                           <i className="ri-check-line mr-2 text-green-600 flex-shrink-0"></i>
-                          Réponse rapide aux demandes
+                          {t('supplier.quick_response')}
                         </li>
                         <li className="flex items-center">
                           <i className="ri-check-line mr-2 text-green-600 flex-shrink-0"></i>
-                          Service client de qualité
+                          {t('supplier.quality_service')}
                         </li>
                       </ul>
                     </div>
@@ -539,20 +511,20 @@ export default function SupplierDetail() {
                     <div className="grid grid-cols-1 gap-4 sm:gap-6">
                       <div className="text-center p-4 sm:p-6 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg border border-yellow-200">
                         <i className="ri-star-fill text-3xl sm:text-4xl text-yellow-500 mb-3"></i>
-                        <div className="text-2xl sm:text-3xl font-bold text-gray-900">{supplier.rating}</div>
-                        <div className="text-yellow-700 font-medium text-xs sm:text-sm">Note moyenne</div>
+                        <div className="text-2xl sm:text-3xl font-bold text-gray-900">{transformedSupplier.rating}</div>
+                        <div className="text-yellow-700 font-medium text-xs sm:text-sm">{t('supplier.avg_rating')}</div>
                       </div>
                       <div className="text-center p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
                         <i className="ri-chat-3-line text-3xl sm:text-4xl text-blue-500 mb-3"></i>
-                        <div className="text-2xl sm:text-3xl font-bold text-gray-900">{supplier.review_count}</div>
-                        <div className="text-blue-700 font-medium text-xs sm:text-sm">Avis clients</div>
+                        <div className="text-2xl sm:text-3xl font-bold text-gray-900">{transformedSupplier.review_count}</div>
+                        <div className="text-blue-700 font-medium text-xs sm:text-sm">{t('supplier.customer_reviews')}</div>
                       </div>
                       <div className="text-center p-4 sm:p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
                         <i className="ri-verified-badge-line text-3xl sm:text-4xl text-green-500 mb-3"></i>
                         <div className="text-xl sm:text-2xl font-bold text-gray-900">
-                          {supplier.verified ? 'Vérifié' : 'En attente'}
+                          {transformedSupplier.verified ? t('supplier.verified') : t('status.pending')}
                         </div>
-                        <div className="text-green-700 font-medium text-xs sm:text-sm">Statut</div>
+                        <div className="text-green-700 font-medium text-xs sm:text-sm">{t('supplier.status')}</div>
                       </div>
                     </div>
                   </div>
@@ -563,16 +535,16 @@ export default function SupplierDetail() {
             {activeTab === 'reviews' && (
               <div>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-4">
-                  <h3 className="text-lg sm:text-xl font-semibold">Avis clients ({reviews.length})</h3>
+                  <h3 className="text-lg sm:text-xl font-semibold">{t('supplier.reviews')} ({transformedReviews.length})</h3>
                   <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap text-sm sm:text-base">
                     <i className="ri-add-line mr-2"></i>
-                    Laisser un avis
+                    {t('supplier.leave_review')}
                   </button>
                 </div>
 
-                {reviews.length > 0 ? (
+                {transformedReviews.length > 0 ? (
                   <div className="space-y-4 sm:space-y-6">
-                    {reviews.map((review) => (
+                    {transformedReviews.map((review) => (
                       <div key={review.id} className="border border-gray-200 rounded-lg p-4 sm:p-6 hover:shadow-md transition-shadow">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
                           <div className="flex items-center gap-3">
@@ -581,7 +553,7 @@ export default function SupplierDetail() {
                             </div>
                             <div>
                               <div className="font-medium text-gray-900 text-sm sm:text-base">
-                                {review.user_name || 'Client anonyme'}
+                                {review.user_name}
                               </div>
                               <div className="flex items-center gap-2">
                                 <div className="flex">
@@ -611,10 +583,10 @@ export default function SupplierDetail() {
                 ) : (
                   <div className="text-center py-8 sm:py-12">
                     <i className="ri-chat-3-line text-4xl sm:text-6xl text-gray-400 mb-4"></i>
-                    <h4 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Aucun avis pour le moment</h4>
-                    <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">Soyez le premier à laisser un avis sur cette entreprise</p>
+                    <h4 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">{t('supplier.no_reviews')}</h4>
+                    <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">{t('supplier.first_review')}</p>
                     <button className="bg-green-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap text-sm sm:text-base">
-                      Laisser le premier avis
+                      {t('supplier.first_review_button')}
                     </button>
                   </div>
                 )}
@@ -623,7 +595,7 @@ export default function SupplierDetail() {
 
             {activeTab === 'location' && (
               <div>
-                <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">Localisation et accès</h3>
+                <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">{t('supplier.location_access')}</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
                   <div className="lg:col-span-2">
                     <div className="bg-gray-100 rounded-lg h-64 sm:h-80 lg:h-96 mb-4 sm:mb-6">
@@ -643,7 +615,7 @@ export default function SupplierDetail() {
                     <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
                       <h4 className="font-semibold text-gray-900 mb-4 flex items-center text-sm sm:text-base">
                         <i className="ri-map-pin-line mr-2 text-green-600"></i>
-                        Adresse complète
+                        {t('supplier.address')}
                       </h4>
                       <div className="space-y-2 text-gray-700 text-xs sm:text-sm">
                         <div className="font-medium">{supplier.name}</div>
@@ -658,7 +630,7 @@ export default function SupplierDetail() {
                         className="mt-4 w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap text-sm sm:text-base"
                       >
                         <i className="ri-navigation-line mr-2"></i>
-                        Obtenir l'itinéraire
+                        {t('supplier.get_directions')}
                       </button>
                     </div>
 
@@ -666,7 +638,7 @@ export default function SupplierDetail() {
                       <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
                         <h4 className="font-semibold text-gray-900 mb-4 flex items-center text-sm sm:text-base">
                           <i className="ri-global-line mr-2 text-green-600"></i>
-                          Site web
+                          {t('supplier.website')}
                         </h4>
                         <div className="space-y-2 text-gray-700">
                           <a
@@ -685,7 +657,7 @@ export default function SupplierDetail() {
                           className="mt-4 w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap block text-center text-sm sm:text-base"
                         >
                           <i className="ri-external-link-line mr-2"></i>
-                          Visiter le site
+                          {t('supplier.visit_website')}
                         </a>
                       </div>
                     )}
@@ -693,20 +665,20 @@ export default function SupplierDetail() {
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6">
                       <h4 className="font-semibold text-blue-900 mb-3 flex items-center text-sm sm:text-base">
                         <i className="ri-information-line mr-2"></i>
-                        Informations pratiques
+                        {t('supplier.practical_info')}
                       </h4>
                       <ul className="space-y-2 text-blue-800 text-xs sm:text-sm">
                         <li className="flex items-center">
                           <i className="ri-time-line mr-2 flex-shrink-0"></i>
-                          Horaires : Lun-Ven 8h-18h
+                          {t('supplier.hours')}
                         </li>
                         <li className="flex items-center">
                           <i className="ri-car-line mr-2 flex-shrink-0"></i>
-                          Parking disponible
+                          {t('supplier.parking')}
                         </li>
                         <li className="flex items-center">
                           <i className="ri-wheelchair-line mr-2 flex-shrink-0"></i>
-                          Accès handicapés
+                          {t('supplier.accessibility')}
                         </li>
                       </ul>
                     </div>
@@ -717,7 +689,7 @@ export default function SupplierDetail() {
 
             {activeTab === 'contact' && (
               <div>
-                <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">Informations de contact</h3>
+                <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">{t('supplier.contact_info')}</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
                   <div className="space-y-4 sm:space-y-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6 hover:shadow-md transition-shadow">
@@ -726,7 +698,7 @@ export default function SupplierDetail() {
                           <i className="ri-phone-line text-xl sm:text-2xl text-green-600"></i>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-gray-900 text-sm sm:text-base">Téléphone</div>
+                          <div className="font-semibold text-gray-900 text-sm sm:text-base">{t('supplier.phone')}</div>
                           <a href={`tel:${supplier.phone}`} className="text-green-600 hover:underline text-sm sm:text-lg break-all">
                             {supplier.phone}
                           </a>
@@ -737,7 +709,7 @@ export default function SupplierDetail() {
                         className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap block text-center text-sm sm:text-base"
                       >
                         <i className="ri-phone-line mr-2"></i>
-                        Appeler maintenant
+                        {t('supplier.call_now')}
                       </a>
                     </div>
 
@@ -747,7 +719,7 @@ export default function SupplierDetail() {
                           <i className="ri-mail-line text-xl sm:text-2xl text-blue-600"></i>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-gray-900 text-sm sm:text-base">Email</div>
+                          <div className="font-semibold text-gray-900 text-sm sm:text-base">{t('supplier.email')}</div>
                           <a href={`mailto:${supplier.email}`} className="text-blue-600 hover:underline break-all text-xs sm:text-sm">
                             {supplier.email}
                           </a>
@@ -758,7 +730,7 @@ export default function SupplierDetail() {
                         className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap text-sm sm:text-base"
                       >
                         <i className="ri-mail-send-line mr-2"></i>
-                        Envoyer un message
+                        {t('supplier.send_message')}
                       </button>
                     </div>
 
@@ -768,7 +740,7 @@ export default function SupplierDetail() {
                           <i className="ri-map-pin-line text-xl sm:text-2xl text-orange-600"></i>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-gray-900 text-sm sm:text-base">Adresse</div>
+                          <div className="font-semibold text-gray-900 text-sm sm:text-base">{t('supplier.address')}</div>
                           <div className="text-gray-600 text-xs sm:text-sm">
                             <div>{supplier.address}</div>
                             <div>
@@ -783,7 +755,7 @@ export default function SupplierDetail() {
                         className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors whitespace-nowrap text-sm sm:text-base"
                       >
                         <i className="ri-navigation-line mr-2"></i>
-                        Obtenir l'itinéraire
+                        {t('supplier.itinerary')}
                       </button>
                     </div>
 
@@ -794,7 +766,7 @@ export default function SupplierDetail() {
                             <i className="ri-global-line text-xl sm:text-2xl text-purple-600"></i>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-gray-900 text-sm sm:text-base">Site web</div>
+                            <div className="font-semibold text-gray-900 text-sm sm:text-base">{t('supplier.website')}</div>
                             <a
                               href={supplier.website.startsWith('http') ? supplier.website : `https://${supplier.website}`}
                               target="_blank"
@@ -812,23 +784,23 @@ export default function SupplierDetail() {
                           className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors whitespace-nowrap block text-center text-sm sm:text-base"
                         >
                           <i className="ri-external-link-line mr-2"></i>
-                          Ouvrir le site web
+                          {t('supplier.open_website')}
                         </a>
                       </div>
                     )}
                   </div>
 
                   <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
-                    <h4 className="font-semibold text-gray-900 mb-4 text-sm sm:text-base">Prendre rendez-vous</h4>
+                    <h4 className="font-semibold text-gray-900 mb-4 text-sm sm:text-base">{t('supplier.schedule')}</h4>
                     <p className="text-gray-600 mb-4 sm:mb-6 text-xs sm:text-sm">
-                      Utilisez notre assistant IA pour planifier facilement un rendez-vous avec {supplier.name}.
+                      {t('supplier.schedule')} {transformedSupplier?.name}.
                     </p>
                     <button
-                      onClick={() => document.querySelector('#vapi-widget-floating-button')?.click()}
+                      onClick={() => (document.querySelector('#vapi-widget-floating-button') as HTMLElement)?.click?.()}
                       className="w-full bg-purple-600 text-white py-2 sm:py-3 px-4 sm:px-6 rounded-lg hover:bg-purple-700 transition-colors whitespace-nowrap text-sm sm:text-base"
                     >
                       <i className="ri-calendar-line mr-2"></i>
-                      Planifier un rendez-vous
+                      {t('supplier.schedule')}
                     </button>
                   </div>
                 </div>
@@ -837,17 +809,20 @@ export default function SupplierDetail() {
 
             {activeTab === 'gallery' && (
               <div>
-                <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">Galerie photos</h3>
+                <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">{t('supplier.photos')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
-                  {[1, 2, 3, 4, 5, 6].map((index) => (
-                    <div key={index} className="aspect-square bg-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
-                      <img
-                        src={`https://readdy.ai/api/search-image?query=$%7BencodeURIComponent%28supplier.image_url%29%7D%20$%7BencodeURIComponent%28supplier.category%29%7D%20business%20interior%20exterior%20products%20showcase%20professional%20photography&width=400&height=400&seq=gallery-${supplier.id}-${index}&orientation=squarish`}
-                        alt={`${supplier.name} - Photo ${index}`}
-                        className="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-300"
-                      />
-                    </div>
-                  ))}
+                  {[1, 2, 3, 4, 5, 6].map((index) => {
+                    const imageQuery = encodeURIComponent(`${transformedSupplier?.image_url} ${transformedSupplier?.category} business interior exterior products showcase professional photography`);
+                    return (
+                      <div key={index} className="aspect-square bg-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+                        <img
+                          src={`https://readdy.ai/api/search-image?query=${imageQuery}&width=400&height=400&seq=gallery-${transformedSupplier?.id}-${index}&orientation=squarish`}
+                          alt={`${transformedSupplier?.name} - Photo ${index}`}
+                          className="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -856,42 +831,45 @@ export default function SupplierDetail() {
 
         {/* Entreprises similaires */}
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 lg:p-8">
-          <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">Entreprises similaires</h3>
+          <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">{t('supplier.similar_businesses')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {similarSuppliers.map((similarSupplier, index) => (
-              <div key={similarSupplier.id} className="border border-gray-200 rounded-lg p-4 sm:p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-center mb-4">
-                  <img
-                    src={`https://readdy.ai/api/search-image?query=$%7BencodeURIComponent%28similarSupplier.image_url%29%7D&width=60&height=60&seq=similar-${similarSupplier.id}&orientation=squarish`}
-                    alt={similarSupplier.name}
-                    className="w-10 sm:w-12 h-10 sm:h-12 object-cover object-top rounded-lg mr-3 flex-shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">
-                      {similarSupplier.name}
-                    </h4>
-                    <p className="text-xs sm:text-sm text-gray-600">{similarSupplier.category}</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="flex">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <i key={star} className={`ri-star-${star <= similarSupplier.rating ? 'fill' : 'line'} text-yellow-400 text-xs sm:text-sm`}></i>
-                      ))}
+            {similarSuppliers.map((similarSupplier) => {
+              const imageQuery = encodeURIComponent(similarSupplier.image_url);
+              return (
+                <div key={similarSupplier.id} className="border border-gray-200 rounded-lg p-4 sm:p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-center mb-4">
+                    <img
+                      src={`https://readdy.ai/api/search-image?query=${imageQuery}&width=60&height=60&seq=similar-${similarSupplier.id}&orientation=squarish`}
+                      alt={similarSupplier.name}
+                      className="w-10 sm:w-12 h-10 sm:h-12 object-cover object-top rounded-lg mr-3 flex-shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">
+                        {similarSupplier.name}
+                      </h4>
+                      <p className="text-xs sm:text-sm text-gray-600">{similarSupplier.category}</p>
                     </div>
-                    <span className="text-xs sm:text-sm text-gray-600 ml-1">{similarSupplier.rating}</span>
-                    <span className="text-xs text-gray-500 ml-1">({similarSupplier.review_count})</span>
                   </div>
-                  <Link
-                    to={`/supplier/${similarSupplier.id}`}
-                    className="text-green-600 hover:text-green-700 text-xs sm:text-sm font-medium whitespace-nowrap"
-                  >
-                    Voir détails
-                  </Link>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className="flex">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <i key={star} className={`ri-star-${star <= similarSupplier.rating ? 'fill' : 'line'} text-yellow-400 text-xs sm:text-sm`}></i>
+                        ))}
+                      </div>
+                      <span className="text-xs sm:text-sm text-gray-600 ml-1">{similarSupplier.rating.toFixed(1)}</span>
+                      <span className="text-xs text-gray-500 ml-1">({similarSupplier.review_count})</span>
+                    </div>
+                    <Link
+                      to={`/supplier/${similarSupplier.id}`}
+                      className="text-green-600 hover:text-green-700 text-xs sm:text-sm font-medium whitespace-nowrap"
+                    >
+                      {t('supplier.see_details')}
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -901,7 +879,7 @@ export default function SupplierDetail() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4 sm:mb-6">
-              <h3 className="text-base sm:text-lg lg:text-xl font-semibold">Contacter {supplier.name}</h3>
+              <h3 className="text-base sm:text-lg lg:text-xl font-semibold">{t('supplier.contact_form_title')} {transformedSupplier?.name}</h3>
               <button
                 onClick={() => setShowContactForm(false)}
                 className="text-gray-400 hover:text-gray-600 p-1"
@@ -914,82 +892,82 @@ export default function SupplierDetail() {
               onSubmit={handleContactSubmit}
               className="space-y-4"
               data-readdy-form
-              id={`contact-supplier-${supplier.id}`}
+              id={`contact-supplier-${transformedSupplier?.id}`}
             >
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Votre nom *
+                  {t('supplier.your_name')} *
                 </label>
                 <input
                   type="text"
                   name="name"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
-                  placeholder="Votre nom complet"
+                  placeholder={t('supplier.placeholder_name')}
                   required
                 />
               </div>
 
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Email *
+                  {t('supplier.email')} *
                 </label>
                 <input
                   type="email"
                   name="email"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
-                  placeholder="votre@email.com"
+                  placeholder={t('supplier.placeholder_email')}
                   required
                 />
               </div>
 
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Téléphone
+                  {t('supplier.phone_number')}
                 </label>
                 <input
                   type="tel"
                   name="phone"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
-                  placeholder="+234 xxx xxx xxxx"
+                  placeholder={t('supplier.placeholder_phone')}
                 />
               </div>
 
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Sujet *
+                  {t('supplier.subject')} *
                 </label>
                 <select
                   name="subject"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent pr-8 text-xs sm:text-sm"
                   required
                 >
-                  <option value="">Sélectionnez un sujet</option>
-                  <option value="Demande de devis">Demande de devis</option>
-                  <option value="Information produit">Information produit</option>
-                  <option value="Partenariat">Partenariat</option>
-                  <option value="Support">Support</option>
-                  <option value="Autre">Autre</option>
+                  <option value="">{t('supplier.select_subject')}</option>
+                  <option value="Demande de devis">{t('supplier.quote_request')}</option>
+                  <option value="Information produit">{t('supplier.product_info')}</option>
+                  <option value="Partenariat">{t('supplier.partnership')}</option>
+                  <option value="Support">{t('supplier.support')}</option>
+                  <option value="Autre">{t('supplier.other')}</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                  Message *
+                  {t('supplier.message')} *
                 </label>
                 <textarea
                   rows={4}
                   name="message"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
-                  placeholder="Décrivez votre demande en détail..."
+                  placeholder={t('supplier.placeholder_message')}
                   maxLength={500}
                   required
                 ></textarea>
-                <p className="text-xs text-gray-500 mt-1">Maximum 500 caractères</p>
+                <p className="text-xs text-gray-500 mt-1">{t('supplier.max_characters')}</p>
               </div>
 
-              <input type="hidden" name="supplier_name" value={supplier.name} />
-              <input type="hidden" name="supplier_id" value={supplier.id} />
-              <input type="hidden" name="supplier_email" value={supplier.email} />
+              <input type="hidden" name="supplier_name" value={transformedSupplier?.name} />
+              <input type="hidden" name="supplier_id" value={transformedSupplier?.id} />
+              <input type="hidden" name="supplier_email" value={transformedSupplier?.email} />
 
               <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <button
@@ -997,7 +975,7 @@ export default function SupplierDetail() {
                   onClick={() => setShowContactForm(false)}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-xs sm:text-sm"
                 >
-                  Annuler
+                  {t('supplier.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -1007,12 +985,12 @@ export default function SupplierDetail() {
                   {isSubmitting ? (
                     <>
                       <i className="ri-loader-4-line animate-spin mr-2"></i>
-                      Envoi...
+                      {t('supplier.sending')}
                     </>
                   ) : (
                     <>
                       <i className="ri-send-plane-line mr-2"></i>
-                      Envoyer
+                      {t('supplier.send')}
                     </>
                   )}
                 </button>

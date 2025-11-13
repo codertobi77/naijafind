@@ -93,7 +93,21 @@ export const common = {
 
   // Footer
   "footer.rights": "Tous droits réservés",
-  "footer.powered_by": "Propulsé par Readdy"
+  "footer.powered_by": "Propulsé par Readdy",
+  "footer.quick_links": "Liens rapides",
+  "footer.support": "Support",
+  "footer.follow_us": "Suivez-nous",
+  "footer.description": "Le moteur de recherche géolocalisé de référence pour tous les fournisseurs du Nigeria.",
+
+  // Pages
+  "page.about": "À propos",
+  "page.contact": "Contact",
+  "page.faq": "FAQ",
+  "page.help": "Aide",
+  "page.privacy": "Confidentialité",
+  "page.categories": "Catégories",
+  "page.supplier": "Fournisseur",
+  "page.admin": "Admin"
 };
 
 export default common;

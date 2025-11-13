@@ -1,20 +1,33 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQuery, useConvexAuth } from 'convex/react';
+import { useConvexAuth } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
 import { useTranslation } from 'react-i18next';
 import LanguageSelector from '../../components/base/LanguageSelector';
+import { useConvexQuery } from '../../hooks/useConvexQuery';
 
 export default function Categories() {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const meData = useQuery(api.users.me, {});
-  const categoriesData = useQuery(api.categories.getAllCategories, {});
-  const allSuppliers = useQuery(api.suppliers.searchSuppliers, { limit: BigInt(1000) });
+  
+  // Using React Query with optimized cache times
+  const { data: meData } = useConvexQuery(api.users.me, {}, { staleTime: 2 * 60 * 1000 });
+  const { data: categoriesData, isLoading: categoriesLoading } = useConvexQuery(
+    api.categories.getAllCategories,
+    {},
+    { staleTime: 15 * 60 * 1000 } // Categories don't change often - cache for 15 minutes
+  );
+  const { data: allSuppliers, isLoading: suppliersLoading } = useConvexQuery(
+    api.suppliers.searchSuppliers,
+    { limit: BigInt(1000) },
+    { staleTime: 5 * 60 * 1000 } // Cache supplier list for 5 minutes
+  );
+
+  // Loading state
+  const loading = categoriesLoading || suppliersLoading;
 
   // Calculer le nombre de suppliers par catégorie
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
@@ -63,30 +76,47 @@ export default function Categories() {
     category.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">{t('msg.loading')}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-green-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link to="/" className="text-xl sm:text-2xl font-bold text-green-600" style={{ fontFamily: "Pacifico, serif" }}>
-                NaijaFind
+          <div className="flex justify-between items-center h-16 md:h-20">
+            <div className="flex items-center group">
+              <Link to="/" className="flex items-center space-x-2">
+                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
+                  <i className="ri-compass-3-fill text-white text-xl"></i>
+                </div>
+                <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent" style={{ fontFamily: "Pacifico, serif" }}>
+                  NaijaFind
+                </span>
               </Link>
             </div>
-            <nav className="hidden md:flex space-x-8">
-              <Link to="/" className="text-green-600 font-medium">{t('nav.home')}</Link>
-              <Link to="/search" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.search')}</Link>
-              <Link to="/categories" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.categories')}</Link>
-              <Link to="/about" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.about')}</Link>
+            <nav className="hidden md:flex space-x-1">
+              <Link to="/" className="px-4 py-2 rounded-lg text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium transition-all">{t('nav.home')}</Link>
+              <Link to="/search" className="px-4 py-2 rounded-lg text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium transition-all">{t('nav.search')}</Link>
+              <Link to="/categories" className="px-4 py-2 rounded-lg text-green-600 bg-green-50 font-medium transition-all">{t('nav.categories')}</Link>
+              <Link to="/about" className="px-4 py-2 rounded-lg text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium transition-all">{t('nav.about')}</Link>
             </nav>
             <div className="flex items-center space-x-2 sm:space-x-4">
               <LanguageSelector />
               <SignedOut>
-                <Link to="/auth/login" className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium whitespace-nowrap text-sm sm:text-base">
+                <Link to="/auth/login" className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 sm:px-6 py-2.5 rounded-xl hover:shadow-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-medium whitespace-nowrap text-sm sm:text-base transform hover:-translate-y-0.5">
                   {t('nav.login')}
                 </Link>
-                <Link to="/auth/register" className="border border-green-600 text-green-600 px-3 sm:px-4 py-2 rounded-lg hover:bg-green-50 transition-colors font-medium whitespace-nowrap text-sm sm:text-base hidden sm:block">
+                <Link to="/auth/register" className="border-2 border-green-600 text-green-600 px-4 sm:px-6 py-2.5 rounded-xl hover:bg-green-50 hover:border-green-700 transition-all duration-300 font-medium whitespace-nowrap text-sm sm:text-base hidden sm:block">
                   {t('nav.register')}
                 </Link>
               </SignedOut>
@@ -114,66 +144,76 @@ export default function Categories() {
       </header>
 
       {/* Hero Section */}
-      <section className="bg-green-600 py-12 sm:py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-            Explorez toutes les catégories
+      <section className="bg-gradient-to-r from-green-600 to-emerald-600 py-16 sm:py-20 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full filter blur-3xl"></div>
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full filter blur-3xl"></div>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+          <div className="inline-flex items-center px-4 py-2 bg-white/20 backdrop-blur-md rounded-full border border-white/30 mb-6">
+            <i className="ri-grid-line text-white mr-2"></i>
+            <span className="text-white text-sm font-semibold">{t('categories.title')}</span>
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-bold text-white mb-6">
+            {t('categories.explore')}
           </h1>
-          <p className="text-lg sm:text-xl text-green-100 mb-6 sm:mb-8 max-w-2xl mx-auto">
-            Découvrez les fournisseurs par secteur d'activité et trouvez exactement ce que vous cherchez
+          <p className="text-xl sm:text-2xl text-green-50 mb-10 max-w-2xl mx-auto">
+            {t('categories.subtitle')}
           </p>
           
           {/* Search Bar */}
-          <div className="max-w-md mx-auto">
+          <div className="max-w-xl mx-auto">
             <div className="relative">
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Rechercher une catégorie..."
-                className="w-full px-4 py-3 pl-12 rounded-lg border-0 focus:ring-2 focus:ring-white focus:ring-opacity-50 text-gray-900 text-sm sm:text-base"
+                placeholder={t('categories.search_placeholder')}
+                className="w-full px-6 py-4 pl-14 rounded-2xl border-0 focus:ring-4 focus:ring-white/30 text-gray-900 shadow-xl text-base outline-none"
               />
-              <i className="ri-search-line absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+              <i className="ri-search-line absolute left-5 top-1/2 transform -translate-y-1/2 text-gray-400 text-xl"></i>
             </div>
           </div>
         </div>
       </section>
 
       {/* Categories Grid */}
-      <section className="py-12 sm:py-16">
+      <section className="py-16 sm:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {filteredCategories.map((category, index) => (
-              <div key={category.name} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow cursor-pointer">
-                <div className="h-40 sm:h-48 relative">
+              <div key={category.name} className="group bg-white rounded-2xl shadow-soft overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-100 hover:-translate-y-2">
+                <div className="h-48 relative overflow-hidden">
                   <img
                     src={`https://readdy.ai/api/search-image?query=${encodeURIComponent(category.image)}&width=400&height=300&seq=cat-${index}&orientation=landscape`}
                     alt={category.name}
-                    className="w-full h-full object-cover object-top"
+                    className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-black/20"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
                   <div className="absolute top-4 left-4">
-                    <div className="w-10 sm:w-12 h-10 sm:h-12 bg-white/90 rounded-full flex items-center justify-center">
-                      <i className={`${category.icon} text-xl sm:text-2xl text-green-600`}></i>
+                    <div className="w-14 h-14 bg-white/95 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                      <i className={`${category.icon} text-2xl text-green-600`}></i>
                     </div>
                   </div>
-                </div>
-                
-                <div className="p-4 sm:p-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg sm:text-xl font-semibold text-gray-900">{category.name}</h3>
-                    <span className="bg-green-100 text-green-800 text-xs sm:text-sm font-medium px-2 py-1 rounded-full">
+                  <div className="absolute bottom-4 right-4">
+                    <span className="inline-flex items-center px-3 py-1.5 bg-white/95 backdrop-blur-md text-green-700 text-sm font-bold rounded-full shadow-lg">
                       {category.count.toLocaleString()}
                     </span>
                   </div>
-                  
-                  <p className="text-gray-600 mb-4 text-sm sm:text-base">{category.description}</p>
+                </div>
+                
+                <div className="p-6">
+                  <div className="mb-4">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-green-600 transition-colors">{category.name}</h3>
+                    <p className="text-gray-600 text-sm leading-relaxed">{category.description}</p>
+                  </div>
                   
                   <Link
                     to={`/search?category=${encodeURIComponent(category.name)}`}
-                    className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors text-center block whitespace-nowrap text-sm sm:text-base"
+                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-4 rounded-xl hover:shadow-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 text-center block font-semibold text-sm transform group-hover:-translate-y-0.5"
                   >
-                    Explorer cette catégorie
+                    <i className="ri-arrow-right-line mr-2"></i>
+                    {t('categories.explore_category')}
                   </Link>
                 </div>
               </div>
@@ -183,8 +223,8 @@ export default function Categories() {
           {filteredCategories.length === 0 && (
             <div className="text-center py-12">
               <i className="ri-search-line text-4xl sm:text-6xl text-gray-400 mb-4"></i>
-              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Aucune catégorie trouvée</h3>
-              <p className="text-gray-600 text-sm sm:text-base">Essayez avec d'autres mots-clés</p>
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">{t('categories.no_results')}</h3>
+              <p className="text-gray-600 text-sm sm:text-base">{t('categories.try_keywords')}</p>
             </div>
           )}
         </div>
@@ -195,29 +235,29 @@ export default function Categories() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8 sm:mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">
-              NaijaFind en chiffres
+              {t('categories.stats_title')}
             </h2>
             <p className="text-base sm:text-lg text-gray-600">
-              La plateforme de référence pour les fournisseurs nigérians
+              {t('categories.stats_subtitle')}
             </p>
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 text-center">
             <div>
               <div className="text-2xl sm:text-4xl font-bold text-green-600 mb-2">25,000+</div>
-              <div className="text-gray-600 text-sm sm:text-base">Fournisseurs vérifiés</div>
+              <div className="text-gray-600 text-sm sm:text-base">{t('categories.verified_suppliers')}</div>
             </div>
             <div>
               <div className="text-2xl sm:text-4xl font-bold text-green-600 mb-2">500+</div>
-              <div className="text-gray-600 text-sm sm:text-base">Catégories de produits</div>
+              <div className="text-gray-600 text-sm sm:text-base">{t('categories.product_categories')}</div>
             </div>
             <div>
               <div className="text-2xl sm:text-4xl font-bold text-green-600 mb-2">36</div>
-              <div className="text-gray-600 text-sm sm:text-base">États couverts</div>
+              <div className="text-gray-600 text-sm sm:text-base">{t('categories.states_covered')}</div>
             </div>
             <div>
               <div className="text-2xl sm:text-4xl font-bold text-green-600 mb-2">1M+</div>
-              <div className="text-gray-600 text-sm sm:text-base">Recherches mensuelles</div>
+              <div className="text-gray-600 text-sm sm:text-base">{t('categories.monthly_searches')}</div>
             </div>
           </div>
         </div>
@@ -232,29 +272,29 @@ export default function Categories() {
                 NaijaFind
               </h3>
               <p className="text-gray-400 text-sm sm:text-base">
-                Le moteur de recherche géolocalisé de référence pour tous les fournisseurs du Nigeria.
+                {t('footer.description')}
               </p>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">Liens rapides</h4>
+              <h4 className="font-semibold mb-4">{t('footer.quick_links')}</h4>
               <ul className="space-y-2 text-gray-400 text-sm sm:text-base">
-                <li><Link to="/search" className="hover:text-white">Rechercher</Link></li>
-                <li><Link to="/categories" className="hover:text-white">Catégories</Link></li>
-                <li><Link to="/about" className="hover:text-white">À propos</Link></li>
-                <li><Link to="/contact" className="hover:text-white">Contact</Link></li>
+                <li><Link to="/search" className="hover:text-white">{t('nav.search')}</Link></li>
+                <li><Link to="/categories" className="hover:text-white">{t('nav.categories')}</Link></li>
+                <li><Link to="/about" className="hover:text-white">{t('nav.about')}</Link></li>
+                <li><Link to="/contact" className="hover:text-white">{t('nav.contact')}</Link></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">Support</h4>
+              <h4 className="font-semibold mb-4">{t('footer.support')}</h4>
               <ul className="space-y-2 text-gray-400 text-sm sm:text-base">
-                <li><Link to="/help" className="hover:text-white">Centre d'aide</Link></li>
-                <li><Link to="/contact" className="hover:text-white">Contact</Link></li>
-                <li><Link to="/faq" className="hover:text-white">FAQ</Link></li>
-                <li><Link to="/privacy" className="hover:text-white">Confidentialité</Link></li>
+                <li><Link to="/help" className="hover:text-white">{t('nav.help')}</Link></li>
+                <li><Link to="/contact" className="hover:text-white">{t('nav.contact')}</Link></li>
+                <li><Link to="/faq" className="hover:text-white">{t('nav.faq')}</Link></li>
+                <li><Link to="/privacy" className="hover:text-white">{t('nav.privacy')}</Link></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">Suivez-nous</h4>
+              <h4 className="font-semibold mb-4">{t('footer.follow_us')}</h4>
               <div className="flex space-x-4">
                 <a href="#" className="text-gray-400 hover:text-white">
                   <i className="ri-facebook-fill text-xl"></i>
@@ -272,7 +312,7 @@ export default function Categories() {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-6 sm:mt-8 pt-6 sm:pt-8 text-center text-gray-400 text-sm sm:text-base">
-            <p>&copy; 2024 NaijaFind. Tous droits réservés. | <a href="https://readdy.ai/?origin=logo" className="hover:text-white">Powered by Readdy</a></p>
+            <p>&copy; 2024 NaijaFind. {t('footer.rights')} | <a href="https://readdy.ai/?origin=logo" className="hover:text-white">{t('footer.powered_by')}</a></p>
           </div>
         </div>
       </footer>

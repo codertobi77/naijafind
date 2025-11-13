@@ -5,7 +5,9 @@ import './index.css';
 import App from './App.tsx';
 import { ClerkProvider, useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { convex } from './convexClient';
+import { queryClient } from './lib/queryClient';
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 if (!PUBLISHABLE_KEY) {
@@ -18,7 +20,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
       <ConvexProviderWithClerk client={convex} useAuth={useClerkAuth}>
-        <App />
+        <QueryClientProvider client={queryClient}>
+          <App />
+        </QueryClientProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>
   </StrictMode>,

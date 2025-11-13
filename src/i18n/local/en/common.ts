@@ -93,7 +93,21 @@ export const common = {
 
   // Footer
   "footer.rights": "All rights reserved",
-  "footer.powered_by": "Powered by Readdy"
+  "footer.powered_by": "Powered by Readdy",
+  "footer.quick_links": "Quick Links",
+  "footer.support": "Support",
+  "footer.follow_us": "Follow us",
+  "footer.description": "The leading geo-located search engine for all suppliers in Nigeria.",
+
+  // Pages
+  "page.about": "About",
+  "page.contact": "Contact",
+  "page.faq": "FAQ",
+  "page.help": "Help",
+  "page.privacy": "Privacy",
+  "page.categories": "Categories",
+  "page.supplier": "Supplier",
+  "page.admin": "Admin"
 };
 
 export default common;

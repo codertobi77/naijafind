@@ -13,10 +13,12 @@ export const searchSuppliers = query({
     verified: v.optional(v.boolean()),
     limit: v.optional(v.int64()),
     offset: v.optional(v.int64()),
+    sortBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const limit = Number(args.limit ?? 20);
     const offset = Number(args.offset ?? 0);
+    const sortBy = args.sortBy || 'relevance';
 
     let all = await ctx.db.query("suppliers").collect();
 
@@ -58,12 +60,26 @@ export const searchSuppliers = query({
           }
           return { ...s, distance: Number.POSITIVE_INFINITY } as typeof s & { distance: number };
         })
-        .filter(s => s.distance <= radius)
-        .sort((a, b) => a.distance - b.distance);
+        .filter(s => s.distance <= radius);
     }
 
+    // Apply sorting
+    if (sortBy === 'distance') {
+      all = all.sort((a, b) => {
+        const distA = (a as any).distance ?? Number.POSITIVE_INFINITY;
+        const distB = (b as any).distance ?? Number.POSITIVE_INFINITY;
+        return distA - distB;
+      });
+    } else if (sortBy === 'rating') {
+      all = all.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+    } else if (sortBy === 'reviews') {
+      all = all.sort((a, b) => Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0));
+    }
+    // else sortBy === 'relevance' - keep original order
+
+    const total = all.length;
     const sliced = all.slice(offset, offset + limit);
-    return { suppliers: sliced };
+    return { suppliers: sliced, total };
   }
 });
 
@@ -138,4 +154,5 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
 }
 
 function toRad(v: number) { return v * Math.PI / 180; }
+
 

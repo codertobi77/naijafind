@@ -1,11 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import LanguageSelector from '../../components/base/LanguageSelector';
-import { useQuery, useConvexAuth } from 'convex/react';
+import { useConvexAuth } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import { useConvexQuery } from '../../hooks/useConvexQuery';
 
 interface Supplier {
   id: string;
@@ -25,13 +26,53 @@ export default function Home() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const meData = useQuery(api.users.me, {});
+  
+  // Using React Query cached queries instead of direct Convex queries
+  const { data: meData } = useConvexQuery(api.users.me, {}, { staleTime: 2 * 60 * 1000 });
+  const { data: featuredSuppliersData, isLoading: loadingSuppliers } = useConvexQuery(
+    api.suppliers.searchSuppliers, 
+    { limit: BigInt(3), verified: true },
+    { staleTime: 10 * 60 * 1000 } // Cache for 10 minutes since featured suppliers don't change often
+  );
+  const { data: categories } = useConvexQuery(
+    api.categories.getAllCategories, 
+    {},
+    { staleTime: 15 * 60 * 1000 } // Cache categories for 15 minutes
+  );
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [location, setLocation] = useState('');
   const [category, setCategory] = useState('');
-  const featuredSuppliers = useQuery(api.suppliers.searchSuppliers, { limit: BigInt(3), verified: true });
-  const categories = useQuery(api.categories.getAllCategories, {});
-  const [loadingSuppliers, setLoadingSuppliers] = useState(true);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  
+  // Extract suppliers array from Convex response
+  const featuredSuppliers = featuredSuppliersData?.suppliers || [];
+
+  // Categories carousel logic
+  const categoriesPerSlide = 3;
+  const totalSlides = categories ? Math.ceil(categories.length / categoriesPerSlide) : 0;
+
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % totalSlides);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + totalSlides) % totalSlides);
+  };
+
+  const goToSlide = (index: number) => {
+    setCurrentSlide(index);
+  };
+
+  // Auto-play carousel
+  useEffect(() => {
+    const interval = setInterval(() => {
+      nextSlide();
+    }, 5000); // Change slide every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [totalSlides]);
 
   const handleAddBusinessClick = () => {
     if (!isLoading) {
@@ -50,149 +91,45 @@ export default function Home() {
     }
   };
 
-  useEffect(() => {
-    // fetchFeaturedSuppliers(); // This function is no longer needed
-  }, []);
 
-  // const fetchFeaturedSuppliers = async () => { // This function is no longer needed
-  //   try {
-  //     const response = await fetch(
-  //       'https://khqolgtkhonnguqqizrx.supabase.co/functions/v1/search-suppliers?limit=3&featured=true'
-  //     );
-  //     const data = await response.json();
-      
-  //     if (data.suppliers && data.suppliers.length > 0) {
-  //       setFeaturedSuppliers(data.suppliers);
-  //     } else {
-  //       // Données de fallback si aucun fournisseur en base
-  //       setFeaturedSuppliers([
-  //         {
-  //           id: 'demo-1',
-  //           name: 'Alaba Electronics Market',
-  //           category: 'Électronique',
-  //           location: 'Lagos, Nigeria',
-  //           rating: 4.8,
-  //           review_count: 324,
-  //           phone: '+234 803 123 4567',
-  //           email: 'contact@alabaelectronics.ng',
-  //           verified: true,
-  //           description: 'Spécialiste en électronique grand public, smartphones, ordinateurs et accessoires technologiques de qualité.',
-  //           image_url: 'Modern electronics store in Lagos Nigeria with smartphones tablets computers displayed on shelves, bright LED lighting, professional retail environment, customers browsing products, clean organized layout'
-  //         },
-  //         {
-  //           id: 'demo-2',
-  //           name: 'Kano Textile Industries',
-  //           category: 'Textile',
-  //           location: 'Kano, Nigeria',
-  //           rating: 4.9,
-  //           review_count: 256,
-  //           phone: '+234 805 987 6543',
-  //           email: 'info@kanotextile.com',
-  //           verified: true,
-  //           description: 'Fabricant traditionnel de textiles nigérians, spécialisé dans les tissus authentiques et les vêtements sur mesure.',
-  //           image_url: 'Traditional Nigerian textile factory with colorful fabrics being woven, workers in traditional dress operating looms, vibrant patterns and colors, authentic cultural setting, natural lighting'
-  //         },
-  //         {
-  //           id: 'demo-3',
-  //           name: 'Onitsha Main Market',
-  //           category: 'Commerce général',
-  //           location: 'Anambra, Nigeria',
-  //           rating: 4.7,
-  //           review_count: 189,
-  //           phone: '+234 807 456 7890',
-  //           email: 'market@onitsha.ng',
-  //           verified: false,
-  //           description: 'Marché principal d\'Onitsha offrant une large gamme de produits : alimentation, vêtements, électroménager et plus.',
-  //           image_url: 'Bustling Nigerian marketplace with vendors selling various goods, colorful stalls with fruits vegetables and household items, busy shoppers, traditional market atmosphere, warm natural lighting'
-  //         }
-  //       ]);
-  //     }
-  //   } catch (error) {
-  //     console.error('Erreur lors du chargement des fournisseurs:', error);
-  //     // Utiliser les données de fallback en cas d\'erreur
-  //     setFeaturedSuppliers([
-  //       {
-  //         id: 'demo-1',
-  //         name: 'Alaba Electronics Market',
-  //         category: 'Électronique',
-  //         location: 'Lagos, Nigeria',
-  //         rating: 4.8,
-  //         review_count: 324,
-  //         phone: '+234 803 123 4567',
-  //         email: 'contact@alabaelectronics.ng',
-  //         verified: true,
-  //         description: 'Spécialiste en électronique grand public, smartphones, ordinateurs et accessoires technologiques de qualité.',
-  //         image_url: 'Modern electronics store in Lagos Nigeria with smartphones tablets computers displayed on shelves, bright LED lighting, professional retail environment, customers browsing products, clean organized layout'
-  //       },
-  //       {
-  //         id: 'demo-2',
-  //         name: 'Kano Textile Industries',
-  //         category: 'Textile',
-  //         location: 'Kano, Nigeria',
-  //         rating: 4.9,
-  //         review_count: 256,
-  //         phone: '+234 805 987 6543',
-  //         email: 'info@kanotextile.com',
-  //         verified: true,
-  //         description: 'Fabricant traditionnel de textiles nigérians, spécialisé dans les tissus authentiques et les vêtements sur mesure.',
-  //         image_url: 'Traditional Nigerian textile factory with colorful fabrics being woven, workers in traditional dress operating looms, vibrant patterns and colors, authentic cultural setting, natural lighting'
-  //       },
-  //       {
-  //         id: 'demo-3',
-  //         name: 'Onitsha Main Market',
-  //         category: 'Commerce général',
-  //         location: 'Anambra, Nigeria',
-  //         rating: 4.7,
-  //         review_count: 189,
-  //         phone: '+234 807 456 7890',
-  //         email: 'market@onitsha.ng',
-  //         verified: false,
-  //         description: 'Marché principal d\'Onitsha offrant une large gamme de produits : alimentation, vêtements, électroménager et plus.',
-  //         image_url: 'Bustling Nigerian marketplace with vendors selling various goods, colorful stalls with fruits vegetables and household items, busy shoppers, traditional market atmosphere, warm natural lighting'
-  //       }
-  //     ]);
-  //   } finally {
-  //     setLoadingSuppliers(false);
-  //   }
-  // };
 
   const handleSearch = () => {
     const params = new URLSearchParams();
     if (searchQuery) params.set('q', searchQuery);
     if (location) params.set('location', location);
     if (category) params.set('category', category);
-    if (window.REACT_APP_NAVIGATE) {
-      window.REACT_APP_NAVIGATE(`/search?${params.toString()}`);
-    }
+    navigate(`/search?${params.toString()}`);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-green-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link to="/" className="text-xl sm:text-2xl font-bold text-green-600" style={{ fontFamily: "Pacifico, serif" }}>
-                NaijaFind
+          <div className="flex justify-between items-center h-16 md:h-20">
+            <div className="flex items-center group">
+              <Link to="/" className="flex items-center space-x-2">
+                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
+                  <i className="ri-compass-3-fill text-white text-xl"></i>
+                </div>
+                <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent" style={{ fontFamily: "Pacifico, serif" }}>
+                  NaijaFind
+                </span>
               </Link>
             </div>
-            <nav className="hidden md:flex space-x-8">
-              <Link to="/" className="text-green-600 font-medium">{t('nav.home')}</Link>
-              <Link to="/search" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.search')}</Link>
-              <Link to="/categories" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.categories')}</Link>
-              <Link to="/about" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.about')}</Link>
+            <nav className="hidden md:flex space-x-1">
+              <Link to="/" className="px-4 py-2 rounded-lg text-green-600 bg-green-50 font-medium transition-all">{t('nav.home')}</Link>
+              <Link to="/search" className="px-4 py-2 rounded-lg text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium transition-all">{t('nav.search')}</Link>
+              <Link to="/categories" className="px-4 py-2 rounded-lg text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium transition-all">{t('nav.categories')}</Link>
+              <Link to="/about" className="px-4 py-2 rounded-lg text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium transition-all">{t('nav.about')}</Link>
             </nav>
             <div className="flex items-center space-x-2 sm:space-x-4">
               <LanguageSelector />
               <SignedOut>
-                <Link to="/auth/login" className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium whitespace-nowrap text-sm sm:text-base">
+                <Link to="/auth/login" className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 sm:px-6 py-2.5 rounded-xl hover:shadow-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-medium whitespace-nowrap text-sm sm:text-base transform hover:-translate-y-0.5">
                   {t('nav.login')}
                 </Link>
-                <Link to="/auth/register" className="border border-green-600 text-green-600 px-3 sm:px-4 py-2 rounded-lg hover:bg-green-50 transition-colors font-medium whitespace-nowrap text-sm sm:text-base hidden sm:block">
-                  {t('nav.register')}
-                </Link>
-                <Link to="/auth/register" className="border border-green-600 text-green-600 px-3 py-2 rounded-lg hover:bg-green-50 transition-colors font-medium whitespace-nowrap text-sm sm:hidden">
+                <Link to="/auth/register" className="border-2 border-green-600 text-green-600 px-4 sm:px-6 py-2.5 rounded-xl hover:bg-green-50 hover:border-green-700 transition-all duration-300 font-medium whitespace-nowrap text-sm sm:text-base hidden sm:block">
                   {t('nav.register')}
                 </Link>
               </SignedOut>
@@ -220,57 +157,61 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative py-12 sm:py-20 px-4 sm:px-6 lg:px-8" 
+      <section className="relative py-16 sm:py-24 lg:py-32 px-4 sm:px-6 lg:px-8 overflow-hidden" 
                style={{
                  backgroundImage: `url('https://readdy.ai/api/search-image?query=Modern%20Nigerian%20marketplace%20with%20vendors%20selling%20colorful%20products%2C%20bustling%20commercial%20district%20in%20Lagos%20with%20traditional%20and%20modern%20buildings%2C%20vibrant%20street%20scene%20with%20people%20shopping%2C%20warm%20golden%20lighting%2C%20professional%20photography%20style%2C%20clean%20organized%20market%20stalls&width=1200&height=600&seq=hero-nigeria&orientation=landscape')`,
                  backgroundSize: 'cover',
                  backgroundPosition: 'center'
                }}>
-        <div className="absolute inset-0 bg-black/40"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/50 to-black/40"></div>
         <div className="relative max-w-7xl mx-auto">
-          <div className="max-w-3xl">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 sm:mb-6">
+          <div className="max-w-3xl animate-fade-in-up">
+            <div className="inline-flex items-center px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20 mb-6">
+              <span className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
+              <span className="text-white/90 text-sm font-medium">Trusted by 25,000+ Nigerian businesses</span>
+            </div>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
               {t('hero.title')}
             </h1>
-            <p className="text-lg sm:text-xl text-white/90 mb-6 sm:mb-8">
+            <p className="text-xl sm:text-2xl text-white/95 mb-10 leading-relaxed">
               {t('hero.subtitle')}
             </p>
             
             {/* Search Form */}
-            <div className="bg-white rounded-xl p-4 sm:p-6 shadow-2xl">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            <div className="bg-white/95 backdrop-blur-md rounded-2xl p-6 sm:p-8 shadow-2xl border border-white/20">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 <div className="sm:col-span-2 lg:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('hero.search_placeholder')}
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <i className="ri-search-line mr-1"></i>{t('hero.search_placeholder')}
                   </label>
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder={t('hero.search_placeholder')}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('label.location')}
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <i className="ri-map-pin-line mr-1"></i>{t('label.location')}
                   </label>
                   <input
                     type="text"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     placeholder={t('hero.location_placeholder')}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('label.category')}
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <i className="ri-list-check mr-1"></i>{t('label.category')}
                   </label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm pr-8"
+                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm pr-10 outline-none"
                   >
                     <option value="">{t('categories.view_all')}</option>
                     {categories?.map((cat) => (
@@ -283,9 +224,9 @@ export default function Home() {
               </div>
               <button 
                 onClick={handleSearch}
-                className="w-full bg-green-600 text-white py-2 sm:py-3 px-4 sm:px-6 rounded-lg hover:bg-green-7 transition-colors font-medium whitespace-nowrap text-sm sm:text-base"
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-4 px-8 rounded-xl hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-semibold text-base transform hover:-translate-y-0.5"
               >
-                <i className="ri-search-line mr-2"></i>
+                <i className="ri-search-line mr-2 text-lg"></i>
                 {t('hero.cta')}
               </button>
             </div>
@@ -294,57 +235,138 @@ export default function Home() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-12 sm:py-16 bg-white">
+      <section className="py-16 sm:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8 text-center">
-            <div>
-              <div className="text-2xl sm:text-4xl font-bold text-green-600 mb-2">25,000+</div>
-              <div className="text-gray-600 text-sm sm:text-base">{t('stats.suppliers')}</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
+            <div className="text-center group hover-lift">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl mb-4 group-hover:shadow-lg transition-all">
+                <i className="ri-building-line text-3xl text-green-600"></i>
+              </div>
+              <div className="text-3xl sm:text-5xl font-bold text-gradient mb-2">25,000+</div>
+              <div className="text-gray-600 text-sm sm:text-base font-medium">{t('stats.suppliers')}</div>
             </div>
-            <div>
-              <div className="text-2xl sm:text-4xl font-bold text-green-600 mb-2">500+</div>
-              <div className="text-gray-600 text-sm sm:text-base">{t('stats.categories')}</div>
+            <div className="text-center group hover-lift">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl mb-4 group-hover:shadow-lg transition-all">
+                <i className="ri-stack-line text-3xl text-blue-600"></i>
+              </div>
+              <div className="text-3xl sm:text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">500+</div>
+              <div className="text-gray-600 text-sm sm:text-base font-medium">{t('stats.categories')}</div>
             </div>
-            <div>
-              <div className="text-2xl sm:text-4xl font-bold text-green-600 mb-2">36</div>
-              <div className="text-gray-600 text-sm sm:text-base">{t('stats.cities')}</div>
+            <div className="text-center group hover-lift">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl mb-4 group-hover:shadow-lg transition-all">
+                <i className="ri-map-2-line text-3xl text-purple-600"></i>
+              </div>
+              <div className="text-3xl sm:text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">36</div>
+              <div className="text-gray-600 text-sm sm:text-base font-medium">{t('stats.cities')}</div>
             </div>
-            <div>
-              <div className="text-2xl sm:text-4xl font-bold text-green-600 mb-2">1M+</div>
-              <div className="text-gray-600 text-sm sm:text-base">{t('stats.reviews')}</div>
+            <div className="text-center group hover-lift">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-100 to-red-100 rounded-2xl mb-4 group-hover:shadow-lg transition-all">
+                <i className="ri-star-line text-3xl text-orange-600"></i>
+              </div>
+              <div className="text-3xl sm:text-5xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-2">1M+</div>
+              <div className="text-gray-600 text-sm sm:text-base font-medium">{t('stats.reviews')}</div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Categories Section */}
-      <section className="py-12 sm:py-16 bg-gray-50">
+      <section className="py-16 sm:py-20 bg-gradient-to-br from-gray-50 to-green-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-8 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">
+          <div className="text-center mb-12 sm:mb-16">
+            <div className="inline-flex items-center px-4 py-2 bg-green-100 rounded-full mb-4">
+              <i className="ri-grid-line text-green-600 mr-2"></i>
+              <span className="text-green-700 text-sm font-semibold">Browse by Category</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
               {t('categories.title')}
             </h2>
-            <p className="text-base sm:text-lg text-gray-600">
+            <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto">
               {t('categories.subtitle')}
             </p>
           </div>
           
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
-            {categories?.map((category) => (
-              <Link
-                key={category._id}
-                to={`/search?category=${encodeURIComponent(category.name)}`}
-                className="bg-white rounded-xl p-4 sm:p-6 text-center hover:shadow-lg transition-shadow cursor-pointer"
+          {/* Carousel Container */}
+          <div className="relative">
+            {/* Navigation Buttons */}
+            <button
+              onClick={prevSlide}
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 sm:-translate-x-6 z-10 w-12 h-12 sm:w-14 sm:h-14 bg-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center text-green-600 hover:text-white hover:bg-gradient-to-r hover:from-green-600 hover:to-emerald-600 group"
+              aria-label="Previous categories"
+            >
+              <i className="ri-arrow-left-s-line text-2xl sm:text-3xl"></i>
+            </button>
+            
+            <button
+              onClick={nextSlide}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 sm:translate-x-6 z-10 w-12 h-12 sm:w-14 sm:h-14 bg-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center text-green-600 hover:text-white hover:bg-gradient-to-r hover:from-green-600 hover:to-emerald-600 group"
+              aria-label="Next categories"
+            >
+              <i className="ri-arrow-right-s-line text-2xl sm:text-3xl"></i>
+            </button>
+
+            {/* Carousel Track */}
+            <div className="overflow-hidden" ref={carouselRef}>
+              <div 
+                className="flex transition-transform duration-700 ease-in-out"
+                style={{ transform: `translateX(-${currentSlide * 100}%)` }}
               >
-                <div className="w-12 sm:w-16 h-12 sm:h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                  <i className={`${category.icon || 'ri-folder-line'} text-xl sm:text-2xl text-green-600`}></i>
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-1 sm:mb-2 text-sm sm:text-base">{category.name}</h3>
-                {category.description && (
-                  <p className="text-xs sm:text-sm text-gray-600 line-clamp-2">{category.description}</p>
-                )}
+                {categories && Array.from({ length: totalSlides }).map((_, slideIndex) => (
+                  <div key={slideIndex} className="w-full flex-shrink-0">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-2">
+                      {categories
+                        .slice(slideIndex * categoriesPerSlide, (slideIndex + 1) * categoriesPerSlide)
+                        .map((category) => (
+                          <Link
+                            key={category._id}
+                            to={`/search?category=${encodeURIComponent(category.name)}`}
+                            className="group bg-white rounded-2xl p-6 text-center hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-100 hover:-translate-y-2"
+                          >
+                            <div className="w-20 h-20 bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
+                              <i className={`${category.icon || 'ri-folder-line'} text-3xl text-green-600`}></i>
+                            </div>
+                            <h3 className="font-semibold text-gray-900 mb-2 text-base group-hover:text-green-600 transition-colors">{category.name}</h3>
+                            {category.description && (
+                              <p className="text-sm text-gray-600 line-clamp-2 mb-4">{category.description}</p>
+                            )}
+                            <div className="inline-flex items-center text-green-600 font-semibold text-sm group-hover:gap-2 transition-all">
+                              <span>Explore</span>
+                              <i className="ri-arrow-right-line ml-1 group-hover:translate-x-1 transition-transform"></i>
+                            </div>
+                          </Link>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Dots Indicator */}
+            <div className="flex justify-center items-center gap-2 mt-8">
+              {Array.from({ length: totalSlides }).map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToSlide(index)}
+                  className={`transition-all duration-300 rounded-full ${
+                    currentSlide === index
+                      ? 'w-8 h-2 bg-gradient-to-r from-green-600 to-emerald-600'
+                      : 'w-2 h-2 bg-gray-300 hover:bg-gray-400'
+                  }`}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
+            </div>
+
+            {/* View All Button */}
+            <div className="text-center mt-8">
+              <Link
+                to="/categories"
+                className="inline-flex items-center px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-semibold transform hover:-translate-y-0.5"
+              >
+                <span>View All Categories</span>
+                <i className="ri-arrow-right-line ml-2 text-lg"></i>
               </Link>
-            ))}
+            </div>
           </div>
         </div>
       </section>
@@ -377,78 +399,91 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-              {featuredSuppliers.map((supplier) => (
-                <div key={supplier.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
-                  <div className="h-40 sm:h-48 bg-gray-200 relative">
-                    <img
-                      src={`https://readdy.ai/api/search-image?query=$%7BencodeURIComponent%28supplier.image_url%29%7D&width=400&height=300&seq=supplier-${supplier.id}&orientation=landscape`}
-                      alt={supplier.name}
-                      className="w-full h-full object-cover object-top"
-                    />
-                    {supplier.verified && (
-                      <div className="absolute top-3 right-3 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center">
-                        <i className="ri-verified-badge-fill mr-1"></i>
-                        {t('featured.verified')}
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4 sm:p-6">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-base sm:lg text-gray-900 mb-1 truncate">{supplier.name}</h3>
-                        <p className="text-green-600 text-sm font-medium">{supplier.category}</p>
-                      </div>
-                      <div className="flex items-center bg-yellow-50 px-2 py-1 rounded-lg ml-2 flex-shrink-0">
-                        <i className="ri-star-fill text-yellow-400 text-sm"></i>
-                        <span className="text-sm font-medium text-gray-900 ml-1">{supplier.rating}</span>
-                      </div>
+              {featuredSuppliers.map((supplier: any) => {
+                const supplierId = supplier._id || supplier.id;
+                const supplierName = supplier.business_name || supplier.name || 'Supplier';
+                const supplierLocation = supplier.location || `${supplier.city || ''}, ${supplier.state || ''}`.trim();
+                const supplierRating = supplier.rating || 0;
+                const supplierReviewsCount = Number(supplier.reviews_count || 0);
+                const imageQuery = encodeURIComponent(`${supplierName} ${supplier.category || ''} business Nigeria professional storefront`);
+                
+                return (
+                  <div key={supplierId} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+                    <div className="h-40 sm:h-48 bg-gray-200 relative">
+                      <img
+                        src={`https://readdy.ai/api/search-image?query=${imageQuery}&width=400&height=300&seq=supplier-${supplierId}&orientation=landscape`}
+                        alt={supplierName}
+                        className="w-full h-full object-cover object-top"
+                      />
+                      {supplier.verified && (
+                        <div className="absolute top-3 right-3 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center">
+                          <i className="ri-verified-badge-fill mr-1"></i>
+                          {t('featured.verified')}
+                        </div>
+                      )}
                     </div>
-                    
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{supplier.description}</p>
-                    
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <i className="ri-map-pin-line mr-2 text-green-600 flex-shrink-0"></i>
-                        <span className="truncate">{supplier.location}</span>
+                    <div className="p-4 sm:p-6">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-base sm:lg text-gray-900 mb-1 truncate">{supplierName}</h3>
+                          <p className="text-green-600 text-sm font-medium">{supplier.category}</p>
+                        </div>
+                        <div className="flex items-center bg-yellow-50 px-2 py-1 rounded-lg ml-2 flex-shrink-0">
+                          <i className="ri-star-fill text-yellow-400 text-sm"></i>
+                          <span className="text-sm font-medium text-gray-900 ml-1">{supplierRating.toFixed(1)}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <i className="ri-phone-line mr-2 text-green-600 flex-shrink-0"></i>
-                        <span className="truncate">{supplier.phone}</span>
+                      
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">{supplier.description || 'No description available'}</p>
+                      
+                      <div className="space-y-2 mb-4">
+                        <div className="flex items-center text-sm text-gray-600">
+                          <i className="ri-map-pin-line mr-2 text-green-600 flex-shrink-0"></i>
+                          <span className="truncate">{supplierLocation}</span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600">
+                          <i className="ri-phone-line mr-2 text-green-600 flex-shrink-0"></i>
+                          <span className="truncate">{supplier.phone || 'N/A'}</span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600">
+                          <i className="ri-mail-line mr-2 text-green-600 flex-shrink-0"></i>
+                          <span className="truncate">{supplier.email || 'N/A'}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <i className="ri-mail-line mr-2 text-green-600 flex-shrink-0"></i>
-                        <span className="truncate">{supplier.email}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                      <div className="flex items-center space-x-2">
-                        <a
-                          href={`tel:${supplier.phone}`}
-                          className="p-2 text-gray-400 hover:text-green-600 transition-colors"
-                          title={t('btn.call')}
+                      
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                        <div className="flex items-center space-x-2">
+                          {supplier.phone && (
+                            <a
+                              href={`tel:${supplier.phone}`}
+                              className="p-2 text-gray-400 hover:text-green-600 transition-colors"
+                              title={t('btn.call')}
+                            >
+                              <i className="ri-phone-line text-lg"></i>
+                            </a>
+                          )}
+                          {supplier.email && (
+                            <a
+                              href={`mailto:${supplier.email}`}
+                              className="p-2 text-gray-400 hover:text-green-600 transition-colors"
+                              title={t('btn.email')}
+                            >
+                              <i className="ri-mail-line text-lg"></i>
+                            </a>
+                          )}
+                          <span className="text-sm text-gray-500">({supplierReviewsCount} {t('label.reviews')})</span>
+                        </div>
+                        <Link
+                          to={`/supplier/${supplierId}`}
+                          className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm whitespace-nowrap"
                         >
-                          <i className="ri-phone-line text-lg"></i>
-                        </a>
-                        <a
-                          href={`mailto:${supplier.email}`}
-                          className="p-2 text-gray-400 hover:text-green-600 transition-colors"
-                          title={t('btn.email')}
-                        >
-                          <i className="ri-mail-line text-lg"></i>
-                        </a>
-                        <span className="text-sm text-gray-500">({supplier.review_count} {t('label.reviews')})</span>
+                          {t('featured.view_profile')}
+                        </Link>
                       </div>
-                      <Link
-                        to={`/supplier/${supplier.id}`}
-                        className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm whitespace-nowrap"
-                      >
-                        {t('featured.view_profile')}
-                      </Link>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
