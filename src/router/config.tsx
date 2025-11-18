@@ -1,5 +1,4 @@
-
-import { RouteObject } from 'react-router-dom';
+import { type RouteObject } from 'react-router-dom';
 import { lazy } from 'react';
 
 const Home = lazy(() => import('../pages/home/page'));
@@ -13,6 +12,7 @@ const Help = lazy(() => import('../pages/help/page'));
 const Privacy = lazy(() => import('../pages/privacy/page'));
 const Login = lazy(() => import('../pages/auth/login'));
 const Register = lazy(() => import('../pages/auth/register'));
+const CheckRole = lazy(() => import('../pages/auth/check-role'));
 const ChooseRole = lazy(() => import('../pages/auth/choose-role'));
 const SupplierSetup = lazy(() => import('../pages/auth/supplier-setup'));
 const Dashboard = lazy(() => import('../pages/dashboard/page'));
@@ -65,6 +65,10 @@ const routes: RouteObject[] = [
     element: <Register />,
   },
   {
+    path: '/auth/check-role',
+    element: <CheckRole />,
+  },
+  {
     path: '/auth/choose-role',
     element: <ChooseRole />,
   },
@@ -77,7 +81,7 @@ const routes: RouteObject[] = [
     element: <Dashboard />,
   },
   {
-    path: '/admin',
+    path: '/admin/*',
     element: <Admin />,
   },
   {

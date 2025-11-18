@@ -16,36 +16,36 @@ export default function ChooseRole() {
   const ensureUser = useMutation(api.users.ensureUser);
   const meData = useQuery(api.users.me, {});
 
-  // Si l'utilisateur a déjà un rôle ET a complété les étapes nécessaires, rediriger
+  // If the user already has a role and has completed necessary steps, redirect
   useEffect(() => {
     if (isLoaded && isSignedIn && meData !== undefined) {
-      // Ne rediriger que si on n'est pas en train de charger un rôle
+      // Don't redirect while loading a role
       if (loading) return;
       
-      // Ne rediriger que si l'utilisateur a déjà un rôle ET a complété les étapes nécessaires
+      // If user already has a role, redirect based on their role
       if (meData?.user?.user_type) {
-        // Pour les suppliers, vérifier s'ils ont déjà un profil
+        // For suppliers, check if they have a profile
         if (meData.user.user_type === 'supplier') {
-          // Si supplier et a un profil, aller au dashboard
+          // If supplier and has a profile, go to dashboard
           if (meData.supplier) {
             navigate('/dashboard', { replace: true });
           }
-          // Sinon, rester sur la page pour permettre la sélection du rôle et la création du profil
-          // Cela permet aux utilisateurs qui ont été redirigés ici après signup de choisir leur rôle
+          // Otherwise, stay on page to allow role selection and profile creation
+          // This allows users who were redirected here after signup to choose their role
         } else if (meData.user.user_type === 'admin') {
           navigate('/admin', { replace: true });
         } else if (meData.user.user_type === 'user') {
           navigate('/', { replace: true });
         }
       }
-      // Si user_type est null/undefined, rester sur la page pour permettre la sélection
+      // If user_type is null/undefined, stay on page to allow role selection
     }
   }, [isLoaded, isSignedIn, meData, navigate, loading]);
 
   const handleRoleSelection = async (role: 'user' | 'supplier' | 'admin') => {
     if (!isLoaded || !user) return;
 
-    // Vérifier que l'utilisateur peut choisir le rôle admin
+    // Check that the user can choose the admin role
     if (role === 'admin' && meData?.user?.is_admin !== true && meData?.user?.user_type !== 'admin') {
       alert(t('choose_role.admin_not_authorized'));
       return;
@@ -55,7 +55,7 @@ export default function ChooseRole() {
     setLoading(true);
 
     try {
-      // Créer l'utilisateur avec le rôle choisi
+      // Create the user with the chosen role
       const updatedUserData = await ensureUser({
         user_type: role,
         firstName: user.firstName || undefined,
@@ -63,21 +63,21 @@ export default function ChooseRole() {
         phone: user.primaryPhoneNumber?.phoneNumber || undefined,
       });
 
-      // Rediriger selon le rôle en utilisant les données mises à jour
+      // Redirect based on role using the updated data
       if (role === 'supplier') {
-        // Si l'utilisateur a déjà un profil supplier et le même rôle, aller au dashboard
-        // Sinon, aller à la configuration du profil pour créer/mettre à jour le profil
+        // If the user already has a supplier profile with the same role, go to dashboard
+        // Otherwise, go to profile setup to create/update the profile
         if (updatedUserData?.supplier && updatedUserData?.user?.user_type === 'supplier') {
-          // L'utilisateur a déjà un profil supplier avec le même rôle, aller au dashboard
+          // User already has a supplier profile with the same role, go to dashboard
           navigate('/dashboard');
         } else {
-          // Créer un nouveau profil supplier ou mettre à jour le rôle existant
+          // Create a new supplier profile or update the existing role
           navigate('/auth/supplier-setup');
         }
       } else if (role === 'admin') {
         navigate('/admin');
       } else {
-        // Pour les utilisateurs, aller à la page d'accueil
+        // For users, go to home page
         navigate('/');
       }
     } catch (error: any) {
@@ -86,7 +86,7 @@ export default function ChooseRole() {
     }
   };
 
-  // Rediriger si l'utilisateur n'est pas connecté
+  // Redirect if the user is not signed in
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
       navigate('/auth/register');
@@ -143,7 +143,7 @@ export default function ChooseRole() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-4xl px-4 relative z-10">
         <div className="bg-white py-10 px-6 shadow-2xl shadow-green-100 sm:rounded-2xl sm:px-10 border border-gray-100">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Utilisateur standard */}
+            {/* Standard user */}
             <button
               onClick={() => handleRoleSelection('user')}
               disabled={loading}
@@ -223,7 +223,7 @@ export default function ChooseRole() {
               )}
             </button>
 
-            {/* Admin - Seulement si l'utilisateur est déjà marqué comme admin */}
+            {/* Admin - Only if the user is already marked as admin */}
             {(meData?.user?.is_admin === true || meData?.user?.user_type === 'admin') ? (
               <button
                 onClick={() => handleRoleSelection('admin')}

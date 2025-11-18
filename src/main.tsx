@@ -18,7 +18,12 @@ if (!PUBLISHABLE_KEY) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+    <ClerkProvider 
+      publishableKey={PUBLISHABLE_KEY} 
+      afterSignOutUrl="/"
+      afterSignInUrl="/auth/check-role"
+      afterSignUpUrl="/auth/check-role"
+    >
       <ConvexProviderWithClerk client={convex} useAuth={useClerkAuth}>
         <QueryClientProvider client={queryClient}>
           <App />

@@ -12,25 +12,26 @@ export default function Login() {
   const meData = useQuery(api.users.me, {});
   const navigate = useNavigate();
 
-	useEffect(() => {
-		if (isLoaded && isSignedIn && meData !== undefined) {
-			// Si l'utilisateur n'a pas encore choisi de rôle, rediriger vers la sélection
-			if (!meData?.user?.user_type) {
-				navigate('/auth/choose-role', { replace: true });
-			} else if (meData.user.user_type === 'supplier') {
-				// Si supplier mais pas de profil supplier, rediriger vers le setup
-				if (!meData.supplier) {
-					navigate('/auth/supplier-setup', { replace: true });
-				} else {
-					navigate('/dashboard', { replace: true });
-				}
-			} else if (meData.user.user_type === 'admin') {
-				navigate('/admin', { replace: true });
-			} else {
-				navigate('/', { replace: true });
-			}
-		}
-	}, [isLoaded, isSignedIn, meData, navigate]);
+  // Redirect signed-in users to appropriate page based on their role
+  useEffect(() => {
+    if (isLoaded && isSignedIn && meData !== undefined && meData !== null) {
+      // If user doesn't have a role yet, redirect to role selection
+      if (meData.user && !meData.user.user_type) {
+        navigate('/auth/choose-role', { replace: true });
+      } else if (meData.user && meData.user.user_type === 'supplier') {
+        // If supplier but no supplier profile, redirect to setup
+        if (!meData.supplier) {
+          navigate('/auth/supplier-setup', { replace: true });
+        } else {
+          navigate('/dashboard', { replace: true });
+        }
+      } else if (meData.user && meData.user.user_type === 'admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [isLoaded, isSignedIn, meData, navigate]);
 
   // Show loading state while checking authentication
   if (!isLoaded) {
@@ -100,7 +101,7 @@ export default function Login() {
                   }
                 }} 
                 routing="hash" 
-                afterSignInUrl="/" 
+                afterSignInUrl="/auth/check-role" 
                 signUpUrl="/auth/register" 
               />
             </div>
