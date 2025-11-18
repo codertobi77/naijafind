@@ -23,6 +23,7 @@ import type { Id } from '../../../convex/_generated/dataModel';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import ComingSoon from '../../components/base/ComingSoon';
 import DashboardTour from '../../components/base/DashboardTour';
+import useCurrency from '../../hooks/useCurrency';
 
 type DashboardTab =
   | 'overview'
@@ -111,7 +112,33 @@ const SUBSCRIPTION_PLANS = {
 };
 
 
-const DEFAULT_PROFILE = {
+interface BusinessHours {
+  monday: { open: string; close: string; closed: boolean };
+  tuesday: { open: string; close: string; closed: boolean };
+  wednesday: { open: string; close: string; closed: boolean };
+  thursday: { open: string; close: string; closed: boolean };
+  friday: { open: string; close: string; closed: boolean };
+  saturday: { open: string; close: string; closed: boolean };
+  sunday: { open: string; close: string; closed: boolean };
+}
+
+interface ProfileData {
+  business_name: string;
+  description: string;
+  category: string;
+  address: string;
+  city: string;
+  state: string;
+  phone: string;
+  email: string;
+  website: string;
+  image?: string;
+  imageGallery?: string[];
+  business_hours: BusinessHours;
+  social_links: Record<string, string>;
+}
+
+const DEFAULT_PROFILE: ProfileData = {
   business_name: '',
   description: '',
   category: '',
@@ -242,6 +269,8 @@ export default function Dashboard() {
     }
   }, []);
 
+
+
   // Convex queries with caching strategy
   const { data: dashboardData } = useConvexQuery(
     api.dashboard.supplierDashboard,
@@ -271,6 +300,7 @@ export default function Dashboard() {
   const createOrderMutation = useMutation(api.orders.createOrder);
   const updateOrderMutation = useMutation(api.orders.updateOrder);
   const deleteOrderMutation = useMutation(api.orders.deleteOrder);
+  const createReviewMutation = useMutation(api.reviews.createReview);
   const updateReviewMutation = useMutation(api.reviews.updateReview);
   const deleteReviewMutation = useMutation(api.reviews.deleteReview);
   const updateSupplierProfileMutation = useMutation(api.suppliers.updateSupplierProfile);
@@ -465,6 +495,58 @@ export default function Dashboard() {
       setProductForm({ name: '', price: '', stock: '', status: 'active' });
     }
   }, [productModalMode, productModalData, showProductModal]);
+
+    // Sync profile data from dashboardData
+  useEffect(() => {
+    if (dashboardData?.profile) {
+      // Transform business_hours from Convex format to frontend format
+      const transformedBusinessHours: BusinessHours = {
+        monday: { open: '08:00', close: '18:00', closed: false },
+        tuesday: { open: '08:00', close: '18:00', closed: false },
+        wednesday: { open: '08:00', close: '18:00', closed: false },
+        thursday: { open: '08:00', close: '18:00', closed: false },
+        friday: { open: '08:00', close: '18:00', closed: false },
+        saturday: { open: '09:00', close: '17:00', closed: false },
+        sunday: { open: '10:00', close: '16:00', closed: true },
+      };
+      const businessHoursData = (dashboardData.profile as any).business_hours || {};
+      
+      (Object.entries(DEFAULT_PROFILE.business_hours) as [keyof BusinessHours, BusinessHours[keyof BusinessHours]][]).forEach(([day, defaultHours]) => {
+        const hoursData = businessHoursData[day];
+        
+        if (typeof hoursData === 'string') {
+          if (hoursData === 'closed') {
+            transformedBusinessHours[day] = { ...defaultHours, closed: true } as BusinessHours[typeof day];
+          } else if (hoursData.includes('-')) {
+            const [open, close] = hoursData.split('-');
+            transformedBusinessHours[day] = { open, close, closed: false } as BusinessHours[typeof day];
+          } else {
+            // Fallback to default if format is unexpected
+            transformedBusinessHours[day] = defaultHours;
+          }
+        } else {
+          // If it's already in the correct format or undefined, use default
+          transformedBusinessHours[day] = defaultHours;
+        }
+      });
+
+      setProfileData({
+        business_name: dashboardData.profile.business_name || '',
+        description: dashboardData.profile.description || '',
+        category: dashboardData.profile.category || '',
+        address: dashboardData.profile.address || '',
+        city: dashboardData.profile.city || '',
+        state: dashboardData.profile.state || '',
+        phone: dashboardData.profile.phone || '',
+        email: dashboardData.profile.email || '',
+        website: dashboardData.profile.website || '',
+        image: dashboardData.profile.image || '',
+        imageGallery: dashboardData.profile.imageGallery || [],
+        business_hours: transformedBusinessHours,
+        social_links: (dashboardData.profile as any).social_links || DEFAULT_PROFILE.social_links,
+      });
+    }
+  }, [dashboardData]);
 
   useEffect(() => {
     if (orderModalMode === 'edit' && orderModalData) {
@@ -1770,6 +1852,8 @@ function ProductsSection({
   onUpgrade: () => void;
   setActiveTab: (tab: DashboardTab) => void;
 }) {
+  const { formatCurrency } = useCurrency();
+  
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1855,7 +1939,7 @@ function ProductsSection({
                     {product.name}
                   </td>
                   <td className="px-4 py-3 text-gray-700">
-                    ₦{Number(product.price || 0).toLocaleString('fr-FR')}
+                    {formatCurrency(Number(product.price || 0))}
                   </td>
                   <td className="px-4 py-3 text-gray-700">
                     {product.stock ?? 0}
@@ -1922,6 +2006,7 @@ function OrdersSection({
   onDelete: (order: any) => void;
   orderToast: Toast;
 }) {
+  const { formatCurrency } = useCurrency();
   const filteredOrders =
     data?.orders?.filter((order: any) => {
       const matchesSearch =
@@ -2020,7 +2105,7 @@ function OrdersSection({
                     #{order.order_number}
                   </td>
                   <td className="px-4 py-3 text-gray-700">
-                    ₦{Number(order.total_amount || 0).toLocaleString('fr-FR')}
+                    {formatCurrency(Number(order.total_amount || 0))}
                   </td>
                   <td className="px-4 py-3">
                     <StatusPill status={order.status} />
@@ -2849,6 +2934,8 @@ function Select({
 }
 
 function RecentOrdersCard({ orders }: { orders: any[] }) {
+  const { formatCurrency } = useCurrency();
+  
   return (
     <Card title="Commandes récentes">
       <div className="space-y-3">
@@ -2874,7 +2961,7 @@ function RecentOrdersCard({ orders }: { orders: any[] }) {
               </div>
               <div className="text-right">
                 <p className="font-medium text-gray-900">
-                  ₦{Number(order.total_amount || 0).toLocaleString('fr-FR')}
+                  {formatCurrency(Number(order.total_amount || 0))}
                 </p>
                 <StatusPill status={order.status} />
               </div>

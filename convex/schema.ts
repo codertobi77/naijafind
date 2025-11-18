@@ -32,6 +32,8 @@ export default defineSchema({
     featured: v.boolean(), // Featured business status: false (not featured), true (featured)
     logo_url: v.optional(v.string()),
     cover_image_url: v.optional(v.string()),
+    image: v.optional(v.string()), // Profile image URL
+    imageGallery: v.optional(v.array(v.string())), // Array of gallery image URLs
     business_hours: v.optional(v.record(v.string(), v.string())),
     social_links: v.optional(v.record(v.string(), v.string())),
     latitude: v.optional(v.float64()),
@@ -68,11 +70,15 @@ export default defineSchema({
     response: v.optional(v.string()),
     status: v.optional(v.string()),
     created_at: v.string(),
-  }),
+  })
+    .index("supplierId", ["supplierId"])
+    .index("userId", ["userId"])
+    .index("created_at", ["created_at"]),
   categories: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
     icon: v.optional(v.string()),
+    image: v.optional(v.string()),
     is_active: v.optional(v.boolean()),
     order: v.optional(v.float64()),
     created_at: v.string(),

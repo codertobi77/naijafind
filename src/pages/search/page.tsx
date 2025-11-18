@@ -89,7 +89,7 @@ export default function Search() {
       review_count: s.reviews_count ?? 0,
       distance: (s as any).distance,
       verified: !!s.verified,
-      image_url: s.image_url ?? s.logo_url ?? '',
+      image_url: s.image ?? s.image_url ?? s.logo_url ?? '',
       description: s.description ?? '',
       phone: s.phone ?? '',
       email: s.email ?? '',
@@ -411,11 +411,25 @@ export default function Search() {
                       <div className="p-6">
                         <div className="flex gap-6">
                           <div className="w-20 sm:w-28 h-20 sm:h-28 flex-shrink-0">
-                            <img
-                              src={`https://readdy.ai/api/search-image?query=${imageQuery}&width=200&height=200&seq=search-${supplierId}&orientation=squarish`}
-                              alt={supplierName}
-                              className="w-full h-full object-cover object-top rounded-xl shadow-sm"
-                            />
+                            {supplier.image_url ? (
+                              <img
+                                src={supplier.image_url}
+                                alt={supplierName}
+                                className="w-full h-full object-cover object-top rounded-xl shadow-sm"
+                                onError={(e) => {
+                                  // Fallback to generated image if the actual image fails to load
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = `https://readdy.ai/api/search-image?query=${imageQuery}&width=200&height=200&seq=search-${supplierId}&orientation=squarish`;
+                                  target.onerror = null; // Prevent infinite loop
+                                }}
+                              />
+                            ) : (
+                              <img
+                                src={`https://readdy.ai/api/search-image?query=${imageQuery}&width=200&height=200&seq=search-${supplierId}&orientation=squarish`}
+                                alt={supplierName}
+                                className="w-full h-full object-cover object-top rounded-xl shadow-sm"
+                              />
+                            )}
                           </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between mb-3">

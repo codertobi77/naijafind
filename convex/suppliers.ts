@@ -140,6 +140,8 @@ export const updateSupplierProfile = mutation({
     city: v.string(),
     state: v.string(),
     website: v.optional(v.string()),
+    image: v.optional(v.string()),
+    imageGallery: v.optional(v.array(v.string())),
     business_hours: v.optional(v.record(v.string(), v.string())),
     social_links: v.optional(v.record(v.string(), v.string())),
   },
@@ -157,6 +159,19 @@ export const updateSupplierProfile = mutation({
       throw new Error("Tentative de modification non autorisée du profil fournisseur");
     }
 
+    // Default business hours if none provided
+    const defaultBusinessHours = {
+      monday: "08:00-18:00",
+      tuesday: "08:00-18:00",
+      wednesday: "08:00-18:00",
+      thursday: "08:00-18:00",
+      friday: "08:00-18:00",
+      saturday: "09:00-17:00",
+      sunday: "closed"
+    };
+
+    const businessHoursToSave = args.business_hours || supplier.business_hours || defaultBusinessHours;
+
     await ctx.db.patch(supplier._id, {
       business_name: args.business_name,
       email: args.email,
@@ -168,7 +183,9 @@ export const updateSupplierProfile = mutation({
       state: args.state,
       location: `${args.city}, ${args.state}`,
       website: args.website,
-      business_hours: args.business_hours,
+      image: args.image,
+      imageGallery: args.imageGallery,
+      business_hours: businessHoursToSave,
       social_links: args.social_links,
       updated_at: new Date().toISOString(),
     });

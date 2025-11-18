@@ -27,6 +27,37 @@ serve(async (req) => {
 
     const profileData = await req.json()
 
+    // Default business hours
+    const defaultBusinessHours = {
+      monday: "08:00-18:00",
+      tuesday: "08:00-18:00",
+      wednesday: "08:00-18:00",
+      thursday: "08:00-18:00",
+      friday: "08:00-18:00",
+      saturday: "09:00-17:00",
+      sunday: "closed"
+    };
+
+    // Transform business_hours to match database schema
+    const transformedBusinessHours = {};
+    const businessHoursToProcess = profileData.business_hours || defaultBusinessHours;
+    
+    if (businessHoursToProcess && typeof businessHoursToProcess === 'object') {
+      Object.entries(businessHoursToProcess).forEach(([day, hours]) => {
+        if (typeof hours === 'object' && hours !== null) {
+          // Format as "open-close" or "closed" if closed is true
+          if ((hours as any).closed) {
+            transformedBusinessHours[day] = 'closed';
+          } else {
+            transformedBusinessHours[day] = `${(hours as any).open}-${(hours as any).close}`;
+          }
+        } else {
+          // If it's already a string, use it as is
+          transformedBusinessHours[day] = String(hours);
+        }
+      });
+    }
+
     // Mettre à jour le profil fournisseur
     const { error: profileError } = await supabaseClient
       .from('supplier_profiles')
@@ -40,7 +71,7 @@ serve(async (req) => {
         city: profileData.city,
         state: profileData.state,
         website: profileData.website,
-        business_hours: profileData.business_hours,
+        business_hours: transformedBusinessHours,
         social_links: profileData.social_links,
         updated_at: new Date().toISOString()
       })
@@ -64,7 +95,7 @@ serve(async (req) => {
         state: profileData.state,
         location: `${profileData.city}, ${profileData.state}`,
         website: profileData.website,
-        business_hours: profileData.business_hours,
+        business_hours: transformedBusinessHours,
         social_links: profileData.social_links,
         updated_at: new Date().toISOString()
       })

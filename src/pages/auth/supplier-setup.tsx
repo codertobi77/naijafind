@@ -5,6 +5,8 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useTranslation } from 'react-i18next';
 import LanguageSelector from '../../components/base/LanguageSelector';
+import ImageUpload from '../../components/base/ImageUpload';
+import ImageGalleryUpload from '../../components/base/ImageGalleryUpload';
 
 export default function SupplierSetup() {
   const { t } = useTranslation();
@@ -24,6 +26,17 @@ export default function SupplierSetup() {
     city: '',
     state: '',
     website: '',
+    image: '',
+    imageGallery: [] as string[],
+    business_hours: {
+      monday: { open: '08:00', close: '18:00', closed: false },
+      tuesday: { open: '08:00', close: '18:00', closed: false },
+      wednesday: { open: '08:00', close: '18:00', closed: false },
+      thursday: { open: '08:00', close: '18:00', closed: false },
+      friday: { open: '08:00', close: '18:00', closed: false },
+      saturday: { open: '09:00', close: '17:00', closed: false },
+      sunday: { open: '10:00', close: '16:00', closed: true },
+    },
   });
 
   const [loading, setLoading] = useState(false);
@@ -91,6 +104,8 @@ export default function SupplierSetup() {
         city: formData.city,
         state: formData.state,
         website: formData.website || undefined,
+        image: formData.image || undefined,
+        imageGallery: formData.imageGallery.length > 0 ? formData.imageGallery : undefined,
         firstName: user.firstName || undefined,
         lastName: user.lastName || undefined,
       });
@@ -232,6 +247,33 @@ export default function SupplierSetup() {
                     placeholder={t('supplier_setup.description_placeholder')}
                   />
                 </div>
+                
+                {/* Profile Image */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('supplier_setup.profile_image')}
+                  </label>
+                  <ImageUpload
+                    label=""
+                    value={formData.image}
+                    onChange={(value: string) => setFormData({...formData, image: value})}
+                    placeholder={t('supplier_setup.profile_image_placeholder')}
+                  />
+                </div>
+
+                {/* Image Gallery */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('supplier_setup.image_gallery')}
+                  </label>
+                  <ImageGalleryUpload
+                    label=""
+                    value={formData.imageGallery}
+                    onChange={(value: string[]) => setFormData({...formData, imageGallery: value})}
+                    maxImages={10}
+                    placeholder={t('supplier_setup.image_gallery_placeholder')}
+                  />
+                </div>
               </div>
             </div>
 
@@ -350,6 +392,81 @@ export default function SupplierSetup() {
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Business Hours */}
+            <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
+              <h3 className="text-sm font-semibold text-yellow-800 mb-4 flex items-center">
+                <i className="ri-time-line mr-2"></i>
+                {t('supplier_setup.business_hours')}
+              </h3>
+              <div className="space-y-4">
+                {Object.entries(formData.business_hours).map(([day, hours]) => (
+                  <div key={day} className="flex items-center justify-between">
+                    <label className="block text-sm font-medium text-gray-700 w-24">
+                      {t(`supplier_setup.days.${day}`)}
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={hours.closed}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          business_hours: {
+                            ...formData.business_hours,
+                            [day]: { ...hours, closed: e.target.checked }
+                          }
+                        })}
+                        className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                      />
+                      <span className="text-sm text-gray-600 mr-2">{t('supplier_setup.closed')}</span>
+                      {!hours.closed && (
+                        <>
+                          <input
+                            type="time"
+                            value={hours.open}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              business_hours: {
+                                ...formData.business_hours,
+                                [day]: { ...hours, open: e.target.value }
+                              }
+                            })}
+                            className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          />
+                          <span className="text-gray-500">-</span>
+                          <input
+                            type="time"
+                            value={hours.close}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              business_hours: {
+                                ...formData.business_hours,
+                                [day]: { ...hours, close: e.target.value }
+                              }
+                            })}
+                            className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          />
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Image Gallery */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t('supplier_setup.image_gallery')}
+              </label>
+              <ImageGalleryUpload
+                label=""
+                value={formData.imageGallery}
+                onChange={(value: string[]) => setFormData({...formData, imageGallery: value})}
+                maxImages={10}
+                placeholder={t('supplier_setup.image_gallery_placeholder')}
+              />
             </div>
 
             {/* Boutons d'action */}

@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
+import LanguageSelector from '../../components/base/LanguageSelector';
 import { useConvexAuth } from 'convex/react';
+import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { api } from '../../../convex/_generated/api';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
-import { useTranslation } from 'react-i18next';
-import LanguageSelector from '../../components/base/LanguageSelector';
-import { useConvexQuery } from '../../hooks/useConvexQuery';
+
+// Default category image URL for fallback
+const DEFAULT_CATEGORY_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23f3f4f6'/%3E%3Cg transform='translate(200,150)'%3E%3Cpath d='M-60-80h120v160h-120zM-40-100h80v20h-80zM-30-90h20v-20h-20z' fill='%239ca3af'/%3E%3Cpath d='M-40-40h80v20h-80zM-40-10h80v20h-80zM-40 20h60v20h-60z' fill='%23d1d5db'/%3E%3C/g%3E%3C/svg%3E";
 
 export default function Categories() {
   const { t } = useTranslation();
@@ -63,15 +66,15 @@ export default function Categories() {
   };
 
   // Mapper les catégories avec les counts
-  const categories = categoriesData?.map(cat => ({
+  const categories = categoriesData?.map((cat: any) => ({
     name: cat.name,
     icon: cat.icon || 'ri-folder-line',
     count: categoryCounts[cat.name] || 0,
     description: cat.description || '',
-    image: `Nigerian ${cat.name.toLowerCase()} industry with professional business setting, modern office, traditional and modern products displayed, warm natural lighting`
+    image: cat.image || DEFAULT_CATEGORY_IMAGE
   })) || [];
 
-  const filteredCategories = categories.filter(category =>
+  const filteredCategories = categories.filter((category: any) =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     category.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -185,14 +188,20 @@ export default function Categories() {
               <div key={category.name} className="group bg-white rounded-2xl shadow-soft overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-100 hover:-translate-y-2">
                 <div className="h-48 relative overflow-hidden">
                   <img
-                    src={`https://readdy.ai/api/search-image?query=${encodeURIComponent(category.image)}&width=400&height=300&seq=cat-${index}&orientation=landscape`}
+                    src={category.image}
                     alt={category.name}
                     className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-500"
+                    onError={(e) => {
+                      // Fallback to default image if the actual image fails to load
+                      const target = e.target as HTMLImageElement;
+                      target.src = DEFAULT_CATEGORY_IMAGE;
+                      target.onerror = null; // Prevent infinite loop
+                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
                   <div className="absolute top-4 left-4">
-                    <div className="w-14 h-14 bg-white/95 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                      <i className={`${category.icon} text-2xl text-green-600`}></i>
+                    <div className="w-16 h-16 bg-gradient-to-br from-white to-green-50 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-xl group-hover:scale-110 transition-all duration-300 border border-white/50">
+                      <i className={`${category.icon} text-3xl text-green-600`}></i>
                     </div>
                   </div>
                   <div className="absolute bottom-4 right-4">

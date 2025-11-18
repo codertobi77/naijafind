@@ -64,6 +64,7 @@ export const addCategory = mutation({
     name: v.string(),
     description: v.optional(v.string()),
     icon: v.optional(v.string()),
+    image: v.optional(v.string()),
     is_active: v.optional(v.boolean()),
     order: v.optional(v.float64()),
   },
@@ -92,6 +93,7 @@ export const addCategory = mutation({
       name: args.name,
       description: args.description,
       icon: args.icon,
+      image: args.image,
       is_active: args.is_active ?? true,
       order: args.order !== undefined ? args.order : undefined,
       created_at: now,
@@ -109,6 +111,7 @@ export const updateCategory = mutation({
     name: v.optional(v.string()),
     description: v.optional(v.string()),
     icon: v.optional(v.string()),
+    image: v.optional(v.string()),
     is_active: v.optional(v.boolean()),
     order: v.optional(v.float64()),
   },
@@ -140,6 +143,7 @@ export const updateCategory = mutation({
     if (updates.name !== undefined) patchData.name = updates.name;
     if (updates.description !== undefined) patchData.description = updates.description;
     if (updates.icon !== undefined) patchData.icon = updates.icon;
+    if (updates.image !== undefined) patchData.image = updates.image;
     if (updates.is_active !== undefined) patchData.is_active = updates.is_active;
     if (updates.order !== undefined) patchData.order = updates.order;
 

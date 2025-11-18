@@ -8,6 +8,9 @@ import { api } from '../../../convex/_generated/api';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
 import type { Doc } from '../../../convex/_generated/dataModel';
 
+// Default category image URL for fallback
+const DEFAULT_CATEGORY_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23f3f4f6'/%3E%3Cg transform='translate(200,150)'%3E%3Cpath d='M-60-80h120v160h-120zM-40-100h80v20h-80zM-30-90h20v-20h-20z' fill='%239ca3af'/%3E%3Cpath d='M-40-40h80v20h-80zM-40-10h80v20h-80zM-40 20h60v20h-60z' fill='%23d1d5db'/%3E%3C/g%3E%3C/svg%3E";
+
 // Define proper TypeScript interface for Supplier based on Convex schema
 type Supplier = Doc<"suppliers">;
 
@@ -339,15 +342,27 @@ export default function Home() {
                             to={`/search?category=${encodeURIComponent(category.name)}`}
                             className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100"
                           >
-                            <div className="flex items-center mb-4">
-                              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mr-4 group-hover:bg-green-600 transition-colors">
-                                <i className={`${category.icon || 'ri-box-3-line'} text-xl ${category.icon ? 'text-green-600' : 'text-gray-600'} group-hover:text-white transition-colors`}></i>
+                            <div className="relative h-32 w-full mb-4 rounded-lg overflow-hidden">
+                              <img 
+                                src={category.image || DEFAULT_CATEGORY_IMAGE}
+                                alt={category.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                onError={(e) => {
+                                  // Fallback to default image if the actual image fails to load
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = DEFAULT_CATEGORY_IMAGE;
+                                  target.onerror = null; // Prevent infinite loop
+                                }}
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                              <div className="absolute bottom-2 left-2 w-12 h-12 bg-gradient-to-br from-white to-green-50 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg">
+                                <i className={`${category.icon || 'ri-folder-line'} text-2xl ${category.icon ? 'text-green-600' : 'text-gray-400'}`}></i>
                               </div>
-                              <h3 className="text-lg font-semibold text-gray-900 group-hover:text-green-600 transition-colors">
-                                {category.name}
-                              </h3>
                             </div>
-                            <p className="text-gray-600 text-sm line-clamp-2">
+                            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-green-600 transition-colors truncate">
+                              {category.name}
+                            </h3>
+                            <p className="text-gray-600 text-sm line-clamp-2 mt-1">
                               {category.description || t('categories.no_description')}
                             </p>
                           </Link>
@@ -414,11 +429,25 @@ export default function Home() {
               {featuredSuppliers.map((supplier: Supplier) => (
                 <div key={supplier._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group">
                   <div className="relative h-48 overflow-hidden">
-                    <img 
-                      src={`https://readdy.ai/api/search-image?query=${encodeURIComponent(supplier.business_name + ' ' + supplier.category + ' business Nigeria')}&width=400&height=300&seq=featured-${supplier._id}&orientation=landscape`}
-                      alt={supplier.business_name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
+                    {supplier.image ? (
+                      <img 
+                        src={supplier.image}
+                        alt={supplier.business_name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={(e) => {
+                          // Fallback to generated image if the actual image fails to load
+                          const target = e.target as HTMLImageElement;
+                          target.src = `https://readdy.ai/api/search-image?query=${encodeURIComponent(supplier.business_name + ' ' + supplier.category + ' business Nigeria')}&width=400&height=300&seq=featured-${supplier._id}&orientation=landscape`;
+                          target.onerror = null; // Prevent infinite loop
+                        }}
+                      />
+                    ) : (
+                      <img 
+                        src={`https://readdy.ai/api/search-image?query=${encodeURIComponent(supplier.business_name + ' ' + supplier.category + ' business Nigeria')}&width=400&height=300&seq=featured-${supplier._id}&orientation=landscape`}
+                        alt={supplier.business_name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    )}
                     {supplier.verified && (
                       <div className="absolute top-4 right-4 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center">
                         <i className="ri-shield-star-line mr-1"></i>

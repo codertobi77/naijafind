@@ -5,6 +5,7 @@ import { api } from '../../../convex/_generated/api';
 import { useConvexAuth } from 'convex/react';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { useTranslation } from 'react-i18next';
+import useCurrency from '../../hooks/useCurrency';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { Doc } from '../../../convex/_generated/dataModel';
 
@@ -26,7 +27,7 @@ const mockSuppliers = [
 ];
 const mockOrders = [
   {id:1,num:'0001', montant:15000, date:Date.now()-9000000, supplier:'ABC Ltd'},
-  {id:2,num:'0002', montant:32000, date:Date.now()-700000, supplier:'Digitex'},
+  {id:2, num:'0002', montant:32000, date:Date.now()-700000, supplier:'Digitex'},
 ];
 const mockReviews=[
   {id:1, user:'Ola K.', comment:'Super service', date:Date.now()-3200000},
@@ -139,6 +140,7 @@ function Toast({
 
 export default function AdminPage(){
   const { t } = useTranslation();
+  const { formatCurrency } = useCurrency();
   const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const { data: meData } = useConvexQuery(
@@ -172,6 +174,7 @@ export default function AdminPage(){
     name: '',
     description: '',
     icon: '',
+    image: '',
     is_active: true,
     order: 0
   });
@@ -243,7 +246,7 @@ export default function AdminPage(){
               />
               <StatCard
                 label={t('admin.total_revenue')}
-                value={`₦${mockStats.caTotal.toLocaleString()}`}
+                value={formatCurrency(mockStats.caTotal)}
                 icon="ri-money-dollar-circle-line"
                 iconColor="text-red-600"
                 iconBg="bg-red-100"
@@ -511,7 +514,7 @@ export default function AdminPage(){
                   onClick={() => {
                     setShowAddCategory(true);
                     setEditingCategory(null);
-                    setCategoryForm({ name: '', description: '', icon: '', is_active: true, order: 0 });
+                    setCategoryForm({ name: '', description: '', icon: '', image: '', is_active: true, order: 0 });
                   }}
                   className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
                 >
@@ -546,6 +549,18 @@ export default function AdminPage(){
                       onChange={(e) => setCategoryForm({...categoryForm, icon: e.target.value})}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
                       placeholder={t('admin.placeholder_icon')}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {t('admin.category_image')} (URL)
+                    </label>
+                    <input
+                      type="text"
+                      value={categoryForm.image}
+                      onChange={(e) => setCategoryForm({...categoryForm, image: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                      placeholder={t('admin.placeholder_image')}
                     />
                   </div>
                   <div className="md:col-span-2">
@@ -601,7 +616,7 @@ export default function AdminPage(){
                     onClick={() => {
                       setShowAddCategory(false);
                       setEditingCategory(null);
-                      setCategoryForm({ name: '', description: '', icon: '', is_active: true, order: 0 });
+                      setCategoryForm({ name: '', description: '', icon: '', image: '', is_active: true, order: 0 });
                     }}
                     className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors text-sm"
                   >
@@ -620,6 +635,7 @@ export default function AdminPage(){
                       <th className="text-left py-2 px-2 font-semibold text-gray-600">{t('admin.name')}</th>
                       <th className="text-left py-2 px-2 font-semibold text-gray-600">{t('admin.description')}</th>
                       <th className="text-left py-2 px-2 font-semibold text-gray-600">{t('admin.icon')}</th>
+                      <th className="text-left py-2 px-2 font-semibold text-gray-600">{t('admin.image')}</th>
                       <th className="text-left py-2 px-2 font-semibold text-gray-600">{t('admin.display_order')}</th>
                       <th className="text-left py-2 px-2 font-semibold text-gray-600">{t('admin.status')}</th>
                       <th className="text-left py-2 px-2 font-semibold text-gray-600">{t('admin.actions')}</th>
@@ -651,6 +667,14 @@ export default function AdminPage(){
                                 type="text"
                                 value={categoryForm.icon}
                                 onChange={(e) => setCategoryForm({...categoryForm, icon: e.target.value})}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                              />
+                            </td>
+                            <td className="py-2 px-2">
+                              <input
+                                type="text"
+                                value={categoryForm.image}
+                                onChange={(e) => setCategoryForm({...categoryForm, image: e.target.value})}
                                 className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
                               />
                             </td>
@@ -694,7 +718,21 @@ export default function AdminPage(){
                             <td className="py-2 px-2 font-medium">{category.name}</td>
                             <td className="py-2 px-2 text-gray-600">{category.description || '-'}</td>
                             <td className="py-2 px-2">
-                              {category.icon && <i className={category.icon}></i>}
+                              {category.icon ? (
+                                <div className="flex items-center">
+                                  <i className={`${category.icon} text-lg mr-2`}></i>
+                                  <span className="text-sm text-gray-600">{category.icon}</span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="py-2 px-2">
+                              {category.image ? (
+                                <img src={category.image} alt={category.name} className="w-8 h-8 object-cover rounded" />
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
                             </td>
                             <td className="py-2 px-2">{category.order ? Number(category.order) : '-'}</td>
                             <td className="py-2 px-2">
@@ -845,11 +883,12 @@ export default function AdminPage(){
         name: categoryForm.name,
         description: categoryForm.description || undefined,
         icon: categoryForm.icon || undefined,
+        image: categoryForm.image || undefined,
         is_active: categoryForm.is_active,
         order: categoryForm.order ? categoryForm.order : 0,
       });
       refetchCategories(); // Refresh the categories list
-      setCategoryForm({ name: '', description: '', icon: '', is_active: true, order: 0 });
+      setCategoryForm({ name: '', description: '', icon: '', image: '', is_active: true, order: 0 });
       setShowAddCategory(false);
       showToast('success', t('admin.category_added_success'));
     } catch (error: any) {
@@ -868,12 +907,13 @@ export default function AdminPage(){
         name: categoryForm.name,
         description: categoryForm.description || undefined,
         icon: categoryForm.icon || undefined,
+        image: categoryForm.image || undefined,
         is_active: categoryForm.is_active,
         order: categoryForm.order ? categoryForm.order : 0,
       });
       refetchCategories(); // Refresh the categories list
       setEditingCategory(null);
-      setCategoryForm({ name: '', description: '', icon: '', is_active: true, order: 0 });
+      setCategoryForm({ name: '', description: '', icon: '', image: '', is_active: true, order: 0 });
       showToast('success', t('admin.category_updated_success'));
     } catch (error: any) {
       showToast('error', error.message || t('admin.error_update_category'));
@@ -1075,6 +1115,8 @@ export default function AdminPage(){
     orders: any[];
     reviews: any[];
   }) {
+    const { formatCurrency } = useCurrency();
+    
     return (
       <div className="bg-white rounded-lg border p-6">
         <h3 className="font-semibold mb-4">{t('admin.recent_activity')}</h3>
@@ -1083,7 +1125,7 @@ export default function AdminPage(){
           <ul className="pl-4 list-disc">
             {orders.map((order) => (
               <li key={order.id} className="mb-1">
-                {t('admin.order')} #{order.num}: ₦{order.montant.toLocaleString()}{' '}
+                {t('admin.order')} #{order.num}: {formatCurrency(order.montant)}{' '}
                 <span className="ml-2 text-gray-400 text-xs">({order.supplier})</span>
               </li>
             ))}
@@ -1272,6 +1314,7 @@ export default function AdminPage(){
       name: category.name,
       description: category.description || '',
       icon: category.icon || '',
+      image: category.image || '',
       is_active: category.is_active ?? true,
       order: category.order ? Number(category.order) : 0,
     });
@@ -1280,7 +1323,7 @@ export default function AdminPage(){
 
   const cancelEdit = () => {
     setEditingCategory(null);
-    setCategoryForm({ name: '', description: '', icon: '', is_active: true, order: 0 });
+    setCategoryForm({ name: '', description: '', icon: '', image: '', is_active: true, order: 0 });
   };
 
   if (isLoading || meData === undefined) {

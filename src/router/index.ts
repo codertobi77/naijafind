@@ -1,6 +1,4 @@
-
-import React, { useNavigate, type NavigateFunction } from "react-router-dom";
-import { useRoutes } from "react-router-dom";
+import { useNavigate, useRoutes, type NavigateFunction } from "react-router-dom";
 import { useEffect } from "react";
 import routes from "./config";
 

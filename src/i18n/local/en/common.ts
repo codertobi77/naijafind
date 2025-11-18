@@ -93,6 +93,11 @@ export const common = {
   "time.month": "This month",
   "time.year": "This year",
 
+  // Currency
+  "currency.symbol": "₦",
+  "currency.code": "NGN",
+  "currency.name": "Nigerian Naira",
+
   // Footer
   "footer.rights": "All rights reserved",
   "footer.powered_by": "Powered by Readdy",

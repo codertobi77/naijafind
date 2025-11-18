@@ -113,6 +113,8 @@ export const signUpSupplier = mutation({
     city: v.string(),
     state: v.string(),
     website: v.optional(v.string()),
+    image: v.optional(v.string()),
+    imageGallery: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -138,6 +140,17 @@ export const signUpSupplier = mutation({
       throw new Error("Un profil fournisseur existe déjà pour cet utilisateur");
     }
 
+    // Default business hours
+    const defaultBusinessHours = {
+      monday: "08:00-18:00",
+      tuesday: "08:00-18:00",
+      wednesday: "08:00-18:00",
+      thursday: "08:00-18:00",
+      friday: "08:00-18:00",
+      saturday: "09:00-17:00",
+      sunday: "closed"
+    };
+
     const now = new Date().toISOString();
     const id = await ctx.db.insert("suppliers", {
       userId: identity.subject,
@@ -151,6 +164,9 @@ export const signUpSupplier = mutation({
       state: args.state,
       location: `${args.city}, ${args.state}`,
       website: args.website,
+      image: args.image,
+      imageGallery: args.imageGallery,
+      business_hours: defaultBusinessHours,
       rating: 0,
       reviews_count: 0n,
       verified: false,

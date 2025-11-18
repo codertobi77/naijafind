@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useConvexAuth } from 'convex/react';
+import { useConvexAuth, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useConvexQuerySkippable, useConvexQuery } from '../../hooks/useConvexQuery';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +25,7 @@ interface Supplier {
   review_count: number;
   verified: boolean;
   image_url: string;
+  image_gallery: string[];
   created_at: string;
 }
 
@@ -44,14 +45,24 @@ export default function SupplierDetail() {
   const { id: supplierId } = useParams<{ id: string }>();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewForm, setReviewForm] = useState({
+    rating: 0,
+    comment: '',
+  });
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewSubmitStatus, setReviewSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   
   // Fetch supplier data from Convex with caching
-  const { data: supplierData, isLoading: supplierLoading } = useConvexQuerySkippable(
+  const { data: supplierData, isLoading: supplierLoading, refetch: refetchSupplierData } = useConvexQuerySkippable(
     supplierId ? api.suppliers.getSupplierDetails : 'skip',
     supplierId ? { id: supplierId } : undefined,
     { staleTime: 5 * 60 * 1000 } // Cache supplier details for 5 minutes
   );
   const { data: meData } = useConvexQuery(api.users.me, {}, { staleTime: 2 * 60 * 1000 });
+  
+  // Review mutation
+  const createReviewMutation = useMutation(api.reviews.createReview);
   
   // Fetch similar suppliers based on category
   const [supplierCategory, setSupplierCategory] = useState<string | null>(null);
@@ -137,7 +148,8 @@ export default function SupplierDetail() {
     rating: supplier.rating || 0,
     review_count: Number(supplier.reviews_count || 0),
     verified: supplier.verified || false,
-    image_url: `${supplier.business_name || 'business'} ${supplier.category || ''} Nigeria professional storefront`,
+    image_url: supplier.image || `${supplier.business_name || 'business'} ${supplier.category || ''} Nigeria professional storefront`,
+    image_gallery: supplier.imageGallery || [],
     created_at: supplier.created_at || new Date().toISOString(),
   } : null;
   
@@ -174,6 +186,34 @@ export default function SupplierDetail() {
       setSubmitStatus('error');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setReviewSubmitting(true);
+    setReviewSubmitStatus('idle');
+
+    try {
+      await createReviewMutation({
+        supplierId: supplierId || '',
+        rating: reviewForm.rating,
+        comment: reviewForm.comment,
+      });
+
+      setReviewSubmitStatus('success');
+      setShowReviewForm(false);
+      setReviewForm({ rating: 0, comment: '' });
+      
+      // Refresh supplier data to show new review
+      setTimeout(() => {
+        refetchSupplierData();
+      }, 500); // Small delay to ensure the backend has processed the review
+    } catch (error: any) {
+      console.error('Erreur d\'envoi de l\'avis:', error);
+      setReviewSubmitStatus('error');
+    } finally {
+      setReviewSubmitting(false);
     }
   };
 
@@ -339,9 +379,15 @@ export default function SupplierDetail() {
           <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-8">
             <div className="w-full lg:w-1/3">
               <img
-                src={`https://readdy.ai/api/search-image?query=${encodeURIComponent(transformedSupplier.image_url)}&width=400&height=300&seq=detail-${transformedSupplier.id}&orientation=landscape`}
+                src={transformedSupplier.image_url}
                 alt={transformedSupplier.name}
                 className="w-full h-48 sm:h-56 lg:h-64 object-cover object-top rounded-lg"
+                onError={(e) => {
+                  // Fallback to generated image if the actual image fails to load
+                  const target = e.target as HTMLImageElement;
+                  target.src = `https://readdy.ai/api/search-image?query=${encodeURIComponent(transformedSupplier.image_url)}&width=400&height=300&seq=detail-${transformedSupplier.id}&orientation=landscape`;
+                  target.onerror = null; // Prevent infinite loop
+                }}
               />
             </div>
 
@@ -572,11 +618,39 @@ export default function SupplierDetail() {
               <div>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-4">
                   <h3 className="text-lg sm:text-xl font-semibold">{t('supplier.reviews')} ({transformedReviews.length})</h3>
-                  <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap text-sm sm:text-base">
-                    <i className="ri-add-line mr-2"></i>
-                    {t('supplier.leave_review')}
-                  </button>
+                  <SignedIn>
+                    <button 
+                      onClick={() => setShowReviewForm(true)}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap text-sm sm:text-base"
+                    >
+                      <i className="ri-add-line mr-2"></i>
+                      {t('supplier.leave_review')}
+                    </button>
+                  </SignedIn>
+                  <SignedOut>
+                    <Link 
+                      to="/auth/login" 
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap text-sm sm:text-base"
+                    >
+                      <i className="ri-login-box-line mr-2"></i>
+                      {t('supplier.login_to_review')}
+                    </Link>
+                  </SignedOut>
                 </div>
+                
+                {reviewSubmitStatus === 'success' && (
+                  <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+                    <i className="ri-check-line mr-2"></i>
+                    {t('supplier.review_success')}
+                  </div>
+                )}
+                
+                {reviewSubmitStatus === 'error' && (
+                  <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                    <i className="ri-error-warning-line mr-2"></i>
+                    {t('supplier.review_error')}
+                  </div>
+                )}
 
                 {transformedReviews.length > 0 ? (
                   <div className="space-y-4 sm:space-y-6">
@@ -846,20 +920,37 @@ export default function SupplierDetail() {
             {activeTab === 'gallery' && (
               <div>
                 <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">{t('supplier.photos')}</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
-                  {[1, 2, 3, 4, 5, 6].map((index) => {
-                    const imageQuery = encodeURIComponent(`${transformedSupplier?.image_url} ${transformedSupplier?.category} business interior exterior products showcase professional photography`);
-                    return (
-                      <div key={index} className="aspect-square bg-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+                {transformedSupplier?.image_gallery && transformedSupplier.image_gallery.length > 0 ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+                    {transformedSupplier.image_gallery.map((image, index) => (
+                      <div 
+                        key={index} 
+                        className="aspect-square bg-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group"
+                        onClick={() => {
+                          // In a real implementation, you might want to open a lightbox or modal
+                          // to show the full-size image
+                        }}
+                      >
                         <img
-                          src={`https://readdy.ai/api/search-image?query=${imageQuery}&width=400&height=400&seq=gallery-${transformedSupplier?.id}-${index}&orientation=squarish`}
-                          alt={`${transformedSupplier?.name} - Photo ${index}`}
-                          className="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-300"
+                          src={image}
+                          alt={`${transformedSupplier?.name} - Photo ${index + 1}`}
+                          className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            // Fallback to generated image if the actual image fails to load
+                            const target = e.target as HTMLImageElement;
+                            target.src = `https://readdy.ai/api/search-image?query=${encodeURIComponent(transformedSupplier?.name || 'business')}&width=400&height=400&seq=gallery-${index}&orientation=squarish`;
+                            target.onerror = null; // Prevent infinite loop
+                          }}
                         />
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <i className="ri-image-line text-4xl text-gray-400 mb-4"></i>
+                    <p className="text-gray-600">{t('supplier.no_photos')}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -910,6 +1001,109 @@ export default function SupplierDetail() {
         </div>
       </div>
 
+      {/* Modal de contact */}
+      {showContactForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
+              <h3 className="text-base sm:text-lg lg:text-xl font-semibold">{t('supplier.contact_form_title')} {transformedSupplier?.name}</h3>
+              <button
+                onClick={() => setShowContactForm(false)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <i className="ri-close-line text-lg sm:text-xl"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal d'avis */}
+      {showReviewForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
+              <h3 className="text-base sm:text-lg lg:text-xl font-semibold">{t('supplier.leave_review_for')} {transformedSupplier?.name}</h3>
+              <button
+                onClick={() => setShowReviewForm(false)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <i className="ri-close-line text-lg sm:text-xl"></i>
+              </button>
+            </div>
+            
+            <form onSubmit={handleReviewSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  {t('supplier.rating')} *
+                </label>
+                <div className="flex space-x-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewForm(prev => ({ ...prev, rating: star }))}
+                      className="text-2xl focus:outline-none"
+                    >
+                      <i className={`ri-star-${star <= reviewForm.rating ? 'fill' : 'line'} ${star <= reviewForm.rating ? 'text-yellow-400' : 'text-gray-300'}`}></i>
+                    </button>
+                  ))}
+                </div>
+                {reviewForm.rating > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {reviewForm.rating} {reviewForm.rating === 1 ? t('supplier.star') : t('supplier.stars')}
+                  </p>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  {t('supplier.comment')}
+                </label>
+                <textarea
+                  rows={4}
+                  value={reviewForm.comment}
+                  onChange={(e) => setReviewForm(prev => ({ ...prev, comment: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-xs sm:text-sm"
+                  placeholder={t('supplier.placeholder_comment')}
+                  maxLength={500}
+                ></textarea>
+                <p className="text-xs text-gray-500 mt-1">
+                  {reviewForm.comment.length}/500 {t('supplier.characters')}
+                </p>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowReviewForm(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-xs sm:text-sm"
+                >
+                  {t('supplier.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={reviewSubmitting || reviewForm.rating === 0}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap disabled:opacity-50 text-xs sm:text-sm"
+                >
+                  {reviewSubmitting ? (
+                    <>
+                      <i className="ri-loader-4-line animate-spin mr-2"></i>
+                      {t('supplier.submitting')}
+                    </>
+                  ) : (
+                    <>
+                      <i className="ri-send-plane-line mr-2"></i>
+                      {t('supplier.submit_review')}
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      
       {/* Modal de contact */}
       {showContactForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
