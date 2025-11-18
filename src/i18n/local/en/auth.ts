@@ -91,6 +91,7 @@ export const auth = {
   "supplier_setup.cancel": "Cancel",
   "supplier_setup.create_profile": "Create profile",
   "supplier_setup.creating_profile": "Creating profile...",
+  "supplier_setup.approval_needed": "Thank you for registering! Your supplier profile has been submitted and is awaiting admin approval. You will receive an email notification once approved.",
   "supplier_setup.home": "Back to home",
   "supplier_setup.errors.business_name_required": "Business name is required",
   "supplier_setup.errors.category_required": "Category is required",

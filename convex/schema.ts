@@ -27,7 +27,9 @@ export default defineSchema({
     website: v.optional(v.string()),
     rating: v.optional(v.float64()),
     reviews_count: v.optional(v.int64()),
-    verified: v.optional(v.boolean()),
+    verified: v.boolean(),
+    approved: v.boolean(), // Supplier approval status: false (pending approval), true (approved)
+    featured: v.boolean(), // Featured business status: false (not featured), true (featured)
     logo_url: v.optional(v.string()),
     cover_image_url: v.optional(v.string()),
     business_hours: v.optional(v.record(v.string(), v.string())),
@@ -37,7 +39,9 @@ export default defineSchema({
     created_at: v.string(),
     updated_at: v.string(),
   })
-    .index("userId", ["userId"]), // Index unique pour garantir 1 supplier par user
+    .index("userId", ["userId"]) // Index unique pour garantir 1 supplier par user
+    .index("approved", ["approved"])
+    .index("featured", ["featured"]), // Index pour améliorer les performances des requêtes
   products: defineTable({
     supplierId: v.string(),
     name: v.string(),
@@ -70,7 +74,7 @@ export default defineSchema({
     description: v.optional(v.string()),
     icon: v.optional(v.string()),
     is_active: v.optional(v.boolean()),
-    order: v.optional(v.int64()),
+    order: v.optional(v.float64()),
     created_at: v.string(),
     created_by: v.optional(v.string()), // userId de l'admin qui a créé
   })

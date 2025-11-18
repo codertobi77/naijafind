@@ -13,6 +13,7 @@ export const common = {
   "nav.profile": "Profile",
   "nav.logout": "Logout",
   "nav.search": "Search",
+  "nav.admin": "Admin Panel",
 
   // Common buttons
   "btn.search": "Search",
@@ -76,6 +77,7 @@ export const common = {
   "msg.deleted": "Deleted successfully",
   "msg.updated": "Updated successfully",
   "msg.created": "Created successfully",
+  "msg.no_description": "No description available",
 
   // Distance units
   "distance.km": "km",

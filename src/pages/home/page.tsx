@@ -1,54 +1,41 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import LanguageSelector from '../../components/base/LanguageSelector';
 import { useConvexAuth } from 'convex/react';
+import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { api } from '../../../convex/_generated/api';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
-import { useConvexQuery } from '../../hooks/useConvexQuery';
-
-interface Supplier {
-  id: string;
-  name: string;
-  category: string;
-  location: string;
-  rating: number;
-  review_count: number;
-  phone: string;
-  email: string;
-  verified: boolean;
-  description: string;
-  image_url: string;
-}
 
 export default function Home() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const locationState = useLocation(); // Renamed to avoid conflict
   const { isAuthenticated, isLoading } = useConvexAuth();
   
   // Using React Query cached queries instead of direct Convex queries
   const { data: meData } = useConvexQuery(api.users.me, {}, { staleTime: 2 * 60 * 1000 });
-  const { data: featuredSuppliersData, isLoading: loadingSuppliers } = useConvexQuery(
-    api.suppliers.searchSuppliers, 
-    { limit: BigInt(3), verified: true },
-    { staleTime: 10 * 60 * 1000 } // Cache for 10 minutes since featured suppliers don't change often
+  const { data: featuredSuppliersData } = useConvexQuery(
+    api.admin.getFeaturedSuppliers,
+    {},
+    { staleTime: 10 * 60 * 1000 } // Cache featured suppliers for 10 minutes
   );
+  
   const { data: categories } = useConvexQuery(
-    api.categories.getAllCategories, 
+    api.categories.getAllCategories,
     {},
     { staleTime: 15 * 60 * 1000 } // Cache categories for 15 minutes
   );
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [location, setLocation] = useState('');
+  const [searchLocation, setSearchLocation] = useState(''); // Renamed from 'location' to avoid conflict
   const [category, setCategory] = useState('');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const carouselRef = useRef<HTMLDivElement>(null);
   
   // Extract suppliers array from Convex response
-  const featuredSuppliers = featuredSuppliersData?.suppliers || [];
+  const featuredSuppliers = featuredSuppliersData || [];
 
   // Categories carousel logic
   const categoriesPerSlide = 3;
@@ -92,18 +79,23 @@ export default function Home() {
     }
   };
 
-
-
   const handleSearch = () => {
     const params = new URLSearchParams();
     if (searchQuery) params.set('q', searchQuery);
-    if (location) params.set('location', location);
+    if (searchLocation) params.set('location', searchLocation); // Updated to use searchLocation
     if (category) params.set('category', category);
     navigate(`/search?${params.toString()}`);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-green-50">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50">
+      {/* Show message if redirected from dashboard */}
+      {locationState.state?.message && (
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
+          <p>{locationState.state.message}</p>
+        </div>
+      )}
+      
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -151,6 +143,14 @@ export default function Home() {
                     {t('nav.dashboard')}
                   </Link>
                 )}
+                {(meData?.user?.is_admin === true || meData?.user?.user_type === 'admin') && (
+                  <Link 
+                    to="/admin"
+                    className="text-gray-700 hover:text-green-600 font-medium px-3 py-2 rounded-lg transition-colors hidden sm:block"
+                  >
+                    {t('nav.admin')}
+                  </Link>
+                )}
                 <UserButton 
                   afterSignOutUrl="/"
                   appearance={{
@@ -168,6 +168,9 @@ export default function Home() {
                   <Link to="/search" className="px-4 py-2 text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium" onClick={() => setMobileMenuOpen(false)}>{t('nav.search')}</Link>
                   <Link to="/categories" className="px-4 py-2 text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium" onClick={() => setMobileMenuOpen(false)}>{t('nav.categories')}</Link>
                   <Link to="/about" className="px-4 py-2 text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium" onClick={() => setMobileMenuOpen(false)}>{t('nav.about')}</Link>
+                  {(meData?.user?.is_admin === true || meData?.user?.user_type === 'admin') && (
+                    <Link to="/admin" className="px-4 py-2 text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium" onClick={() => setMobileMenuOpen(false)}>{t('nav.admin')}</Link>
+                  )}
                 </div>
               </div>
             )}
@@ -218,8 +221,8 @@ export default function Home() {
                   </label>
                   <input
                     type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
+                    value={searchLocation} // Updated to use searchLocation
+                    onChange={(e) => setSearchLocation(e.target.value)} // Updated to use setSearchLocation
                     placeholder={t('hero.location_placeholder')}
                     className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm outline-none"
                   />
@@ -244,7 +247,7 @@ export default function Home() {
               </div>
               <button 
                 onClick={handleSearch}
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-4 px-8 rounded-xl hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-semibold text-base transform hover:-translate-y-0.5"
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-4 px-8 rounded-xl hover:shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 font-semibold text-base transform hover:-translate-y-0.5"
               >
                 <i className="ri-search-line mr-2 text-lg"></i>
                 {t('hero.cta')}
@@ -267,92 +270,70 @@ export default function Home() {
             </div>
             <div className="text-center group hover-lift">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl mb-4 group-hover:shadow-lg transition-all">
-                <i className="ri-stack-line text-3xl text-blue-600"></i>
+                <i className="ri-map-pin-line text-3xl text-blue-600"></i>
               </div>
-              <div className="text-3xl sm:text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">500+</div>
-              <div className="text-gray-600 text-sm sm:text-base font-medium">{t('stats.categories')}</div>
+              <div className="text-3xl sm:text-5xl font-bold text-gradient mb-2">36</div>
+              <div className="text-gray-600 text-sm sm:text-base font-medium">{t('stats.states')}</div>
             </div>
             <div className="text-center group hover-lift">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl mb-4 group-hover:shadow-lg transition-all">
-                <i className="ri-map-2-line text-3xl text-purple-600"></i>
+                <i className="ri-shopping-cart-line text-3xl text-purple-600"></i>
               </div>
-              <div className="text-3xl sm:text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">36</div>
-              <div className="text-gray-600 text-sm sm:text-base font-medium">{t('stats.cities')}</div>
+              <div className="text-3xl sm:text-5xl font-bold text-gradient mb-2">1.2M+</div>
+              <div className="text-gray-600 text-sm sm:text-base font-medium">{t('stats.transactions')}</div>
             </div>
             <div className="text-center group hover-lift">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-100 to-red-100 rounded-2xl mb-4 group-hover:shadow-lg transition-all">
-                <i className="ri-star-line text-3xl text-orange-600"></i>
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-2xl mb-4 group-hover:shadow-lg transition-all">
+                <i className="ri-star-line text-3xl text-yellow-600"></i>
               </div>
-              <div className="text-3xl sm:text-5xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-2">1M+</div>
-              <div className="text-gray-600 text-sm sm:text-base font-medium">{t('stats.reviews')}</div>
+              <div className="text-3xl sm:text-5xl font-bold text-gradient mb-2">4.8</div>
+              <div className="text-gray-600 text-sm sm:text-base font-medium">{t('stats.rating')}</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Categories Section */}
-      <section className="py-16 sm:py-20 bg-gradient-to-br from-gray-50 to-green-50">
+      {/* Categories Carousel */}
+      <section className="py-16 sm:py-20 bg-gradient-to-b from-green-50 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12 sm:mb-16">
-            <div className="inline-flex items-center px-4 py-2 bg-green-100 rounded-full mb-4">
-              <i className="ri-grid-line text-green-600 mr-2"></i>
-              <span className="text-green-700 text-sm font-semibold">Browse by Category</span>
-            </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
               {t('categories.title')}
             </h2>
-            <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
               {t('categories.subtitle')}
             </p>
           </div>
           
-          {/* Carousel Container */}
           <div className="relative">
-            {/* Navigation Buttons */}
-            <button
-              onClick={prevSlide}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 sm:-translate-x-6 z-10 w-12 h-12 sm:w-14 sm:h-14 bg-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center text-green-600 hover:text-white hover:bg-gradient-to-r hover:from-green-600 hover:to-emerald-600 group"
-              aria-label="Previous categories"
-            >
-              <i className="ri-arrow-left-s-line text-2xl sm:text-3xl"></i>
-            </button>
-            
-            <button
-              onClick={nextSlide}
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 sm:translate-x-6 z-10 w-12 h-12 sm:w-14 sm:h-14 bg-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center text-green-600 hover:text-white hover:bg-gradient-to-r hover:from-green-600 hover:to-emerald-600 group"
-              aria-label="Next categories"
-            >
-              <i className="ri-arrow-right-s-line text-2xl sm:text-3xl"></i>
-            </button>
-
-            {/* Carousel Track */}
-            <div className="overflow-hidden" ref={carouselRef}>
+            <div className="overflow-hidden">
               <div 
-                className="flex transition-transform duration-700 ease-in-out"
+                ref={carouselRef}
+                className="flex transition-transform duration-500 ease-in-out"
                 style={{ transform: `translateX(-${currentSlide * 100}%)` }}
               >
-                {categories && Array.from({ length: totalSlides }).map((_, slideIndex) => (
-                  <div key={slideIndex} className="w-full flex-shrink-0">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-2">
+                {Array.from({ length: totalSlides }).map((_, slideIndex) => (
+                  <div key={slideIndex} className="flex-shrink-0 w-full">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                       {categories
-                        .slice(slideIndex * categoriesPerSlide, (slideIndex + 1) * categoriesPerSlide)
+                        ?.slice(slideIndex * categoriesPerSlide, (slideIndex + 1) * categoriesPerSlide)
                         .map((category) => (
                           <Link
                             key={category._id}
                             to={`/search?category=${encodeURIComponent(category.name)}`}
-                            className="group bg-white rounded-2xl p-6 text-center hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-100 hover:-translate-y-2"
+                            className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100"
                           >
-                            <div className="w-20 h-20 bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
-                              <i className={`${category.icon || 'ri-folder-line'} text-3xl text-green-600`}></i>
+                            <div className="flex items-center mb-4">
+                              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mr-4 group-hover:bg-green-600 transition-colors">
+                                <i className={`${category.icon || 'ri-box-3-line'} text-xl ${category.icon ? 'text-green-600' : 'text-gray-600'} group-hover:text-white transition-colors`}></i>
+                              </div>
+                              <h3 className="text-lg font-semibold text-gray-900 group-hover:text-green-600 transition-colors">
+                                {category.name}
+                              </h3>
                             </div>
-                            <h3 className="font-semibold text-gray-900 mb-2 text-base group-hover:text-green-600 transition-colors">{category.name}</h3>
-                            {category.description && (
-                              <p className="text-sm text-gray-600 line-clamp-2 mb-4">{category.description}</p>
-                            )}
-                            <div className="inline-flex items-center text-green-600 font-semibold text-sm group-hover:gap-2 transition-all">
-                              <span>Explore</span>
-                              <i className="ri-arrow-right-line ml-1 group-hover:translate-x-1 transition-transform"></i>
-                            </div>
+                            <p className="text-gray-600 text-sm line-clamp-2">
+                              {category.description || t('categories.no_description')}
+                            </p>
                           </Link>
                         ))}
                     </div>
@@ -360,178 +341,140 @@ export default function Home() {
                 ))}
               </div>
             </div>
-
-            {/* Dots Indicator */}
-            <div className="flex justify-center items-center gap-2 mt-8">
-              {Array.from({ length: totalSlides }).map((_, index) => (
+            
+            {totalSlides > 1 && (
+              <>
                 <button
-                  key={index}
-                  onClick={() => goToSlide(index)}
-                  className={`transition-all duration-300 rounded-full ${
-                    currentSlide === index
-                      ? 'w-8 h-2 bg-gradient-to-r from-green-600 to-emerald-600'
-                      : 'w-2 h-2 bg-gray-300 hover:bg-gray-400'
-                  }`}
-                  aria-label={`Go to slide ${index + 1}`}
-                />
-              ))}
-            </div>
-
-            {/* View All Button */}
-            <div className="text-center mt-8">
-              <Link
-                to="/categories"
-                className="inline-flex items-center px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-semibold transform hover:-translate-y-0.5"
-              >
-                <span>View All Categories</span>
-                <i className="ri-arrow-right-line ml-2 text-lg"></i>
-              </Link>
-            </div>
+                  onClick={prevSlide}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all border border-gray-200 z-10"
+                  aria-label="Previous slide"
+                >
+                  <i className="ri-arrow-left-s-line text-xl text-gray-700"></i>
+                </button>
+                <button
+                  onClick={nextSlide}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all border border-gray-200 z-10"
+                  aria-label="Next slide"
+                >
+                  <i className="ri-arrow-right-s-line text-xl text-gray-700"></i>
+                </button>
+                
+                <div className="flex justify-center mt-8 space-x-2">
+                  {Array.from({ length: totalSlides }).map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => goToSlide(index)}
+                      className={`w-3 h-3 rounded-full transition-all ${
+                        currentSlide === index ? 'bg-green-600 w-8' : 'bg-gray-300'
+                      }`}
+                      aria-label={`Go to slide ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </section>
 
-      {/* Featured Suppliers */}
-      <section className="py-12 sm:py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-8 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">
+      {/* Featured Suppliers Section */}
+      <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white to-green-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
               {t('featured.title')}
             </h2>
-            <p className="text-base sm:text-lg text-gray-600">
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
               {t('featured.subtitle')}
             </p>
           </div>
           
-          {loadingSuppliers ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-              {[1, 2, 3].map((index) => (
-                <div key={index} className="bg-white rounded-xl shadow-lg overflow-hidden animate-pulse">
-                  <div className="h-40 sm:h-48 bg-gray-200"></div>
-                  <div className="p-4 sm:p-6">
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
-                    <div className="h-3 bg-gray-200 rounded w-full mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+          {featuredSuppliersData === undefined ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+            </div>
+          ) : featuredSuppliers.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {featuredSuppliers.map((supplier: any) => (
+                <div key={supplier._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group">
+                  <div className="relative h-48 overflow-hidden">
+                    <img 
+                      src={`https://readdy.ai/api/search-image?query=${encodeURIComponent(supplier.business_name + ' ' + supplier.category + ' business Nigeria')}&width=400&height=300&seq=featured-${supplier._id}&orientation=landscape`}
+                      alt={supplier.business_name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    {supplier.verified && (
+                      <div className="absolute top-4 right-4 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center">
+                        <i className="ri-shield-star-line mr-1"></i>
+                        {t('status.verified')}
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-6">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="text-lg font-bold text-gray-900 group-hover:text-green-600 transition-colors">
+                        {supplier.business_name}
+                      </h3>
+                      <div className="flex items-center bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-semibold">
+                        <i className="ri-star-fill mr-1 text-yellow-500"></i>
+                        {supplier.rating?.toFixed(1) || '0.0'}
+                      </div>
+                    </div>
+                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                      {supplier.description || t('no_description')}
+                    </p>
+                    <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
+                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                        {supplier.category}
+                      </span>
+                      <span>
+                        <i className="ri-map-pin-line mr-1"></i>
+                        {supplier.city}, {supplier.state}
+                      </span>
+                    </div>
+                    <Link 
+                      to={`/supplier/${supplier._id}`}
+                      className="block w-full text-center bg-gradient-to-r from-green-600 to-emerald-600 text-white py-2.5 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                    >
+                      {t('btn.view')}
+                    </Link>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-              {featuredSuppliers.map((supplier: any) => {
-                const supplierId = supplier._id || supplier.id;
-                const supplierName = supplier.business_name || supplier.name || 'Supplier';
-                const supplierLocation = supplier.location || `${supplier.city || ''}, ${supplier.state || ''}`.trim();
-                const supplierRating = supplier.rating || 0;
-                const supplierReviewsCount = Number(supplier.reviews_count || 0);
-                const imageQuery = encodeURIComponent(`${supplierName} ${supplier.category || ''} business Nigeria professional storefront`);
-                
-                return (
-                  <div key={supplierId} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
-                    <div className="h-40 sm:h-48 bg-gray-200 relative">
-                      <img
-                        src={`https://readdy.ai/api/search-image?query=${imageQuery}&width=400&height=300&seq=supplier-${supplierId}&orientation=landscape`}
-                        alt={supplierName}
-                        className="w-full h-full object-cover object-top"
-                      />
-                      {supplier.verified && (
-                        <div className="absolute top-3 right-3 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center">
-                          <i className="ri-verified-badge-fill mr-1"></i>
-                          {t('featured.verified')}
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-4 sm:p-6">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-base sm:lg text-gray-900 mb-1 truncate">{supplierName}</h3>
-                          <p className="text-green-600 text-sm font-medium">{supplier.category}</p>
-                        </div>
-                        <div className="flex items-center bg-yellow-50 px-2 py-1 rounded-lg ml-2 flex-shrink-0">
-                          <i className="ri-star-fill text-yellow-400 text-sm"></i>
-                          <span className="text-sm font-medium text-gray-900 ml-1">{supplierRating.toFixed(1)}</span>
-                        </div>
-                      </div>
-                      
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">{supplier.description || 'No description available'}</p>
-                      
-                      <div className="space-y-2 mb-4">
-                        <div className="flex items-center text-sm text-gray-600">
-                          <i className="ri-map-pin-line mr-2 text-green-600 flex-shrink-0"></i>
-                          <span className="truncate">{supplierLocation}</span>
-                        </div>
-                        <div className="flex items-center text-sm text-gray-600">
-                          <i className="ri-phone-line mr-2 text-green-600 flex-shrink-0"></i>
-                          <span className="truncate">{supplier.phone || 'N/A'}</span>
-                        </div>
-                        <div className="flex items-center text-sm text-gray-600">
-                          <i className="ri-mail-line mr-2 text-green-600 flex-shrink-0"></i>
-                          <span className="truncate">{supplier.email || 'N/A'}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                        <div className="flex items-center space-x-2">
-                          {supplier.phone && (
-                            <a
-                              href={`tel:${supplier.phone}`}
-                              className="p-2 text-gray-400 hover:text-green-600 transition-colors"
-                              title={t('btn.call')}
-                            >
-                              <i className="ri-phone-line text-lg"></i>
-                            </a>
-                          )}
-                          {supplier.email && (
-                            <a
-                              href={`mailto:${supplier.email}`}
-                              className="p-2 text-gray-400 hover:text-green-600 transition-colors"
-                              title={t('btn.email')}
-                            >
-                              <i className="ri-mail-line text-lg"></i>
-                            </a>
-                          )}
-                          <span className="text-sm text-gray-500">({supplierReviewsCount} {t('label.reviews')})</span>
-                        </div>
-                        <Link
-                          to={`/supplier/${supplierId}`}
-                          className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm whitespace-nowrap"
-                        >
-                          {t('featured.view_profile')}
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="text-center py-16">
+              <i className="ri-store-2-line text-5xl text-gray-300 mb-4"></i>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('featured.no_suppliers')}</h3>
+              <p className="text-gray-600">{t('featured.no_suppliers_desc')}</p>
             </div>
           )}
         </div>
       </section>
 
       {/* Newsletter Section */}
-      <section className="py-12 sm:py-16 bg-green-600">
+      <section className="py-16 sm:py-20 bg-gradient-to-r from-green-600 to-emerald-600">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 items-center">
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-                Restez informé des nouveautés
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            <div className="text-white">
+              <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+                {t('newsletter.title')}
               </h2>
-              <p className="text-lg sm:text-xl text-green-100 mb-4 sm:mb-6">
-                Recevez les dernières actualités sur les fournisseurs, les nouvelles entreprises et les opportunités d'affaires au Nigeria.
+              <p className="text-lg text-green-100 mb-6">
+                {t('newsletter.subtitle')}
               </p>
-              <ul className="space-y-2 text-green-100 text-sm sm:text-base">
+              <ul className="space-y-3">
                 <li className="flex items-center">
-                  <i className="ri-check-line mr-2 flex-shrink-0"></i>
-                  Nouveaux fournisseurs vérifiés
+                  <i className="ri-checkbox-circle-fill text-xl mr-3"></i>
+                  {t('newsletter.benefit1')}
                 </li>
                 <li className="flex items-center">
-                  <i className="ri-check-line mr-2 flex-shrink-0"></i>
-                  Opportunités d'affaires exclusives
+                  <i className="ri-checkbox-circle-fill text-xl mr-3"></i>
+                  {t('newsletter.benefit2')}
                 </li>
                 <li className="flex items-center">
-                  <i className="ri-check-line mr-2 flex-shrink-0"></i>
-                  Conseils pour développer votre entreprise
+                  <i className="ri-checkbox-circle-fill text-xl mr-3"></i>
+                  {t('newsletter.benefit3')}
                 </li>
               </ul>
             </div>

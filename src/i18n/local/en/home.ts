@@ -22,6 +22,8 @@ export const home = {
   "featured.subtitle": "Discover top recommended businesses",
   "featured.verified": "Verified",
   "featured.view_profile": "View Profile",
+  "featured.no_businesses": "No featured businesses",
+  "featured.no_businesses_desc": "There are currently no featured businesses. Check back later!",
 
   // How it works
   "how.title": "How It Works",

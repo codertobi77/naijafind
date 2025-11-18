@@ -1,6 +1,31 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
+export const getAllSuppliers = query({
+  args: {},
+  handler: async (ctx) => {
+    // Check if user is admin
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Non autorisé");
+    
+    const user = await ctx.db
+      .query("users")
+      .filter(q => q.eq(q.field("email"), identity.email))
+      .first();
+      
+    if (!user || !user.is_admin) {
+      throw new Error("Accès refusé. Seuls les administrateurs peuvent effectuer cette action.");
+    }
+    
+    // Get all suppliers for admin panel
+    const allSuppliers = await ctx.db
+      .query("suppliers")
+      .collect();
+    
+    return allSuppliers;
+  }
+});
+
 export const searchSuppliers = query({
   args: {
     q: v.optional(v.string()),
@@ -20,7 +45,9 @@ export const searchSuppliers = query({
     const offset = Number(args.offset ?? 0);
     const sortBy = args.sortBy || 'relevance';
 
-    let all = await ctx.db.query("suppliers").collect();
+    // Only show approved suppliers - filter at database level
+    let query = ctx.db.query("suppliers").filter(q => q.eq(q.field("approved"), true));
+    let all = await query.collect();
 
     if (args.q && args.q.trim()) {
       const q = args.q.toLowerCase();

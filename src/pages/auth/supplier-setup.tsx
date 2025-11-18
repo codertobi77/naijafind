@@ -95,7 +95,9 @@ export default function SupplierSetup() {
         lastName: user.lastName || undefined,
       });
 
-      navigate('/dashboard');
+      // Show a message that admin approval is needed
+      alert(t('supplier_setup.approval_needed'));
+      navigate('/');
     } catch (error: any) {
       alert(error.message || t('supplier_setup.errors.profile_creation_error'));
     } finally {

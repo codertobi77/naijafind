@@ -222,6 +222,10 @@ export default function Dashboard() {
     ) {
       navigate('/auth/login');
     }
+    // Check if supplier is approved
+    else if (meData?.supplier && meData.supplier.approved === false) {
+      navigate('/', { state: { message: 'Votre profil est en attente d\'approbation par l\'administrateur.' } });
+    }
   }, [isAuthenticated, isLoading, meData, navigate]);
 
   // Show tour on first visit

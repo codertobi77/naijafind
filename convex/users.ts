@@ -19,12 +19,17 @@ async function ensureUserHelper(ctx: any, args: any) {
     // S'assurer que created_at existe, sinon l'ajouter
     const patchData: any = {};
     
-    // Ne mettre à jour user_type que s'il n'existe pas déjà
-    if (!existing.user_type) {
+    // Mettre à jour user_type même s'il existe déjà (permettre le changement de rôle)
+    // Mais seulement si un user_type est fourni dans les arguments
+    if (args.user_type && args.user_type !== existing.user_type) {
       patchData.user_type = args.user_type;
       // Si c'est un admin, mettre aussi is_admin
       if (args.user_type === 'admin') {
         patchData.is_admin = true;
+      }
+      // Si ce n'est pas un admin, s'assurer que is_admin est false
+      else if (existing.is_admin) {
+        patchData.is_admin = false;
       }
     }
     
@@ -48,7 +53,14 @@ async function ensureUserHelper(ctx: any, args: any) {
       await ctx.db.patch(existing._id, patchData);
     }
     
-    return { id: existing._id };
+    // Return the updated user data
+    const updatedUser = await ctx.db.get(existing._id);
+    const supplier = await ctx.db
+      .query("suppliers")
+      .filter((q: any) => q.eq(q.field("userId"), identity.subject))
+      .first();
+    
+    return { user: updatedUser, supplier };
   }
 
   const id = await ctx.db.insert("users", {
@@ -60,7 +72,10 @@ async function ensureUserHelper(ctx: any, args: any) {
     lastName: args.lastName,
     created_at: now,
   });
-  return { id };
+  
+  // Return the created user data
+  const newUser = await ctx.db.get(id);
+  return { user: newUser, supplier: null };
 }
 
 export const signUpBuyer = mutation({
@@ -136,6 +151,8 @@ export const signUpSupplier = mutation({
       rating: 0,
       reviews_count: 0n,
       verified: false,
+      approved: false, // Set to false by default - requires admin approval
+      featured: false, // Set to false by default - requires admin to feature
       created_at: now,
       updated_at: now,
     });

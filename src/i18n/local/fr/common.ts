@@ -1,7 +1,7 @@
 export const common = {
   // Navigation
   "nav.home": "Accueil",
-  "nav.categories": "Catégories", 
+  "nav.categories": "Catégories",
   "nav.about": "À propos",
   "nav.contact": "Contact",
   "nav.help": "Aide",
@@ -13,6 +13,7 @@ export const common = {
   "nav.profile": "Profil",
   "nav.logout": "Déconnexion",
   "nav.search": "Recherche",
+  "nav.admin": "Panneau Admin",
 
   // Common buttons
   "btn.search": "Rechercher",
@@ -28,7 +29,7 @@ export const common = {
   "btn.call": "Appeler",
   "btn.email": "Email",
   "btn.website": "Site web",
-  "btn.directions": "Itinéraire",
+  "btn.directions": "Obtenir l'itinéraire",
   "btn.back": "Retour",
   "btn.next": "Suivant",
   "btn.previous": "Précédent",
@@ -50,7 +51,7 @@ export const common = {
   "label.rating": "Note",
   "label.reviews": "Avis",
   "label.distance": "Distance",
-  "label.location": "Localisation",
+  "label.location": "Emplacement",
   "label.price": "Prix",
   "label.date": "Date",
   "label.time": "Heure",
@@ -76,6 +77,7 @@ export const common = {
   "msg.deleted": "Supprimé avec succès",
   "msg.updated": "Mis à jour avec succès",
   "msg.created": "Créé avec succès",
+  "no_description": "Aucune description disponible",
 
   // Distance units
   "distance.km": "km",

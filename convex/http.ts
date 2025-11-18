@@ -154,6 +154,83 @@ http.route({
   }),
 });
 
+// Route for initializing categories with custom data (admin only)
+http.route({
+  path: "/categories/init",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      let body;
+      try {
+        body = await request.json();
+      } catch (error) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Invalid JSON request body",
+          }),
+          {
+            status: 400,
+            headers: { 
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+            },
+          }
+        );
+      }
+
+      const { categories } = body || {};
+      
+      if (!categories || !Array.isArray(categories)) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Categories array is required",
+          }),
+          {
+            status: 400,
+            headers: { 
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+            },
+          }
+        );
+      }
+
+      // Call the internal mutation to initialize categories
+      const result = await ctx.runMutation(internal.init.initCustomCategoriesInternal, {
+        categories,
+      });
+
+      return new Response(
+        JSON.stringify(result),
+        {
+          status: 200,
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
+    } catch (error: any) {
+      console.error("Error in /categories/init:", error);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: error.message || "Error initializing categories",
+        }),
+        {
+          status: 500,
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
+    }
+  }),
+});
+
 // No custom auth HTTP routes needed with Clerk + Convex client integration
 
 export default http;

@@ -22,6 +22,8 @@ export const home = {
   "featured.subtitle": "Découvrez les meilleures entreprises recommandées",
   "featured.verified": "Vérifié",
   "featured.view_profile": "Voir le profil",
+  "featured.no_suppliers": "Aucune entreprise en vedette",
+  "featured.no_suppliers_desc": "Il n'y a actuellement aucune entreprise en vedette. Revenez plus tard !",
 
   // How it works
   "how.title": "Comment ça marche",

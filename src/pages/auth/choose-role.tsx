@@ -16,21 +16,29 @@ export default function ChooseRole() {
   const ensureUser = useMutation(api.users.ensureUser);
   const meData = useQuery(api.users.me, {});
 
-  // Si l'utilisateur a déjà un rôle, rediriger (seulement une fois)
+  // Si l'utilisateur a déjà un rôle ET a complété les étapes nécessaires, rediriger
   useEffect(() => {
-    if (isLoaded && isSignedIn && meData !== undefined && meData?.user?.user_type) {
+    if (isLoaded && isSignedIn && meData !== undefined) {
       // Ne rediriger que si on n'est pas en train de charger un rôle
       if (loading) return;
       
-      if (meData.user.user_type === 'supplier' && !meData.supplier) {
-        navigate('/auth/supplier-setup', { replace: true });
-      } else if (meData.user.user_type === 'supplier' && meData.supplier) {
-        navigate('/dashboard', { replace: true });
-      } else if (meData.user.user_type === 'admin') {
-        navigate('/admin', { replace: true });
-      } else if (meData.user.user_type === 'user') {
-        navigate('/', { replace: true });
+      // Ne rediriger que si l'utilisateur a déjà un rôle ET a complété les étapes nécessaires
+      if (meData?.user?.user_type) {
+        // Pour les suppliers, vérifier s'ils ont déjà un profil
+        if (meData.user.user_type === 'supplier') {
+          // Si supplier et a un profil, aller au dashboard
+          if (meData.supplier) {
+            navigate('/dashboard', { replace: true });
+          }
+          // Sinon, rester sur la page pour permettre la sélection du rôle et la création du profil
+          // Cela permet aux utilisateurs qui ont été redirigés ici après signup de choisir leur rôle
+        } else if (meData.user.user_type === 'admin') {
+          navigate('/admin', { replace: true });
+        } else if (meData.user.user_type === 'user') {
+          navigate('/', { replace: true });
+        }
       }
+      // Si user_type est null/undefined, rester sur la page pour permettre la sélection
     }
   }, [isLoaded, isSignedIn, meData, navigate, loading]);
 
@@ -48,19 +56,28 @@ export default function ChooseRole() {
 
     try {
       // Créer l'utilisateur avec le rôle choisi
-      await ensureUser({
+      const updatedUserData = await ensureUser({
         user_type: role,
         firstName: user.firstName || undefined,
         lastName: user.lastName || undefined,
         phone: user.primaryPhoneNumber?.phoneNumber || undefined,
       });
 
-      // Rediriger selon le rôle
+      // Rediriger selon le rôle en utilisant les données mises à jour
       if (role === 'supplier') {
-        navigate('/auth/supplier-setup');
+        // Si l'utilisateur a déjà un profil supplier et le même rôle, aller au dashboard
+        // Sinon, aller à la configuration du profil pour créer/mettre à jour le profil
+        if (updatedUserData?.supplier && updatedUserData?.user?.user_type === 'supplier') {
+          // L'utilisateur a déjà un profil supplier avec le même rôle, aller au dashboard
+          navigate('/dashboard');
+        } else {
+          // Créer un nouveau profil supplier ou mettre à jour le rôle existant
+          navigate('/auth/supplier-setup');
+        }
       } else if (role === 'admin') {
         navigate('/admin');
       } else {
+        // Pour les utilisateurs, aller à la page d'accueil
         navigate('/');
       }
     } catch (error: any) {
@@ -207,7 +224,7 @@ export default function ChooseRole() {
             </button>
 
             {/* Admin - Seulement si l'utilisateur est déjà marqué comme admin */}
-            {meData?.user?.is_admin === true || meData?.user?.user_type === 'admin' ? (
+            {(meData?.user?.is_admin === true || meData?.user?.user_type === 'admin') ? (
               <button
                 onClick={() => handleRoleSelection('admin')}
                 disabled={loading}

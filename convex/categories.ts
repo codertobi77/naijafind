@@ -8,7 +8,7 @@ async function isAdmin(ctx: any) {
 
   const user = await ctx.db
     .query("users")
-    .filter(q => q.eq(q.field("email"), identity.email ?? ""))
+    .filter((q: any) => q.eq(q.field("email"), identity.email ?? ""))
     .first();
 
   return user?.is_admin === true || user?.user_type === 'admin';
@@ -65,7 +65,7 @@ export const addCategory = mutation({
     description: v.optional(v.string()),
     icon: v.optional(v.string()),
     is_active: v.optional(v.boolean()),
-    order: v.optional(v.int64()),
+    order: v.optional(v.float64()),
   },
   handler: async (ctx, args) => {
     if (!(await isAdmin(ctx))) {
@@ -93,7 +93,7 @@ export const addCategory = mutation({
       description: args.description,
       icon: args.icon,
       is_active: args.is_active ?? true,
-      order: args.order,
+      order: args.order !== undefined ? Number(args.order) : undefined,
       created_at: now,
       created_by: userId,
     });
@@ -110,7 +110,7 @@ export const updateCategory = mutation({
     description: v.optional(v.string()),
     icon: v.optional(v.string()),
     is_active: v.optional(v.boolean()),
-    order: v.optional(v.int64()),
+    order: v.optional(v.float64()),
   },
   handler: async (ctx, args) => {
     if (!(await isAdmin(ctx))) {
