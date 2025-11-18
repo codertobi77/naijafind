@@ -5,6 +5,12 @@ import { api } from '../../../convex/_generated/api';
 import { useConvexAuth } from 'convex/react';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { useTranslation } from 'react-i18next';
+import type { Id } from '../../../convex/_generated/dataModel';
+import type { Doc } from '../../../convex/_generated/dataModel';
+
+// Define proper TypeScript interfaces based on Convex data model
+type Supplier = Doc<"suppliers">;
+type Category = Doc<"categories">;
 
 const mockStats = {
   fournisseurs: 12,
@@ -26,6 +32,110 @@ const mockReviews=[
   {id:1, user:'Ola K.', comment:'Super service', date:Date.now()-3200000},
   {id:2, user:'Helen', comment:'Livraison rapide', date:Date.now()-4300000},
 ];
+
+// Add Toast type definition
+type Toast = { type: 'success' | 'error'; message: string } | null;
+
+// Add ConfirmationModal component
+function ConfirmationModal({
+  isOpen,
+  title,
+  message,
+  onConfirm,
+  onCancel,
+  confirmLabel,
+  cancelLabel,
+  isDanger = false
+}: {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  isDanger?: boolean;
+}) {
+  const { t } = useTranslation();
+  
+  if (!isOpen) return null;
+
+  const confirmButtonClass = isDanger
+    ? "bg-red-600 hover:bg-red-700 text-white"
+    : "bg-green-600 hover:bg-green-700 text-white";
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-md w-full">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-gray-900">
+              {title}
+            </h3>
+            <button 
+              onClick={onCancel}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <i className="ri-close-line text-2xl"></i>
+            </button>
+          </div>
+          
+          <p className="text-gray-600 mb-6">
+            {message}
+          </p>
+          
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={onCancel}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            >
+              {cancelLabel || t('admin.cancel')}
+            </button>
+            <button
+              onClick={onConfirm}
+              className={`px-4 py-2 rounded-lg ${confirmButtonClass}`}
+            >
+              {confirmLabel || t('admin.confirm')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Add Toast component
+function Toast({
+  toast,
+  onDismiss,
+  t
+}: {
+  toast: Toast;
+  onDismiss: () => void;
+  t: (key: string) => string;
+}) {
+  if (!toast) return null;
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50">
+      <div
+        className={`flex items-center space-x-3 rounded-lg border px-4 py-3 text-sm shadow-lg ${
+          toast.type === 'success'
+            ? 'border-green-200 bg-green-50 text-green-700'
+            : 'border-red-200 bg-red-50 text-red-700'
+        }`}
+      >
+        <span>{toast.message}</span>
+        <button
+          onClick={onDismiss}
+          className="text-xs font-medium uppercase tracking-wide"
+        >
+          {t('admin.close')}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminPage(){
   const { t } = useTranslation();
@@ -57,7 +167,7 @@ export default function AdminPage(){
   const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured'>('overview');
   const [fournisseurs,setFournisseurs] = useState(mockSuppliers);
   const [showAddCategory, setShowAddCategory] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<any>(null);
+  const [editingCategory, setEditingCategory] = useState<Id<"categories"> | null>(null);
   const [categoryForm, setCategoryForm] = useState({
     name: '',
     description: '',
@@ -65,7 +175,7 @@ export default function AdminPage(){
     is_active: true,
     order: 0
   });
-  const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Vérifier l'accès admin
@@ -143,25 +253,38 @@ export default function AdminPage(){
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <RecentSuppliersCard 
                 suppliers={pendingSuppliers || []} 
-                onApprove={(supplierId: string) => {
-                  approveSupplier({ supplierId: supplierId as any }).then(() => {
-                    // Refresh the pending suppliers list
+                onApprove={async (supplierId: Id<"suppliers">) => {
+                  setIsApproving(supplierId);
+                  try {
+                    await approveSupplier({ supplierId });
                     refetchPendingSuppliers();
-                  }).catch((error: any) => {
+                    showToast('success', t('admin.supplier_approved'));
+                  } catch (error: any) {
                     console.error('Error approving supplier:', error);
-                    alert(error.message || t('admin.error_approve_supplier'));
-                  });
-                }}
-                onReject={(supplierId: string) => {
-                  if (confirm(t('admin.confirm_reject'))) {
-                    rejectSupplier({ supplierId: supplierId as any }).then(() => {
-                      // Refresh the pending suppliers list
-                      refetchPendingSuppliers();
-                    }).catch((error: any) => {
-                      console.error('Error rejecting supplier:', error);
-                      alert(error.message || t('admin.error_reject_supplier'));
-                    });
+                    showToast('error', error.message || t('admin.error_approve_supplier'));
+                  } finally {
+                    setIsApproving(null);
                   }
+                }}
+                onReject={(supplierId: Id<"suppliers">) => {
+                  showConfirm(
+                    t('admin.reject_supplier'),
+                    t('admin.confirm_reject'),
+                    async () => {
+                      setIsRejecting(supplierId);
+                      try {
+                        await rejectSupplier({ supplierId });
+                        refetchPendingSuppliers();
+                        showToast('success', t('admin.supplier_rejected'));
+                      } catch (error: any) {
+                        console.error('Error rejecting supplier:', error);
+                        showToast('error', error.message || t('admin.error_reject_supplier'));
+                      } finally {
+                        setIsRejecting(null);
+                      }
+                    },
+                    true
+                  );
                 }}
               />
               <RecentActivityCard 
@@ -199,7 +322,7 @@ export default function AdminPage(){
                   </thead>
                   <tbody>
                     {allSuppliers && allSuppliers.length > 0 ? (
-                      allSuppliers.map((supplier: any) => (
+                      allSuppliers.map((supplier: Supplier) => (
                         <tr key={supplier._id} className="border-b">
                           <td className="px-2 py-3 font-medium">{supplier.business_name}</td>
                           <td className="px-2 py-3">{supplier.email}</td>
@@ -241,59 +364,99 @@ export default function AdminPage(){
                               {!supplier.approved && (
                                 <button 
                                   onClick={() => {
-                                    approveSupplier({ supplierId: supplier._id as any }).then(() => {
-                                      // Refresh the suppliers list
-                                      refetchAllSuppliers();
-                                    }).catch((error: any) => {
-                                      console.error('Error approving supplier:', error);
-                                      alert(error.message || t('admin.error_approve_supplier'));
-                                    });
+                                    showConfirm(
+                                      t('admin.approve_supplier'),
+                                      t('admin.confirm_approve_supplier'),
+                                      async () => {
+                                        setIsApproving(supplier._id);
+                                        try {
+                                          await approveSupplier({ supplierId: supplier._id });
+                                          refetchAllSuppliers();
+                                          showToast('success', t('admin.supplier_approved'));
+                                        } catch (error: any) {
+                                          console.error('Error approving supplier:', error);
+                                          showToast('error', error.message || t('admin.error_approve_supplier'));
+                                        } finally {
+                                          setIsApproving(null);
+                                        }
+                                      }
+                                    );
                                   }}
-                                  className="text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 transition-colors"
+                                  disabled={isApproving === supplier._id}
+                                  className="text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50"
                                 >
-                                  {t('admin.approve')}
+                                  {isApproving === supplier._id ? (
+                                    <i className="ri-loader-4-line animate-spin"></i>
+                                  ) : (
+                                    t('admin.approve')
+                                  )}
                                 </button>
                               )}
                               
                               {supplier.approved && (
                                 <button 
                                   onClick={() => {
+                                    setIsSettingFeatured(supplier._id);
                                     setSupplierFeatured({ 
-                                      supplierId: supplier._id as any, 
+                                      supplierId: supplier._id, 
                                       featured: !supplier.featured 
                                     }).then(() => {
-                                      // Refresh the suppliers list
                                       refetchAllSuppliers();
+                                      showToast('success', supplier.featured 
+                                        ? t('admin.supplier_unfeatured') 
+                                        : t('admin.supplier_featured')
+                                      );
                                     }).catch((error: any) => {
                                       console.error('Error updating featured status:', error);
-                                      alert(error.message || t('admin.error_set_featured'));
+                                      showToast('error', error.message || t('admin.error_set_featured'));
+                                    }).finally(() => {
+                                      setIsSettingFeatured(null);
                                     });
                                   }}
-                                  className={`text-xs px-2 py-1 rounded transition-colors ${
+                                  disabled={isSettingFeatured === supplier._id}
+                                  className={`text-xs px-2 py-1 rounded transition-colors disabled:opacity-50 ${
                                     supplier.featured 
                                       ? 'bg-yellow-600 hover:bg-yellow-700 text-white' 
                                       : 'bg-blue-600 hover:bg-blue-700 text-white'
                                   }`}
                                 >
-                                  {supplier.featured ? t('admin.unfeature') : t('admin.feature')}
+                                  {isSettingFeatured === supplier._id ? (
+                                    <i className="ri-loader-4-line animate-spin"></i>
+                                  ) : (
+                                    supplier.featured ? t('admin.unfeature') : t('admin.feature')
+                                  )}
                                 </button>
                               )}
                               
                               <button 
                                 onClick={() => {
-                                  if (confirm(t('admin.confirm_delete_supplier'))) {
-                                    deleteSupplier({ supplierId: supplier._id as any }).then(() => {
-                                      // Refresh the suppliers list
-                                      refetchAllSuppliers();
-                                    }).catch((error: any) => {
-                                      console.error('Error deleting supplier:', error);
-                                      alert(error.message || t('admin.error_delete_supplier'));
-                                    });
-                                  }
+                                  showConfirm(
+                                    t('admin.delete_supplier'),
+                                    t('admin.confirm_delete_supplier'),
+                                    async () => {
+                                      setIsDeleting(supplier._id);
+                                      try {
+                                        await deleteSupplier({ supplierId: supplier._id });
+                                        refetchAllSuppliers();
+                                        showToast('success', t('admin.supplier_deleted'));
+                                      } catch (error: any) {
+                                        console.error('Error deleting supplier:', error);
+                                        showToast('error', error.message || t('admin.error_delete_supplier'));
+                                      } finally {
+                                        setIsDeleting(null);
+                                      }
+                                    },
+                                    true
+                                  );
                                 }}
-                                className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 transition-colors"
+                                disabled={isDeleting === supplier._id}
+                                className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
                               >
-                                {t('admin.delete')}
+                                {isDeleting === supplier._id ? (
+                                  <i className="ri-loader-4-line animate-spin"></i>
+                                ) : (
+                                  t('admin.delete')
+                                )}
                               </button>
                             </div>
                           </td>
@@ -327,13 +490,18 @@ export default function AdminPage(){
               <div className="flex gap-2">
                 <button
                   onClick={() => {
-                    if (confirm(t('admin.confirm_init'))) {
-                      initCategories({}).then((result: any) => {
-                        alert(result.message || t('admin.init_success'));
-                      }).catch((error: any) => {
-                        alert(error.message || t('admin.error_init_categories'));
-                      });
-                    }
+                    showConfirm(
+                      t('admin.init_categories'),
+                      t('admin.confirm_init'),
+                      async () => {
+                        try {
+                          const result: any = await initCategories({});
+                          showToast('success', result.message || t('admin.init_success'));
+                        } catch (error: any) {
+                          showToast('error', error.message || t('admin.error_init_categories'));
+                        }
+                      }
+                    );
                   }}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
                 >
@@ -596,7 +764,7 @@ export default function AdminPage(){
                   </thead>
                   <tbody>
                     {featuredSuppliers && featuredSuppliers.length > 0 ? (
-                      featuredSuppliers.map((supplier: any) => (
+                      featuredSuppliers.map((supplier: Supplier) => (
                         <tr key={supplier._id} className="border-b">
                           <td className="px-2 py-3 font-medium">{supplier.business_name}</td>
                           <td className="px-2 py-3">{supplier.email}</td>
@@ -617,12 +785,12 @@ export default function AdminPage(){
                               {supplier.featured ? (
                                 <button 
                                   onClick={() => {
-                                    setSupplierFeatured({ supplierId: supplier._id as any, featured: false }).then(() => {
+                                    setSupplierFeatured({ supplierId: supplier._id, featured: false }).then(() => {
                                       // Refresh the featured suppliers list
                                       refetchFeaturedSuppliers();
                                     }).catch((error: any) => {
                                       console.error('Error removing featured status:', error);
-                                      alert(error.message || t('admin.error_remove_featured'));
+                                      showToast('error', error.message || t('admin.error_remove_featured'));
                                     });
                                   }}
                                   className="text-xs px-3 py-1 rounded bg-yellow-600 text-white hover:bg-yellow-700 transition-colors"
@@ -632,12 +800,12 @@ export default function AdminPage(){
                               ) : (
                                 <button 
                                   onClick={() => {
-                                    setSupplierFeatured({ supplierId: supplier._id as any, featured: true }).then(() => {
+                                    setSupplierFeatured({ supplierId: supplier._id, featured: true }).then(() => {
                                       // Refresh the featured suppliers list
                                       refetchFeaturedSuppliers();
                                     }).catch((error: any) => {
                                       console.error('Error setting featured status:', error);
-                                      alert(error.message || t('admin.error_set_featured'));
+                                      showToast('error', error.message || t('admin.error_set_featured'));
                                     });
                                   }}
                                   className="text-xs px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700 transition-colors"
@@ -669,7 +837,7 @@ export default function AdminPage(){
 
   const handleAddCategory = async () => {
     if (!categoryForm.name.trim()) {
-      alert(t('admin.name_required'));
+      showToast('error', t('admin.name_required'));
       return;
     }
     try {
@@ -680,16 +848,18 @@ export default function AdminPage(){
         is_active: categoryForm.is_active,
         order: categoryForm.order ? categoryForm.order : 0,
       });
+      refetchCategories(); // Refresh the categories list
       setCategoryForm({ name: '', description: '', icon: '', is_active: true, order: 0 });
       setShowAddCategory(false);
+      showToast('success', t('admin.category_added_success'));
     } catch (error: any) {
-      alert(error.message || 'Erreur lors de l\'ajout de la catégorie');
+      showToast('error', error.message || t('admin.error_add_category'));
     }
   };
 
-  const handleUpdateCategory = async (id: any) => {
+  const handleUpdateCategory = async (id: Id<"categories">) => {
     if (!categoryForm.name.trim()) {
-      alert(t('admin.name_required'));
+      showToast('error', t('admin.name_required'));
       return;
     }
     try {
@@ -701,20 +871,74 @@ export default function AdminPage(){
         is_active: categoryForm.is_active,
         order: categoryForm.order ? categoryForm.order : 0,
       });
+      refetchCategories(); // Refresh the categories list
       setEditingCategory(null);
       setCategoryForm({ name: '', description: '', icon: '', is_active: true, order: 0 });
+      showToast('success', t('admin.category_updated_success'));
     } catch (error: any) {
-      alert(error.message || 'Erreur lors de la modification de la catégorie');
+      showToast('error', error.message || t('admin.error_update_category'));
     }
   };
 
-  const handleDeleteCategory = async (id: any) => {
-    if (!confirm(t('admin.confirm_delete'))) return;
-    try {
-      await deleteCategory({ id });
-    } catch (error: any) {
-      alert(error.message || 'Erreur lors de la suppression de la catégorie');
+  const handleDeleteCategory = async (id: Id<"categories">) => {
+    showConfirm(
+      t('admin.delete_category'),
+      t('admin.confirm_delete'),
+      async () => {
+        try {
+          await deleteCategory({ id });
+          refetchCategories(); // Refresh the categories list
+          showToast('success', t('admin.category_deleted_success'));
+        } catch (error: any) {
+          showToast('error', error.message || t('admin.error_delete_category'));
+        }
+      },
+      true
+    );
+  };
+
+  // Add state for confirmation modal
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
+  const [confirmTitle, setConfirmTitle] = useState('');
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [isDangerAction, setIsDangerAction] = useState(false);
+  
+  // Add state for toast
+  const [toast, setToast] = useState<Toast>(null);
+  
+  // Add loading states for supplier actions
+  const [isApproving, setIsApproving] = useState<Id<"suppliers"> | null>(null);
+  const [isRejecting, setIsRejecting] = useState<Id<"suppliers"> | null>(null);
+  const [isDeleting, setIsDeleting] = useState<Id<"suppliers"> | null>(null);
+  const [isSettingFeatured, setIsSettingFeatured] = useState<Id<"suppliers"> | null>(null);
+
+  // Add helper functions for toast
+  const showToast = (type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 5000);
+  };
+
+  // Add helper functions for confirmation modal
+  const showConfirm = (
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    isDanger = false
+  ) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setConfirmAction(() => onConfirm);
+    setIsDangerAction(isDanger);
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirm = () => {
+    if (confirmAction) {
+      confirmAction();
     }
+    setShowConfirmModal(false);
+    setConfirmAction(null);
   };
 
   // StatCard component
@@ -750,16 +974,52 @@ export default function AdminPage(){
     );
   }
 
-  // RecentSuppliersCard component
+  // Update the RecentSuppliersCard component to use proper async handlers
   function RecentSuppliersCard({
     suppliers,
     onApprove,
     onReject,
   }: {
-    suppliers: any[];
-    onApprove: (supplierId: string) => void;
-    onReject: (supplierId: string) => void;
+    suppliers: Supplier[];
+    onApprove: (supplierId: Id<"suppliers">) => void;
+    onReject: (supplierId: Id<"suppliers">) => void;
   }) {
+    // Extract async handlers
+    const handleApprove = async (supplierId: Id<"suppliers">) => {
+      setIsApproving(supplierId);
+      try {
+        await approveSupplier({ supplierId });
+        refetchPendingSuppliers();
+        showToast('success', t('admin.supplier_approved'));
+      } catch (error: any) {
+        console.error('Error approving supplier:', error);
+        showToast('error', error.message || t('admin.error_approve_supplier'));
+      } finally {
+        setIsApproving(null);
+      }
+    };
+
+    const handleReject = async (supplierId: Id<"suppliers">) => {
+      showConfirm(
+        t('admin.reject_supplier'),
+        t('admin.confirm_reject'),
+        async () => {
+          setIsRejecting(supplierId);
+          try {
+            await rejectSupplier({ supplierId });
+            refetchPendingSuppliers();
+            showToast('success', t('admin.supplier_rejected'));
+          } catch (error: any) {
+            console.error('Error rejecting supplier:', error);
+            showToast('error', error.message || t('admin.error_reject_supplier'));
+          } finally {
+            setIsRejecting(null);
+          }
+        },
+        true
+      );
+    };
+
     return (
       <div className="bg-white rounded-lg border p-6">
         <h3 className="font-semibold mb-4">{t('admin.pending_suppliers')}</h3>
@@ -777,22 +1037,26 @@ export default function AdminPage(){
                 </div>
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => {
-                      console.log('Approve button clicked for supplier:', supplier._id);
-                      onApprove(supplier._id);
-                    }}
-                    className="text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 transition-colors"
+                    onClick={() => handleApprove(supplier._id)}
+                    disabled={isApproving === supplier._id}
+                    className="text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50"
                   >
-                    {t('admin.approve')}
+                    {isApproving === supplier._id ? (
+                      <i className="ri-loader-4-line animate-spin"></i>
+                    ) : (
+                      t('admin.approve')
+                    )}
                   </button>
                   <button
-                    onClick={() => {
-                      console.log('Reject button clicked for supplier:', supplier._id);
-                      onReject(supplier._id);
-                    }}
-                    className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 transition-colors"
+                    onClick={() => handleReject(supplier._id)}
+                    disabled={isRejecting === supplier._id}
+                    className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
                   >
-                    {t('admin.reject')}
+                    {isRejecting === supplier._id ? (
+                      <i className="ri-loader-4-line animate-spin"></i>
+                    ) : (
+                      t('admin.reject')
+                    )}
                   </button>
                 </div>
               </div>
@@ -847,7 +1111,7 @@ export default function AdminPage(){
     isOpen, 
     onClose 
   }: { 
-    supplier: any; 
+    supplier: Supplier | null; 
     isOpen: boolean; 
     onClose: () => void; 
   }) {
@@ -1002,7 +1266,7 @@ export default function AdminPage(){
     );
   }
 
-  const startEdit = (category: any) => {
+  const startEdit = (category: Category) => {
     setEditingCategory(category._id);
     setCategoryForm({
       name: category.name,
@@ -1025,12 +1289,11 @@ export default function AdminPage(){
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">{t('msg.loading')}</p>
-          <p className="mt-2 text-sm text-gray-500">Checking admin permissions...</p>
+          <p className="mt-2 text-sm text-gray-500">{t('admin.checking_permissions')}</p>
         </div>
       </div>
     );
   }
-
   // Show a more informative message when user is not admin
   if (!isAdmin) {
     return (
@@ -1176,6 +1439,19 @@ export default function AdminPage(){
           </div>
         </main>
       </div>
+      
+      {/* Add Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showConfirmModal}
+        title={confirmTitle}
+        message={confirmMessage}
+        onConfirm={handleConfirm}
+        onCancel={() => setShowConfirmModal(false)}
+        isDanger={isDangerAction}
+      />
+      
+      {/* Add Toast */}
+      <Toast toast={toast} onDismiss={() => setToast(null)} t={t} />
     </div>
   );
 }

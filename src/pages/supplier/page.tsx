@@ -229,13 +229,17 @@ export default function SupplierDetail() {
                     <Link to="/about" className="px-4 py-2 rounded-lg text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium transition-all">{t('nav.about')}</Link>
                   </nav>
                   {/* Mobile menu button */}
-                  <button 
-                    className="md:hidden text-gray-700"
-                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                    aria-label="Toggle menu"
-                  >
-                    <i className="ri-menu-line text-2xl"></i>
-                  </button>
+                  <div className="flex items-center space-x-2 sm:space-x-4">
+                    {/* Mobile menu button */}
+                    <button 
+                      className="md:hidden text-gray-700"
+                      onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                      aria-label="Toggle menu"
+                    >
+                      <i className="ri-menu-line text-2xl"></i>
+                    </button>
+                    <LanguageSelector />
+                  </div>
                   <div className="flex items-center space-x-2 sm:space-x-4">
                     <LanguageSelector />
                     <SignedOut>

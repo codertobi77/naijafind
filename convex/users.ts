@@ -127,12 +127,15 @@ export const signUpSupplier = mutation({
       email: args.email, // Add email to ensureUserHelper call
     });
 
+    // Application-level enforcement: Check for existing supplier profile for this user
     const existingSupplier = await ctx.db
       .query("suppliers")
       .filter((q: any) => q.eq(q.field("userId"), identity.subject))
       .first();
+    
+    // If supplier already exists, throw an error to prevent duplicate creation
     if (existingSupplier) {
-      return { id: existingSupplier._id };
+      throw new Error("Un profil fournisseur existe déjà pour cet utilisateur");
     }
 
     const now = new Date().toISOString();

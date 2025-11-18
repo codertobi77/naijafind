@@ -99,6 +99,7 @@ export const auth = {
   "supplier_setup.errors.state_required": "L'état est requis",
   "supplier_setup.errors.email_not_available": "Email non disponible",
   "supplier_setup.errors.profile_creation_error": "Erreur lors de la création du profil fournisseur",
+  "supplier_setup.errors.profile_exists": "Un profil fournisseur existe déjà pour cet utilisateur",
 
   // General
   "loading": "Chargement...",

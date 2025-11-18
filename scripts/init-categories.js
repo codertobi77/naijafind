@@ -234,15 +234,14 @@ async function main() {
       console.error('\n💡 Le serveur a retourné une réponse invalide.');
       console.error('   • Vérifiez que la route /categories/init existe');
       console.error('   • Vérifiez les logs Convex pour plus de détails');
-      console.error(`   • Testez manuellement: curl -X POST ${cleanUrl}/categories/init -H "Content-Type: application/json" -d '{"categories":[]}'\n`);
+      console.error('   • Testez manuellement avec curl en utilisant votre URL Convex\n');
     } else {
       console.error('\n💡 Vérifiez:');
       console.error('   • Que votre projet Convex est déployé');
       console.error('   • Que l\'URL est correcte');
       console.error('   • Que la route /categories/init est accessible\n');
     }
-    process.exit(1);
-  } finally {
+    process.exit(1);  } finally {
     rl.close();
   }
 }

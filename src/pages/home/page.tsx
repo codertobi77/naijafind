@@ -6,11 +6,15 @@ import { useConvexAuth } from 'convex/react';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { api } from '../../../convex/_generated/api';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import type { Doc } from '../../../convex/_generated/dataModel';
+
+// Define proper TypeScript interface for Supplier based on Convex schema
+type Supplier = Doc<"suppliers">;
 
 export default function Home() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const locationState = useLocation(); // Renamed to avoid conflict
+  const location = useLocation(); // Using useLocation hook properly
   const { isAuthenticated, isLoading } = useConvexAuth();
   
   // Using React Query cached queries instead of direct Convex queries
@@ -27,6 +31,18 @@ export default function Home() {
     { staleTime: 15 * 60 * 1000 } // Cache categories for 15 minutes
   );
   
+  // State for displaying messages from navigation
+  const [message, setMessage] = useState<string | null>(null);
+  
+  // Handle location state message
+  useEffect(() => {
+    if (location.state?.message) {
+      setMessage(location.state.message);
+      // Clear the state after displaying the message
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [searchLocation, setSearchLocation] = useState(''); // Renamed from 'location' to avoid conflict
   const [category, setCategory] = useState('');
@@ -35,7 +51,7 @@ export default function Home() {
   const carouselRef = useRef<HTMLDivElement>(null);
   
   // Extract suppliers array from Convex response
-  const featuredSuppliers = featuredSuppliersData || [];
+  const featuredSuppliers: Supplier[] = featuredSuppliersData || [];
 
   // Categories carousel logic
   const categoriesPerSlide = 3;
@@ -90,9 +106,9 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50">
       {/* Show message if redirected from dashboard */}
-      {locationState.state?.message && (
+      {message && (
         <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
-          <p>{locationState.state.message}</p>
+          <p>{message}</p>
         </div>
       )}
       
@@ -395,7 +411,7 @@ export default function Home() {
             </div>
           ) : featuredSuppliers.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {featuredSuppliers.map((supplier: any) => (
+              {featuredSuppliers.map((supplier: Supplier) => (
                 <div key={supplier._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group">
                   <div className="relative h-48 overflow-hidden">
                     <img 

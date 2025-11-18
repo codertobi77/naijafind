@@ -152,17 +152,15 @@ async function createCustomCategories(ctx: any, userId: string, categories: any[
         description: category.description || "",
         icon: category.icon || "",
         is_active: category.is_active !== undefined ? category.is_active : true,
-        order: category.order !== undefined ? Number(category.order) : undefined,
-        created_at: now,
+        order: category.order !== undefined ? BigInt(category.order) : undefined,        created_at: now,
         created_by: userId,
       });
       created.push(category.name);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`Error creating category ${category.name}:`, error);
-      errors.push(`Error creating category ${category.name}: ${error.message}`);
+      errors.push(`Error creating category ${category.name}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-
   return {
     success: true,
     created: created.length,
@@ -220,7 +218,7 @@ export const getCategoryStats = mutation({
 });
 
 // Migration helper to set default values for boolean fields
-export const migrateSupplierBooleans = mutation({
+export const migrateSupplierBooleans = internalMutation({
   args: {},
   handler: async (ctx) => {
     const allSuppliers = await ctx.db.query("suppliers").collect();
@@ -255,4 +253,3 @@ export const migrateSupplierBooleans = mutation({
     };
   }
 });
-

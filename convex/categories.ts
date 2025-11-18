@@ -93,7 +93,7 @@ export const addCategory = mutation({
       description: args.description,
       icon: args.icon,
       is_active: args.is_active ?? true,
-      order: args.order !== undefined ? Number(args.order) : undefined,
+      order: args.order !== undefined ? args.order : undefined,
       created_at: now,
       created_by: userId,
     });

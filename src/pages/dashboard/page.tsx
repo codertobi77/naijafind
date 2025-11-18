@@ -214,19 +214,26 @@ export default function Dashboard() {
     { staleTime: 2 * 60 * 1000 } // Cache user data for 2 minutes
   );
   const navigate = useNavigate();
+  const [approvalChecked, setApprovalChecked] = useState(false);
 
   useEffect(() => {
-    if (
-      !isLoading &&
-      (!isAuthenticated || meData?.user?.user_type !== 'supplier')
-    ) {
+    if (!isLoading && !isAuthenticated) {
       navigate('/auth/login');
+      return;
     }
+    
+    if (!isLoading && meData?.user?.user_type !== 'supplier') {
+      navigate('/auth/login');
+      return;
+    }
+    
     // Check if supplier is approved
-    else if (meData?.supplier && meData.supplier.approved === false) {
+    if (meData?.supplier && meData.supplier.approved === false && !approvalChecked) {
+      setApprovalChecked(true); // Prevent repeated redirects
       navigate('/', { state: { message: 'Votre profil est en attente d\'approbation par l\'administrateur.' } });
+      return;
     }
-  }, [isAuthenticated, isLoading, meData, navigate]);
+  }, [isAuthenticated, isLoading, meData, navigate, approvalChecked]);
 
   // Show tour on first visit
   useEffect(() => {

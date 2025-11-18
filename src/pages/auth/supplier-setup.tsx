@@ -99,7 +99,12 @@ export default function SupplierSetup() {
       alert(t('supplier_setup.approval_needed'));
       navigate('/');
     } catch (error: any) {
-      alert(error.message || t('supplier_setup.errors.profile_creation_error'));
+      // Handle the case where a supplier profile already exists
+      if (error.message && error.message.includes("existe déjà")) {
+        alert(t('supplier_setup.errors.profile_exists'));
+      } else {
+        alert(error.message || t('supplier_setup.errors.profile_creation_error'));
+      }
     } finally {
       setLoading(false);
     }

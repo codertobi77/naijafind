@@ -77,7 +77,7 @@ export const common = {
   "msg.deleted": "Supprimé avec succès",
   "msg.updated": "Mis à jour avec succès",
   "msg.created": "Créé avec succès",
-  "no_description": "Aucune description disponible",
+  "msg.no_description": "Aucune description disponible",
 
   // Distance units
   "distance.km": "km",

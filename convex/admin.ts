@@ -126,7 +126,8 @@ export const setSupplierFeatured = mutation({
     featured: v.boolean(),
   },
   handler: async (ctx, args) => {
-
+    // Check if user is admin
+    await requireAdmin(ctx);
     
     // Check if supplier exists
     const supplier = await ctx.db.get(args.supplierId);
@@ -142,8 +143,7 @@ export const setSupplierFeatured = mutation({
     });
     
     return { success: true };
-  }
-});
+  }});
 
 // Reject a supplier (admin only)
 export const rejectSupplier = mutation({
@@ -175,17 +175,7 @@ export const getPendingSuppliers = query({
   args: {},
   handler: async (ctx) => {
     // Check if user is admin
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Non autorisé");
-    
-    const user = await ctx.db
-      .query("users")
-      .filter((q: any) => q.eq(q.field("email"), identity.email))
-      .first();
-      
-    if (!user || !user.is_admin) {
-      throw new Error("Accès refusé. Seuls les administrateurs peuvent voir les fournisseurs en attente.");
-    }
+    await requireAdmin(ctx);
     
     // Get all suppliers that are not approved
     const pendingSuppliers = await ctx.db

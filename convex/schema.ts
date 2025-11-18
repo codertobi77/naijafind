@@ -39,7 +39,7 @@ export default defineSchema({
     created_at: v.string(),
     updated_at: v.string(),
   })
-    .index("userId", ["userId"]) // Index unique pour garantir 1 supplier par user
+    .index("userId", ["userId"]) // Index pour garantir 1 supplier par user (application-level enforced)
     .index("approved", ["approved"])
     .index("featured", ["featured"]), // Index pour améliorer les performances des requêtes
   products: defineTable({

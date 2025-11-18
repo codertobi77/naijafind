@@ -231,6 +231,44 @@ http.route({
   }),
 });
 
+// Route for migrating supplier boolean fields
+http.route({
+  path: "/suppliers/migrate-booleans",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      // Call the internal mutation to migrate supplier boolean fields
+      const result = await ctx.runMutation(internal.init.migrateSupplierBooleans, {});
+      
+      return new Response(
+        JSON.stringify(result),
+        {
+          status: 200,
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
+    } catch (error: any) {
+      console.error("Error in /suppliers/migrate-booleans:", error);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: error.message || "Error migrating supplier boolean fields",
+        }),
+        {
+          status: 500,
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
+    }
+  }),
+});
+
 // No custom auth HTTP routes needed with Clerk + Convex client integration
 
 export default http;

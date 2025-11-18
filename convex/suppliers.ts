@@ -148,8 +148,14 @@ export const updateSupplierProfile = mutation({
     if (!identity) throw new Error("Non autorisé");
 
     const userId = identity.subject;
+    // Application-level enforcement: Check for existing supplier profile for this user
     const supplier = await ctx.db.query("suppliers").filter(q => q.eq(q.field("userId"), userId)).first();
     if (!supplier) throw new Error("Profil fournisseur non trouvé");
+
+    // Ensure we're not trying to change the userId (which should be immutable)
+    if (supplier.userId !== userId) {
+      throw new Error("Tentative de modification non autorisée du profil fournisseur");
+    }
 
     await ctx.db.patch(supplier._id, {
       business_name: args.business_name,
