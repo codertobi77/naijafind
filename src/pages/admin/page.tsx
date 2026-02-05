@@ -13,27 +13,6 @@ import type { Doc } from '../../../convex/_generated/dataModel';
 type Supplier = Doc<"suppliers">;
 type Category = Doc<"categories">;
 
-const mockStats = {
-  fournisseurs: 12,
-  utilisateurs: 350,
-  commandes: 80,
-  avis: 31,
-  caTotal: 3400000,
-};
-const mockSuppliers = [
-  {id: 1, name: 'ABC Ltd', email:'abc@company.com', active:true},
-  {id: 2, name: 'Soleil SARL', email:'hello@soleil.com', active:false},
-  {id: 3, name: 'Digitex', email:'contact@digitex.ng', active:true},
-];
-const mockOrders = [
-  {id:1,num:'0001', montant:15000, date:Date.now()-9000000, supplier:'ABC Ltd'},
-  {id:2, num:'0002', montant:32000, date:Date.now()-700000, supplier:'Digitex'},
-];
-const mockReviews=[
-  {id:1, user:'Ola K.', comment:'Super service', date:Date.now()-3200000},
-  {id:2, user:'Helen', comment:'Livraison rapide', date:Date.now()-4300000},
-];
-
 // Add Toast type definition
 type Toast = { type: 'success' | 'error'; message: string } | null;
 
@@ -155,6 +134,14 @@ export default function AdminPage(){
   );
   const { data: pendingSuppliers, refetch: refetchPendingSuppliers } = useConvexQuery(api.admin.getPendingSuppliers, {}, { staleTime: 2 * 60 * 1000 });
   const { data: allSuppliers, refetch: refetchAllSuppliers } = useConvexQuery(api.suppliers.getAllSuppliers, {}, { staleTime: 2 * 60 * 1000 });
+const { data: allProducts } = useConvexQuery(api.products.listAllProductsAdmin, {}, { staleTime: 2 * 60 * 1000 });
+const { data: allGalleries } = useConvexQuery(api.suppliers.listAllGalleriesAdmin, {}, { staleTime: 2 * 60 * 1000 });
+
+// Statistiques dynamiques
+const usersCount = allSuppliers ? allSuppliers.length : 0;
+const ordersCount = allProducts ? allProducts.reduce((acc, p) => acc + (p.orders_count || 0), 0) : 0;
+const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + (s.reviews_count || 0), 0) : 0;
+const totalRevenue = allProducts ? allProducts.reduce((acc, p) => acc + (p.total_sales || 0), 0) : 0;
   
   const addCategory = useMutation(api.categories.addCategory);
   const updateCategory = useMutation(api.categories.updateCategory);
@@ -167,7 +154,8 @@ export default function AdminPage(){
   const { data: featuredSuppliers, refetch: refetchFeaturedSuppliers } = useConvexQuery(api.admin.getFeaturedSuppliers, {}, { staleTime: 2 * 60 * 1000 });
   
   const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured'>('overview');
-  const [fournisseurs,setFournisseurs] = useState(mockSuppliers);
+  // Suppression de l’état fournisseurs simulé (on utilise allSuppliers de Convex)
+
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Id<"categories"> | null>(null);
   const [categoryForm, setCategoryForm] = useState({
@@ -225,75 +213,114 @@ export default function AdminPage(){
               />
               <StatCard
                 label={t('admin.users')}
-                value={mockStats.utilisateurs}
+                value={usersCount ?? 0}
                 icon="ri-user-line"
                 iconColor="text-green-600"
                 iconBg="bg-green-100"
               />
               <StatCard
                 label={t('admin.orders')}
-                value={mockStats.commandes}
+                value={ordersCount ?? 0}
                 icon="ri-shopping-cart-line"
                 iconColor="text-purple-600"
                 iconBg="bg-purple-100"
               />
               <StatCard
                 label={t('admin.reviews')}
-                value={mockStats.avis}
+                value={reviewsCount ?? 0}
                 icon="ri-star-line"
                 iconColor="text-yellow-600"
                 iconBg="bg-yellow-100"
               />
               <StatCard
                 label={t('admin.total_revenue')}
-                value={formatCurrency(mockStats.caTotal)}
+                value={formatCurrency(totalRevenue ?? 0)}
                 icon="ri-money-dollar-circle-line"
                 iconColor="text-red-600"
                 iconBg="bg-red-100"
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <RecentSuppliersCard 
-                suppliers={pendingSuppliers || []} 
-                onApprove={async (supplierId: Id<"suppliers">) => {
-                  setIsApproving(supplierId);
-                  try {
-                    await approveSupplier({ supplierId });
-                    refetchPendingSuppliers();
-                    showToast('success', t('admin.supplier_approved'));
-                  } catch (error: any) {
-                    console.error('Error approving supplier:', error);
-                    showToast('error', error.message || t('admin.error_approve_supplier'));
-                  } finally {
-                    setIsApproving(null);
-                  }
-                }}
-                onReject={(supplierId: Id<"suppliers">) => {
-                  showConfirm(
-                    t('admin.reject_supplier'),
-                    t('admin.confirm_reject'),
-                    async () => {
-                      setIsRejecting(supplierId);
-                      try {
-                        await rejectSupplier({ supplierId });
-                        refetchPendingSuppliers();
-                        showToast('success', t('admin.supplier_rejected'));
-                      } catch (error: any) {
-                        console.error('Error rejecting supplier:', error);
-                        showToast('error', error.message || t('admin.error_reject_supplier'));
-                      } finally {
-                        setIsRejecting(null);
-                      }
-                    },
-                    true
-                  );
-                }}
-              />
-              <RecentActivityCard 
-                orders={mockOrders} 
-                reviews={mockReviews} 
-              />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+              {/* Tableau Fournisseurs */}
+              <div className="col-span-1 bg-white rounded-lg shadow p-4 overflow-auto">
+                <h3 className="text-lg font-bold mb-2">{t('admin.suppliers')}</h3>
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-2 py-2">Nom</th>
+                      <th className="px-2 py-2">Email</th>
+                      <th className="px-2 py-2">Catégorie</th>
+                      <th className="px-2 py-2">Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allSuppliers?.map((supplier) => (
+                      <tr key={supplier._id}>
+                        <td className="px-2 py-2">{supplier.business_name}</td>
+                        <td className="px-2 py-2">{supplier.email}</td>
+                        <td className="px-2 py-2">{supplier.category}</td>
+                        <td className="px-2 py-2">
+                          {supplier.approved ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              {t('admin.approved')}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              {t('admin.pending')}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Tableau Produits */}
+              <div className="col-span-1 bg-white rounded-lg shadow p-4 overflow-auto">
+                <h3 className="text-lg font-bold mb-2">{t('admin.products')}</h3>
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-2 py-2">Nom</th>
+                      <th className="px-2 py-2">Prix</th>
+                      <th className="px-2 py-2">Catégorie</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allProducts?.map((product) => (
+                      <tr key={product._id}>
+                        <td className="px-2 py-2">{product.name}</td>
+                        <td className="px-2 py-2">{formatCurrency(product.price)}</td>
+                        <td className="px-2 py-2">{product.category}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Tableau Galeries */}
+              <div className="col-span-1 bg-white rounded-lg shadow p-4 overflow-auto">
+                <h3 className="text-lg font-bold mb-2">{t('admin.galleries')}</h3>
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-2 py-2">Nom</th>
+                      <th className="px-2 py-2">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allGalleries?.map((gallery) => (
+                      <tr key={gallery._id}>
+                        <td className="px-2 py-2">{gallery.name}</td>
+                        <td className="px-2 py-2">{gallery.description}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* À remplacer par une vraie section d’activité si besoin */}
             </div>
           </div>
         );

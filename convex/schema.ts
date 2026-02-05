@@ -86,4 +86,69 @@ export default defineSchema({
   })
     .index("name", ["name"])
     .index("is_active", ["is_active"]),
+  contacts: defineTable({
+    name: v.string(),
+    email: v.string(),
+    subject: v.string(),
+    message: v.string(),
+    type: v.string(), // 'general' | 'supplier' | 'technical' | 'partnership' | 'feedback'
+    status: v.string(), // 'pending' | 'in_progress' | 'resolved'
+    created_at: v.string(),
+  })
+    .index("email", ["email"])
+    .index("status", ["status"])
+    .index("created_at", ["created_at"]),
+  messages: defineTable({
+    supplierId: v.string(),
+    senderName: v.string(),
+    senderEmail: v.string(),
+    senderPhone: v.optional(v.string()),
+    subject: v.string(),
+    message: v.string(),
+    status: v.string(), // 'unread' | 'read' | 'replied'
+    created_at: v.string(),
+  })
+    .index("supplierId", ["supplierId"])
+    .index("status", ["status"])
+    .index("created_at", ["created_at"]),
+  verification_tokens: defineTable({
+    userId: v.string(),
+    email: v.string(),
+    token: v.string(),
+    type: v.string(), // 'email' | 'supplier_verification'
+    expiresAt: v.string(),
+    created_at: v.string(),
+  })
+    .index("token", ["token"])
+    .index("userId", ["userId"])
+    .index("email", ["email"]),
+  password_reset_tokens: defineTable({
+    userId: v.string(),
+    email: v.string(),
+    token: v.string(),
+    expiresAt: v.string(),
+    created_at: v.string(),
+  })
+    .index("token", ["token"])
+    .index("email", ["email"]),
+  verification_documents: defineTable({
+    supplierId: v.string(),
+    documentType: v.string(), // 'business_registration' | 'tax_certificate' | 'id_card' | 'proof_of_address'
+    documentUrl: v.string(),
+    documentName: v.string(),
+    status: v.string(), // 'pending' | 'approved' | 'rejected'
+    rejectionReason: v.optional(v.string()),
+    uploadedAt: v.string(),
+    reviewedAt: v.optional(v.string()),
+    reviewedBy: v.optional(v.string()), // userId of admin who reviewed
+  })
+    .index("supplierId", ["supplierId"])
+    .index("status", ["status"]),
+  rate_limit_attempts: defineTable({
+    identifier: v.string(), // email or IP address
+    action: v.string(), // 'contact_form', 'supplier_message', etc.
+    timestamp: v.number(),
+  })
+    .index("identifier_action", ["identifier", "action"])
+    .index("timestamp", ["timestamp"]),
 });

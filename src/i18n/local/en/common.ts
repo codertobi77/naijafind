@@ -59,6 +59,11 @@ export const common = {
   "label.type": "Type",
   "label.language": "Language",
 
+  // Language selector accessibility
+  "common.select_language": "Select language",
+  "common.available_languages": "Available languages",
+  "common.current_language": "Current language",
+
   // Status
   "status.active": "Active",
   "status.inactive": "Inactive",

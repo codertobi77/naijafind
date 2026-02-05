@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQuery, useConvexAuth } from 'convex/react';
+import { useQuery, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useTranslation } from 'react-i18next';
+import { contactFormSchema, validateForm } from '../../lib/validation';
 
 export default function Contact() {
   const { t } = useTranslation();
@@ -11,13 +12,27 @@ export default function Contact() {
     email: '',
     subject: '',
     message: '',
-    type: 'general'
+    type: 'general' as 'general' | 'supplier' | 'technical' | 'partnership' | 'feedback',
+    website: '' // Honeypot field
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error' | 'rate_limited'>('idle');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const meData = useQuery(api.users.me, {});
+  
+  // Convex mutations and queries
+  const sendContactEmail = useMutation(api.emails.sendContactEmail);
+  const checkRateLimit = useQuery(api.rateLimit.checkRateLimit, 
+    formData.email ? {
+      identifier: formData.email,
+      action: 'contact_form',
+      limit: 3,
+      windowMinutes: 60
+    } : 'skip'
+  );
+  const recordAttempt = useMutation(api.rateLimit.recordAttempt);
 
   // Check if data is still loading
   const dataLoading = meData === undefined;
@@ -42,27 +57,53 @@ export default function Contact() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setValidationErrors({});
+    setSubmitStatus('idle');
     
     try {
-      const formDataToSend = new FormData();
-      formDataToSend.append('name', formData.name);
-      formDataToSend.append('email', formData.email);
-      formDataToSend.append('subject', formData.subject);
-      formDataToSend.append('message', formData.message);
-      formDataToSend.append('type', formData.type);
+      // Honeypot check - if website field is filled, it's a bot
+      if (formData.website) {
+        console.log('Bot detected via honeypot');
+        setSubmitStatus('error');
+        setIsSubmitting(false);
+        return;
+      }
 
-      const response = await fetch('https://readdy.ai/api/form/d3en5tio4fjn3vv2had0', {
-        method: 'POST',
-        body: formDataToSend
+      // Validate form data
+      const validation = validateForm(contactFormSchema, formData);
+      if (!validation.success) {
+        setValidationErrors(validation.errors || {});
+        setSubmitStatus('error');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Check rate limit
+      if (checkRateLimit && !checkRateLimit.allowed) {
+        setSubmitStatus('rate_limited');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Record rate limit attempt
+      await recordAttempt({
+        identifier: formData.email,
+        action: 'contact_form'
       });
 
-      if (response.ok) {
-        setSubmitStatus('success');
-        setFormData({ name: '', email: '', subject: '', message: '', type: 'general' });
-      } else {
-        setSubmitStatus('error');
-      }
+      // Send email via Convex
+      await sendContactEmail({
+        name: formData.name,
+        email: formData.email,
+        subject: formData.subject,
+        message: formData.message,
+        type: formData.type
+      });
+
+      setSubmitStatus('success');
+      setFormData({ name: '', email: '', subject: '', message: '', type: 'general', website: '' });
     } catch (error) {
+      console.error('Contact form submission error:', error);
       setSubmitStatus('error');
     } finally {
       setIsSubmitting(false);
@@ -138,11 +179,33 @@ export default function Contact() {
             {submitStatus === 'error' && (
               <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm sm:text-base">
                 <i className="ri-error-warning-line mr-2"></i>
-                {t('contact.error')}
+                {validationErrors._form || t('contact.error')}
+              </div>
+            )}
+            
+            {submitStatus === 'rate_limited' && (
+              <div className="mb-6 p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg text-sm sm:text-base">
+                <i className="ri-time-line mr-2"></i>
+                Too many requests. Please try again later.
+                {checkRateLimit?.resetAt && (
+                  <span className="block mt-1 text-xs">
+                    Try again after {new Date(checkRateLimit.resetAt).toLocaleTimeString()}
+                  </span>
+                )}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6" data-readdy-form id="contact-naijafind">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+              {/* Honeypot field - hidden from users */}
+              <input
+                type="text"
+                name="website"
+                value={formData.website}
+                onChange={handleChange}
+                className="hidden"
+                tabIndex={-1}
+                autoComplete="off"
+              />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -155,9 +218,14 @@ export default function Contact() {
                     value={formData.name}
                     onChange={handleChange}
                     required
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                    className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm ${
+                      validationErrors.name ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     placeholder={t('contact.placeholder_name')}
                   />
+                  {validationErrors.name && (
+                    <p className="text-red-500 text-xs mt-1">{validationErrors.name}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -171,9 +239,14 @@ export default function Contact() {
                     value={formData.email}
                     onChange={handleChange}
                     required
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                    className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm ${
+                      validationErrors.email ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     placeholder={t('contact.placeholder_email')}
                   />
+                  {validationErrors.email && (
+                    <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>
+                  )}
                 </div>
               </div>
               
@@ -207,9 +280,14 @@ export default function Contact() {
                   value={formData.subject}
                   onChange={handleChange}
                   required
-                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                  className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm ${
+                    validationErrors.subject ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder={t('contact.placeholder_subject')}
                 />
+                {validationErrors.subject && (
+                  <p className="text-red-500 text-xs mt-1">{validationErrors.subject}</p>
+                )}
               </div>
               
               <div>
@@ -224,9 +302,14 @@ export default function Contact() {
                   required
                   rows={6}
                   maxLength={500}
-                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                  className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm ${
+                    validationErrors.message ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder={t('contact.placeholder_message')}
                 ></textarea>
+                {validationErrors.message && (
+                  <p className="text-red-500 text-xs mt-1">{validationErrors.message}</p>
+                )}
                 <p className="text-sm text-gray-500 mt-1">
                   {formData.message.length}/500 {t('contact.char_count')}
                 </p>

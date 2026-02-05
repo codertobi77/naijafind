@@ -166,37 +166,37 @@ export default function Search() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8" id="resultSection">
         <div className="flex flex-col lg:flex-row gap-6 sm:gap-8">
-          {/* Filtres */}
+          {/* Filters */}
           <div className="lg:w-1/4">
             <div className="bg-white rounded-2xl shadow-soft p-6 sticky top-24 border border-gray-100">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-bold text-lg flex items-center">
                   <i className="ri-filter-3-line mr-2 text-green-600"></i>
-                  Filtres
+                  {t('search.filters')}
                 </h3>
-                <button 
+                <button
                   onClick={() => setFilters({category: '', location: '', query: '', distance: '50', rating: '', verified: false})}
                   className="text-sm text-green-600 hover:text-green-700 font-medium"
                 >
-                  Réinitialiser
+                  {t('filter.clear')}
                 </button>
               </div>
-              {/* Recherche */}
+              {/* Search */}
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   <i className="ri-search-line mr-1"></i>
-                  Recherche
+                  {t('search.title')}
                 </label>
                 <input
                   type="text"
                   value={filters.query}
                   onChange={(e) => setFilters({...filters, query: e.target.value})}
-                  placeholder="Nom ou description..."
+                  placeholder={t('search.placeholder')}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm outline-none"
                 />
                 {!filters.query && (
                   <div className="mt-2 text-xs text-gray-600 flex flex-wrap gap-2">
-                    Suggestions :
+                    {t('search.suggestions')}
                     {citySuggestions.map(c => (
                       <button key={c} className="underline text-green-700 hover:text-green-900 px-2"
                         onClick={()=>setFilters({...filters, query: c})}>{c}</button>
@@ -209,18 +209,18 @@ export default function Search() {
                 )}
               </div>
 
-              {/* Ville/état combo */}
+              {/* City/state combo */}
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   <i className="ri-map-pin-line mr-1"></i>
-                  Ville principale
+                  {t('filter.city')}
                 </label>
                 <select
                   value={filters.location}
                   onChange={(e) => setFilters({...filters, location: e.target.value})}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm pr-10 outline-none"
                 >
-                  <option value="">Toutes villes</option>
+                  <option value="">{t('filter.all_cities')}</option>
                   {cityOptions.filter(Boolean).map(city => (
                     <option key={city} value={city}>{city}</option>
                   ))}
@@ -228,32 +228,32 @@ export default function Search() {
                     <option key={city} value={city}>{city}</option>
                   ))}
                 </select>
-                <div className="text-xs text-gray-600 mt-1">Filtrez par ville</div>
+                <div className="text-xs text-gray-600 mt-1">{t('filter.by_city')}</div>
               </div>
 
-              {/* Catégorie */}
+              {/* Category */}
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   <i className="ri-list-check mr-1"></i>
-                  Catégorie
+                  {t('filter.category')}
                 </label>
                 <select
                   value={filters.category}
                   onChange={(e) => setFilters({...filters, category: e.target.value})}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm pr-10 outline-none"
                 >
-                  <option value="">Toutes catégories</option>
+                  <option value="">{t('filter.all_categories')}</option>
                   {categories?.map(cat => (
                     <option key={cat._id} value={cat.name}>{cat.name}</option>
                   ))}
                 </select>
-                <div className="text-xs text-gray-600 mt-1">Filtrez par catégorie</div>
+                <div className="text-xs text-gray-600 mt-1">{t('filter.by_category')}</div>
               </div>
 
               {/* Distance */}
               <div className="mb-6">
-                <label className="block text sm font-medium text-gray-700 mb-2">
-                  Distance maximale
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t('filter.max_distance')}
                 </label>
                 <select
                   value={filters.distance}
@@ -265,28 +265,28 @@ export default function Search() {
                   <option value="50">50 km</option>
                   <option value="100">100 km</option>
                 </select>
-                <div className="text-xs text-gray-600 mt-1">Filtrez par distance</div>
+                <div className="text-xs text-gray-600 mt-1">{t('filter.by_distance')}</div>
               </div>
 
-              {/* Note minimale */}
+              {/* Minimum rating */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Note minimale
+                  {t('filter.min_rating')}
                 </label>
                 <select
                   value={filters.rating}
                   onChange={(e) => setFilters({...filters, rating: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm pr-8"
                 >
-                  <option value="">Toutes notes</option>
-                  <option value="4">4+ étoiles</option>
-                  <option value="4.5">4.5+ étoiles</option>
-                  <option value="4.8">4.8+ étoiles</option>
+                  <option value="">{t('filter.all_ratings')}</option>
+                  <option value="4">4+ {t('filter.stars')}</option>
+                  <option value="4.5">4.5+ {t('filter.stars')}</option>
+                  <option value="4.8">4.8+ {t('filter.stars')}</option>
                 </select>
-                <div className="text-xs text-gray-600 mt-1">Filtrez par note</div>
+                <div className="text-xs text-gray-600 mt-1">{t('filter.by_rating')}</div>
               </div>
 
-              {/* Vérifié */}
+              {/* Verified */}
               <div className="mb-6">
                 <label className="flex items-center">
                   <input
@@ -295,38 +295,38 @@ export default function Search() {
                     onChange={(e) => setFilters({...filters, verified: e.target.checked})}
                     className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                   />
-                  <span className="ml-2 text-sm text-gray-700">Entreprises vérifiées uniquement</span>
+                  <span className="ml-2 text-sm text-gray-700">{t('filter.verified_only')}</span>
                 </label>
               </div>
 
-              <button 
+              <button
                 onClick={() => setFilters({category: '', location: '', query: '', distance: '50', rating: '', verified: false})}
                 className="w-full text-green-600 hover:text-green-700 text-sm font-medium"
               >
-                Réinitialiser les filtres
+                {t('filter.reset')}
               </button>
             </div>
           </div>
 
-          {/* Résultats */}
+          {/* Results */}
           <div className="lg:w-3/4">
-            {/* En-tête des résultats */}
+            {/* Results header */}
             <div className="bg-white rounded-2xl shadow-soft p-6 mb-6 border border-gray-100">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-                    Résultats de recherche
+                    {t('search.results_title')}
                   </h1>
                   <p className="text-gray-600 text-sm sm:text-base flex items-center">
                     {loading ? (
                       <>
                         <i className="ri-loader-4-line animate-spin mr-2"></i>
-                        Recherche en cours...
+                        {t('search.loading')}
                       </>
                     ) : (
                       <>
                         <i className="ri-checkbox-circle-line text-green-600 mr-2"></i>
-                        {suppliers.length} fournisseurs trouvés
+                        {suppliers.length} {t('search.suppliers')} {t('search.results')}
                       </>
                     )}
                   </p>
@@ -336,24 +336,24 @@ export default function Search() {
                     <button
                       onClick={() => setViewMode('list')}
                       className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                        viewMode === 'list' 
-                          ? 'bg-white text-gray-900 shadow-md' 
+                        viewMode === 'list'
+                          ? 'bg-white text-gray-900 shadow-md'
                           : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
                       <i className="ri-list-unordered mr-2"></i>
-                      <span className="hidden sm:inline">Liste</span>
+                      <span className="hidden sm:inline">{t('view.list')}</span>
                     </button>
                     <button
                       onClick={() => setViewMode('map')}
                       className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                        viewMode === 'map' 
-                          ? 'bg-white text-gray-900 shadow-md' 
+                        viewMode === 'map'
+                          ? 'bg-white text-gray-900 shadow-md'
                           : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
                       <i className="ri-map-pin-line mr-2"></i>
-                      <span className="hidden sm:inline">Carte</span>
+                      <span className="hidden sm:inline">{t('view.map')}</span>
                     </button>
                   </div>
                   <select
@@ -361,10 +361,10 @@ export default function Search() {
                     onChange={(e) => setSortBy(e.target.value)}
                     className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm pr-10 outline-none"
                   >
-                    <option value="relevance">Pertinence</option>
-                    <option value="distance">Distance</option>
-                    <option value="rating">Note</option>
-                    <option value="reviews">Nombre d'avis</option>
+                    <option value="relevance">{t('search.sort.relevance')}</option>
+                    <option value="distance">{t('search.sort.distance')}</option>
+                    <option value="rating">{t('search.sort.rating')}</option>
+                    <option value="reviews">{t('results.reviews')}</option>
                   </select>
                 </div>
               </div>

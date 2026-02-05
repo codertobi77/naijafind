@@ -26,6 +26,33 @@ export const getAllSuppliers = query({
   }
 });
 
+// Query admin : lister toutes les galeries (imageGallery de chaque fournisseur)
+export const listAllGalleriesAdmin = query({
+  args: {},
+  handler: async (ctx) => {
+    // Check if user is admin
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Non autorisé");
+    const user = await ctx.db
+      .query("users")
+      .filter(q => q.eq(q.field("email"), identity.email))
+      .first();
+    if (!user || !user.is_admin) {
+      throw new Error("Accès refusé. Seuls les administrateurs peuvent effectuer cette action.");
+    }
+    // Get all suppliers with their galleries
+    const allSuppliers = await ctx.db
+      .query("suppliers")
+      .collect();
+    // Ne retourner que l’id, le nom, et la galerie
+    return allSuppliers.map(s => ({
+      _id: s._id,
+      business_name: s.business_name,
+      imageGallery: s.imageGallery || [],
+    }));
+  }
+});
+
 export const searchSuppliers = query({
   args: {
     q: v.optional(v.string()),

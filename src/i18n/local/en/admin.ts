@@ -89,7 +89,23 @@ export const admin = {
   "admin.updated_at": "Updated At",
   "admin.close": "Close",
   "admin.confirm_delete_supplier": "Are you sure you want to delete this supplier? This action cannot be undone.",
-  "admin.error_delete_supplier": "Error deleting supplier"
+  "admin.confirm": "Confirm",
+  "admin.approve_supplier": "Approve Supplier",
+  "admin.confirm_approve_supplier": "Are you sure you want to approve this supplier?",
+  "admin.supplier_approved": "Supplier approved successfully",
+  "admin.supplier_featured": "Supplier set as featured",
+  "admin.supplier_unfeatured": "Supplier removed from featured",
+  "admin.delete_supplier": "Delete Supplier",
+  "admin.supplier_deleted": "Supplier deleted successfully",
+  "admin.no_categories": "No categories",
+  "admin.category_image": "Category Image",
+  "admin.placeholder_image": "Enter image URL",
+  "admin.image": "Image",
+  "admin.reject_supplier": "Reject Supplier",
+  "admin.supplier_rejected": "Supplier rejected successfully",
+  "admin.products": "Products",
+  "admin.galleries": "Galleries",
+  "admin.categories": "Categories"
 };
 
 export default admin;

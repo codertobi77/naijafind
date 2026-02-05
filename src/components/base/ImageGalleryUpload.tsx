@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { uploadImages, validateImageFiles } from '../../lib/imageUpload';
+import { uploadImagesToCloudinary, validateImageFiles } from '../../lib/cloudinary';
 
 interface ImageGalleryUploadProps {
   label: string;
@@ -39,8 +39,8 @@ export default function ImageGalleryUpload({
     setUploading(true);
 
     try {
-      // Upload the files
-      const results = await uploadImages(fileArray);
+      // Upload the files to Cloudinary
+      const results = await uploadImagesToCloudinary(fileArray, 'naijafind/gallery');
       
       const successfulUploads = results
         .filter(result => result.success)

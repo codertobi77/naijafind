@@ -11,13 +11,17 @@
 import type * as admin from "../admin.js";
 import type * as categories from "../categories.js";
 import type * as dashboard from "../dashboard.js";
+import type * as emails from "../emails.js";
 import type * as http from "../http.js";
 import type * as init from "../init.js";
 import type * as orders from "../orders.js";
 import type * as products from "../products.js";
+import type * as rateLimit from "../rateLimit.js";
 import type * as reviews from "../reviews.js";
+import type * as sendEmail from "../sendEmail.js";
 import type * as suppliers from "../suppliers.js";
 import type * as users from "../users.js";
+import type * as verification from "../verification.js";
 
 import type {
   ApiFromModules,
@@ -37,13 +41,17 @@ declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   categories: typeof categories;
   dashboard: typeof dashboard;
+  emails: typeof emails;
   http: typeof http;
   init: typeof init;
   orders: typeof orders;
   products: typeof products;
+  rateLimit: typeof rateLimit;
   reviews: typeof reviews;
+  sendEmail: typeof sendEmail;
   suppliers: typeof suppliers;
   users: typeof users;
+  verification: typeof verification;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 

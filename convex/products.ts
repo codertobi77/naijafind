@@ -82,6 +82,26 @@ export const updateProduct = mutation({
   }
 });
 
+// Query admin : lister tous les produits
+export const listAllProductsAdmin = query({
+  args: {},
+  handler: async (ctx) => {
+    // Vérifier si admin
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Non autorisé");
+    const user = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("email"), identity.email ?? ""))
+      .first();
+    if (!user || (!user.is_admin && user.user_type !== 'admin')) {
+      throw new Error("Non autorisé - Admin uniquement");
+    }
+    // Retourner tous les produits
+    const products = await ctx.db.query("products").collect();
+    return products;
+  },
+});
+
 export const deleteProduct = mutation({
   args: { id: v.id("products") },
   handler: async (ctx, { id }) => {

@@ -2,108 +2,54 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
+interface FAQQuestion {
+  question: string;
+  answer: string;
+}
+
+interface FAQCategory {
+  category: string;
+  questions: FAQQuestion[];
+}
+
 export default function FAQ() {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [openItems, setOpenItems] = useState<number[]>([]);
 
-  const faqData = [
+  // FAQ data structure using proper translation keys
+  const faqData: FAQCategory[] = [
     {
       category: t('faq.cat_general'),
       questions: [
-        {
-          question: t('faq.cat_general') === 'General' ? 'What is NaijaFind?' : 'Qu\'est-ce que NaijaFind ?',
-          answer: t('faq.cat_general') === 'General' ? 
-            'NaijaFind is a geo-located search engine that allows you to easily find all suppliers in Nigeria. Our platform connects businesses with the best local suppliers in all categories.' : 
-            'NaijaFind est un moteur de recherche géolocalisé qui vous permet de trouver facilement tous les fournisseurs du Nigeria. Notre plateforme connecte les entreprises avec les meilleurs fournisseurs locaux dans toutes les catégories.'
-        },
-        {
-          question: t('faq.cat_general') === 'General' ? 'How to use NaijaFind?' : 'Comment utiliser NaijaFind ?',
-          answer: t('faq.cat_general') === 'General' ? 
-            'Simply enter what you are looking for in the search bar, specify your location and choose a category if necessary. Our results are sorted by relevance and geographical proximity.' : 
-            'Il suffit d\'entrer ce que vous recherchez dans la barre de recherche, de spécifier votre localisation et de choisir une catégorie si nécessaire. Nos résultats sont triés par pertinence et proximité géographique.'
-        },
-        {
-          question: t('faq.cat_general') === 'General' ? 'Is NaijaFind free?' : 'NaijaFind est-il gratuit ?',
-          answer: t('faq.cat_general') === 'General' ? 
-            'Yes, searching for suppliers on NaijaFind is completely free. Suppliers can also create a basic profile for free.' : 
-            'Oui, la recherche de fournisseurs sur NaijaFind est entièrement gratuite. Les fournisseurs peuvent également créer un profil de base gratuitement.'
-        }
+        { question: t('faq.general.q1'), answer: t('faq.general.a1') },
+        { question: t('faq.general.q2'), answer: t('faq.general.a2') },
+        { question: t('faq.general.q3'), answer: t('faq.general.a3') }
       ]
     },
     {
       category: t('faq.cat_buyers'),
       questions: [
-        {
-          question: t('faq.cat_buyers') === 'For buyers' ? 'How to contact a supplier?' : 'Comment contacter un fournisseur ?',
-          answer: t('faq.cat_buyers') === 'For buyers' ? 
-            'On each supplier\'s detail page, you will find their contact information: phone, email, and a direct contact form. You can also use our AI assistant to schedule an appointment.' : 
-            'Sur la page de détail de chaque fournisseur, vous trouverez ses informations de contact : téléphone, email, et un formulaire de contact direct. Vous pouvez également utiliser notre assistant IA pour prendre rendez-vous.'
-        },
-        {
-          question: t('faq.cat_buyers') === 'For buyers' ? 'How to verify a supplier\'s reliability?' : 'Comment vérifier la fiabilité d\'un fournisseur ?',
-          answer: t('faq.cat_buyers') === 'For buyers' ? 
-            'We verify all our partner suppliers. Look for the "Verified" badge on their profile. You can also check reviews and ratings left by other customers.' : 
-            'Nous vérifions tous nos fournisseurs partenaires. Recherchez le badge "Vérifié" sur leur profil. Vous pouvez également consulter les avis et notes laissés par d\'autres clients.'
-        },
-        {
-          question: t('faq.cat_buyers') === 'For buyers' ? 'Can I filter results by distance?' : 'Puis-je filtrer les résultats par distance ?',
-          answer: t('faq.cat_buyers') === 'For buyers' ? 
-            'Yes, you can set a search radius (10, 25, 50 or 100 km) to find suppliers closest to your location.' : 
-            'Oui, vous pouvez définir un rayon de recherche (10, 25, 50 ou 100 km) pour trouver les fournisseurs les plus proches de votre localisation.'
-        }
+        { question: t('faq.buyers.q1'), answer: t('faq.buyers.a1') },
+        { question: t('faq.buyers.q2'), answer: t('faq.buyers.a2') },
+        { question: t('faq.buyers.q3'), answer: t('faq.buyers.a3') }
       ]
     },
     {
       category: t('faq.cat_suppliers'),
       questions: [
-        {
-          question: t('faq.cat_suppliers') === 'For suppliers' ? 'How to add my business to NaijaFind?' : 'Comment ajouter mon entreprise sur NaijaFind ?',
-          answer: t('faq.cat_suppliers') === 'For suppliers' ? 
-            'Click on "Add your business" in the main menu, then create your account and fill in your business information. Creating a basic profile is free.' : 
-            'Cliquez sur "Ajouter votre entreprise" dans le menu principal, puis créez votre compte et remplissez les informations de votre entreprise. La création d\'un profil de base est gratuite.'
-        },
-        {
-          question: t('faq.cat_suppliers') === 'For suppliers' ? 'How to get the "Verified" badge?' : 'Comment obtenir le badge "Vérifié" ?',
-          answer: t('faq.cat_suppliers') === 'For suppliers' ? 
-            'After creating your profile, our team will verify your business information. This process usually takes 2-3 business days. You will receive a notification once verification is complete.' : 
-            'Après avoir créé votre profil, notre équipe vérifiera vos informations d\'entreprise. Ce processus prend généralement 2-3 jours ouvrables. Vous recevrez une notification une fois la vérification terminée.'
-        },
-        {
-          question: t('faq.cat_suppliers') === 'For suppliers' ? 'Can I modify my information after registration?' : 'Puis-je modifier mes informations après inscription ?',
-          answer: t('faq.cat_suppliers') === 'For suppliers' ? 
-            'Yes, you can modify all your information from your supplier dashboard. Major changes may require re-verification.' : 
-            'Oui, vous pouvez modifier toutes vos informations depuis votre tableau de bord fournisseur. Les modifications importantes peuvent nécessiter une nouvelle vérification.'
-        },
-        {
-          question: t('faq.cat_suppliers') === 'For suppliers' ? 'How to improve my business visibility?' : 'Comment améliorer la visibilité de mon entreprise ?',
-          answer: t('faq.cat_suppliers') === 'For suppliers' ? 
-            'Complete your profile fully, add quality photos, encourage your customers to leave reviews, and keep your information up to date. We also offer premium options for more visibility.' : 
-            'Complétez entièrement votre profil, ajoutez des photos de qualité, encouragez vos clients à laisser des avis, et maintenez vos informations à jour. Nous proposons également des options premium pour plus de visibilité.'
-        }
+        { question: t('faq.suppliers.q1'), answer: t('faq.suppliers.a1') },
+        { question: t('faq.suppliers.q2'), answer: t('faq.suppliers.a2') },
+        { question: t('faq.suppliers.q3'), answer: t('faq.suppliers.a3') },
+        { question: t('faq.suppliers.q4'), answer: t('faq.suppliers.a4') }
       ]
     },
     {
       category: t('faq.cat_technical'),
       questions: [
-        {
-          question: t('faq.cat_technical') === 'Technical' ? 'On which devices can I use NaijaFind?' : 'Sur quels appareils puis-je utiliser NaijaFind ?',
-          answer: t('faq.cat_technical') === 'Technical' ? 
-            'NaijaFind works on all devices: computers, tablets and smartphones. Our website is optimized for all modern browsers.' : 
-            'NaijaFind fonctionne sur tous les appareils : ordinateurs, tablettes et smartphones. Notre site web est optimisé pour tous les navigateurs modernes.'
-        },
-        {
-          question: t('faq.cat_technical') === 'Technical' ? 'Is my personal data secure?' : 'Mes données personnelles sont-elles sécurisées ?',
-          answer: t('faq.cat_technical') === 'Technical' ? 
-            'Yes, we take security very seriously. All your data is encrypted and we strictly comply with data protection regulations.' : 
-            'Oui, nous prenons la sécurité très au sérieux. Toutes vos données sont chiffrées et nous respectons strictement les réglementations sur la protection des données.'
-        },
-        {
-          question: t('faq.cat_technical') === 'Technical' ? 'What to do if I encounter a technical problem?' : 'Que faire si je rencontre un problème technique ?',
-          answer: t('faq.cat_technical') === 'Technical' ? 
-            'Contact our technical support via the Contact page or use our AI assistant. We usually respond within 24 hours.' : 
-            'Contactez notre support technique via la page Contact ou utilisez notre assistant IA. Nous répondons généralement dans les 24 heures.'
-        }
+        { question: t('faq.technical.q1'), answer: t('faq.technical.a1') },
+        { question: t('faq.technical.q2'), answer: t('faq.technical.a2') },
+        { question: t('faq.technical.q3'), answer: t('faq.technical.a3') }
       ]
     }
   ];

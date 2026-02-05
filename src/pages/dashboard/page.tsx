@@ -24,6 +24,7 @@ import { useConvexQuery } from '../../hooks/useConvexQuery';
 import ComingSoon from '../../components/base/ComingSoon';
 import DashboardTour from '../../components/base/DashboardTour';
 import useCurrency from '../../hooks/useCurrency';
+import VerificationStatus from '../../components/base/VerificationStatus';
 
 type DashboardTab =
   | 'overview'
@@ -33,6 +34,7 @@ type DashboardTab =
   | 'reviews'
   | 'analytics'
   | 'subscription'
+  | 'verification'
   | 'settings'
   | 'team';
 
@@ -55,21 +57,32 @@ interface DashboardData {
   reviews?: any[];
 }
 
-const SIDEBAR_TABS: Array<{
-  id: DashboardTab;
-  label: string;
-  icon: string;
-}> = [
-  { id: 'overview', label: 'Aperçu', icon: 'ri-dashboard-line' },
-  { id: 'profile', label: 'Profil', icon: 'ri-building-line' },
-  { id: 'products', label: 'Produits', icon: 'ri-product-hunt-line' },
-  { id: 'orders', label: 'Commandes', icon: 'ri-shopping-cart-line' },
-  { id: 'reviews', label: 'Avis', icon: 'ri-star-line' },
-  { id: 'analytics', label: 'Analytics', icon: 'ri-bar-chart-line' },
-  { id: 'subscription', label: 'Abonnement', icon: 'ri-vip-crown-line' },
-  { id: 'settings', label: 'Paramètres', icon: 'ri-settings-line' },
-  { id: 'team', label: 'Équipe', icon: 'ri-team-line' },
-];
+function getSidebarTabs(category: string | undefined) {
+  // À adapter selon les vraies catégories "vendeur de produits" vs "prestataire de services"
+  const isProductVendor = category === 'Vente de produits';
+  const isServiceProvider = category === 'Services';
+
+  const baseTabs = [
+    { id: 'overview', label: 'Aperçu', icon: 'ri-dashboard-line' },
+    { id: 'profile', label: 'Profil', icon: 'ri-building-line' },
+    { id: 'orders', label: 'Commandes', icon: 'ri-shopping-cart-line' },
+    { id: 'reviews', label: 'Avis', icon: 'ri-star-line' },
+    { id: 'verification', label: 'Vérification', icon: 'ri-shield-check-line' },
+    { id: 'analytics', label: 'Analytics', icon: 'ri-bar-chart-line' },
+    { id: 'subscription', label: 'Abonnement', icon: 'ri-vip-crown-line' },
+    { id: 'settings', label: 'Paramètres', icon: 'ri-settings-line' },
+    { id: 'team', label: 'Équipe', icon: 'ri-team-line' },
+  ];
+  const tabs = [...baseTabs];
+  if (isProductVendor) {
+    tabs.splice(2, 0, { id: 'products', label: 'Produits', icon: 'ri-product-hunt-line' });
+  }
+  if (isServiceProvider) {
+    tabs.splice(2, 0, { id: 'galerie', label: 'Galerie', icon: 'ri-image-line' });
+  }
+  return tabs;
+}
+
 
 const SUBSCRIPTION_PLANS = {
   free: {
@@ -1036,6 +1049,15 @@ export default function Dashboard() {
             reviewToast={reviewToast}
           />
         );
+      case 'verification':
+        return (
+          <div className="dashboard-verification">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Vérification du Profil</h2>
+            {dashboardData?.profile && (
+              <VerificationStatus supplierId={dashboardData.profile._id as Id<'suppliers'>} />
+            )}
+          </div>
+        );
       case 'analytics':
         return (
           <AnalyticsSection
@@ -1061,7 +1083,7 @@ export default function Dashboard() {
       <DashboardSidebar
         businessName={dashboardData?.profile?.business_name || 'Mon entreprise'}
         planName={planConfig.name}
-        tabs={SIDEBAR_TABS.map((tab) => ({
+        tabs={getSidebarTabs(dashboardData?.profile?.category).map((tab) => ({
           ...tab,
           premium:
             tab.id === 'analytics' ? !planConfig.canAccessAnalytics : false,
@@ -1409,6 +1431,7 @@ function DashboardHeader({
             {activeTab === 'products' && 'Produits'}
             {activeTab === 'orders' && 'Commandes'}
             {activeTab === 'reviews' && 'Avis'}
+            {activeTab === 'verification' && 'Vérification'}
             {activeTab === 'analytics' && 'Analytics'}
             {activeTab === 'subscription' && 'Abonnement'}
             {activeTab === 'team' && 'Équipe'}

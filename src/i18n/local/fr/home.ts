@@ -11,6 +11,9 @@ export const home = {
   "stats.categories": "Catégories",
   "stats.cities": "Villes",
   "stats.reviews": "Avis",
+  "stats.states": "États",
+  "stats.transactions": "Transactions",
+  "stats.rating": "Note",
 
   // Categories section
   "categories.title": "Catégories populaires",
@@ -22,8 +25,8 @@ export const home = {
   "featured.subtitle": "Découvrez les meilleures entreprises recommandées",
   "featured.verified": "Vérifié",
   "featured.view_profile": "Voir le profil",
-  "featured.no_suppliers": "Aucune entreprise en vedette",
-  "featured.no_suppliers_desc": "Il n'y a actuellement aucune entreprise en vedette. Revenez plus tard !",
+  "featured.no_businesses": "Aucune entreprise en vedette",
+  "featured.no_businesses_desc": "Il n'y a actuellement aucune entreprise en vedette. Revenez plus tard !",
 
   // How it works
   "how.title": "Comment ça marche",
@@ -37,7 +40,19 @@ export const home = {
   // CTA section
   "cta.title": "Vous êtes un fournisseur ?",
   "cta.subtitle": "Rejoignez notre plateforme et développez votre activité",
-  "cta.button": "Créer un compte fournisseur"
+  "cta.button": "Créer un compte fournisseur",
+
+  // Newsletter section
+  "newsletter.title": "Restez informé",
+  "newsletter.subtitle": "Abonnez-vous à notre newsletter pour recevoir les dernières actualités",
+  "newsletter.benefit1": "Recevez des offres exclusives",
+  "newsletter.benefit2": "Découvrez de nouveaux fournisseurs",
+  "newsletter.benefit3": "Restez à jour avec les dernières tendances",
+  "newsletter.name_placeholder": "Votre nom complet",
+  "newsletter.email_placeholder": "votre@email.com",
+  "newsletter.sector": "Secteur d'activité",
+  "newsletter.sector_placeholder": "Sélectionnez votre secteur",
+  "newsletter.subscribe": "S'abonner à la newsletter"
 };
 
 export default home;

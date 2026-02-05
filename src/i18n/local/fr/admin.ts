@@ -89,7 +89,23 @@ export const admin = {
   "admin.updated_at": "Mis à jour le",
   "admin.close": "Fermer",
   "admin.confirm_delete_supplier": "Êtes-vous sûr de vouloir supprimer ce fournisseur ? Cette action est irréversible.",
-  "admin.error_delete_supplier": "Erreur lors de la suppression du fournisseur"
+  "admin.confirm": "Confirmer",
+  "admin.approve_supplier": "Approuver le fournisseur",
+  "admin.confirm_approve_supplier": "Êtes-vous sûr de vouloir approuver ce fournisseur ?",
+  "admin.supplier_approved": "Fournisseur approuvé avec succès",
+  "admin.supplier_featured": "Fournisseur mis en vedette",
+  "admin.supplier_unfeatured": "Fournisseur retiré des vedettes",
+  "admin.delete_supplier": "Supprimer le fournisseur",
+  "admin.supplier_deleted": "Fournisseur supprimé avec succès",
+  "admin.no_categories": "Aucune catégorie",
+  "admin.category_image": "Image de la catégorie",
+  "admin.placeholder_image": "Entrez l'URL de l'image",
+  "admin.image": "Image",
+  "admin.reject_supplier": "Rejeter le fournisseur",
+  "admin.supplier_rejected": "Fournisseur rejeté avec succès",
+  "admin.products": "Produits",
+  "admin.galleries": "Galeries",
+  "admin.categories": "Catégories"
 };
 
 export default admin;
