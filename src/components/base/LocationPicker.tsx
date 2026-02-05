@@ -1,5 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
 
 // Country data with their states/regions
 const COUNTRY_DATA: Record<string, { name: string; states: string[]; center: { lat: number; lng: number } }> = {
@@ -70,22 +74,124 @@ interface LocationPickerProps {
 export default function LocationPicker({ value, onChange, errors }: LocationPickerProps) {
   const { t } = useTranslation();
   const [showMap, setShowMap] = useState(false);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
   const [mapCenter, setMapCenter] = useState({ lat: 9.0820, lng: 8.6753 }); // Default to Nigeria center
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isMapLoading, setIsMapLoading] = useState(false);
 
-  // Update map center when country or state changes
+  // Initialize Mapbox when modal opens
   useEffect(() => {
-    if (value.country && COUNTRY_DATA[value.country]) {
-      const country = COUNTRY_DATA[value.country];
+    if (showMap && mapRef.current && !mapInstanceRef.current) {
+      setIsMapLoading(true);
+
+      // Set Mapbox token
+      mapboxgl.accessToken = MAPBOX_TOKEN;
+
+      const initialCenter = selectedLocation || mapCenter;
       
-      if (value.state) {
-        // Try to geocode the state to get its center
-        geocodeState(value.state, value.country);
-      } else {
-        setMapCenter(country.center);
-      }
+      const map = new mapboxgl.Map({
+        container: mapRef.current,
+        style: 'mapbox://styles/mapbox/light-v11',
+        center: [initialCenter.lng, initialCenter.lat],
+        zoom: 12,
+        pitch: 45,
+        bearing: -17.6,
+        antialias: true
+      });
+
+      mapInstanceRef.current = map;
+
+      map.on('load', () => {
+        setIsMapLoading(false);
+
+        // Add 3D terrain
+        map.addSource('mapbox-dem', {
+          'type': 'raster-dem',
+          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+          'tileSize': 512,
+          'maxzoom': 14
+        });
+        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+
+        // Add 3D buildings
+        if (!map.getLayer('3d-buildings')) {
+          map.addLayer({
+            'id': '3d-buildings',
+            'source': 'composite',
+            'source-layer': 'building',
+            'filter': ['==', 'extrude', 'true'],
+            'type': 'fill-extrusion',
+            'minzoom': 12,
+            'paint': {
+              'fill-extrusion-color': '#a8a8a8',
+              'fill-extrusion-height': ['get', 'height'],
+              'fill-extrusion-base': ['get', 'min_height'],
+              'fill-extrusion-opacity': 0.6
+            }
+          });
+        }
+
+        // Add marker if location already selected
+        if (selectedLocation) {
+          markerRef.current = new mapboxgl.Marker({ draggable: true })
+            .setLngLat([selectedLocation.lng, selectedLocation.lat])
+            .addTo(map);
+
+          markerRef.current.on('dragend', () => {
+            const lngLat = markerRef.current?.getLngLat();
+            if (lngLat) {
+              const newLocation = { lat: lngLat.lat, lng: lngLat.lng };
+              setSelectedLocation(newLocation);
+            }
+          });
+        }
+      });
+
+      // Add click listener to map
+      map.on('click', (e: mapboxgl.MapMouseEvent) => {
+        const clickedLng = e.lngLat.lng;
+        const clickedLat = e.lngLat.lat;
+        const clickedLocation = { lat: clickedLat, lng: clickedLng };
+        
+        setSelectedLocation(clickedLocation);
+
+        // Update or create marker
+        if (markerRef.current) {
+          markerRef.current.setLngLat([clickedLng, clickedLat]);
+        } else {
+          markerRef.current = new mapboxgl.Marker({ draggable: true })
+            .setLngLat([clickedLng, clickedLat])
+            .addTo(map);
+
+          markerRef.current.on('dragend', () => {
+            const lngLat = markerRef.current?.getLngLat();
+            if (lngLat) {
+              const newLocation = { lat: lngLat.lat, lng: lngLat.lng };
+              setSelectedLocation(newLocation);
+            }
+          });
+        }
+      });
     }
-  }, [value.country, value.state]);
+
+    // Cleanup map when modal closes
+    return () => {
+      if (!showMap && mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markerRef.current = null;
+      }
+    };
+  }, [showMap, mapCenter]);
+
+  // Update marker position when selectedLocation changes
+  useEffect(() => {
+    if (mapInstanceRef.current && selectedLocation && markerRef.current) {
+      mapInstanceRef.current.setCenter([selectedLocation.lng, selectedLocation.lat]);
+    }
+  }, [selectedLocation]);
 
   // Simple geocoding function using a free service
   const geocodeState = async (state: string, countryCode: string) => {
@@ -298,53 +404,70 @@ export default function LocationPicker({ value, onChange, errors }: LocationPick
             <div className="p-4 bg-blue-50 border-b">
               <p className="text-sm text-blue-800 flex items-center">
                 <i className="ri-information-line mr-2"></i>
-                {t('location.map_instructions')}
+                {t('location.map_instructions') || 'Cliquez sur la carte pour sélectionner une position. Vous pouvez aussi déplacer le marqueur.'}
               </p>
             </div>
 
             <div className="flex-1 relative min-h-[400px]">
-              {/* Google Maps Container */}
-              <div id="google-map-picker" className="w-full h-full min-h-[400px]">
-                <iframe
-                  src={`https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d250000!2d${mapCenter.lng}!3d${mapCenter.lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2s!4v1`}
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0, minHeight: '400px' }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                ></iframe>
+              {/* Mapbox Container */}
+              <div ref={mapRef} className="w-full h-full min-h-[400px] bg-gray-100">
+                {isMapLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <i className="ri-loader-4-line animate-spin text-2xl"></i>
+                      <span>Chargement de la carte...</span>
+                    </div>
+                  </div>
+                )}
               </div>
               
-              {/* Manual coordinate input as fallback */}
+              {/* Selected Coordinates Display */}
               <div className="absolute bottom-4 left-4 right-4 bg-white rounded-lg shadow-lg p-4">
                 <p className="text-sm font-medium text-gray-700 mb-2">
-                  {t('location.manual_coords')}
+                  {t('location.selected_coordinates') || 'Coordonnées sélectionnées'}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="number"
-                    step="any"
-                    placeholder={t('location.latitude')}
-                    value={selectedLocation?.lat || ''}
-                    onChange={(e) => setSelectedLocation({ 
-                      lat: parseFloat(e.target.value) || 0, 
-                      lng: selectedLocation?.lng || 0 
-                    })}
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  />
-                  <input
-                    type="number"
-                    step="any"
-                    placeholder={t('location.longitude')}
-                    value={selectedLocation?.lng || ''}
-                    onChange={(e) => setSelectedLocation({ 
-                      lat: selectedLocation?.lat || 0, 
-                      lng: parseFloat(e.target.value) || 0 
-                    })}
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  />
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Latitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder={t('location.latitude')}
+                      value={selectedLocation?.lat || ''}
+                      onChange={(e) => {
+                        const lat = parseFloat(e.target.value);
+                        setSelectedLocation(prev => ({ 
+                          lat: isNaN(lat) ? 0 : lat, 
+                          lng: prev?.lng || 0 
+                        }));
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Longitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder={t('location.longitude')}
+                      value={selectedLocation?.lng || ''}
+                      onChange={(e) => {
+                        const lng = parseFloat(e.target.value);
+                        setSelectedLocation(prev => ({ 
+                          lat: prev?.lat || 0, 
+                          lng: isNaN(lng) ? 0 : lng 
+                        }));
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
                 </div>
+                {selectedLocation && (
+                  <p className="mt-2 text-xs text-green-600 flex items-center">
+                    <i className="ri-map-pin-fill mr-1"></i>
+                    Position sélectionnée: {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
+                  </p>
+                )}
               </div>
             </div>
 

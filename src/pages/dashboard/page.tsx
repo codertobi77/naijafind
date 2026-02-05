@@ -297,7 +297,7 @@ export default function Dashboard() {
     { staleTime: 3 * 60 * 1000 } // Cache products for 3 minutes
   );
   const { data: ordersData } = useConvexQuery(
-    api.orders.listOrders,
+    api.orders.getSupplierOrders,
     {},
     { staleTime: 1 * 60 * 1000 } // Cache orders for 1 minute (more dynamic data)
   );
@@ -312,7 +312,7 @@ export default function Dashboard() {
   const updateProductMutation = useMutation(api.products.updateProduct);
   const deleteProductMutation = useMutation(api.products.deleteProduct);
   const createOrderMutation = useMutation(api.orders.createOrder);
-  const updateOrderMutation = useMutation(api.orders.updateOrder);
+  const updateOrderStatusMutation = useMutation(api.orders.updateOrderStatus);
   const deleteOrderMutation = useMutation(api.orders.deleteOrder);
   const updateReviewMutation = useMutation(api.reviews.updateReview);
   const deleteReviewMutation = useMutation(api.reviews.deleteReview);
@@ -352,9 +352,7 @@ export default function Dashboard() {
   const [productToast, setProductToast] = useState<Toast>(null);
 
   const [showOrderModal, setShowOrderModal] = useState(false);
-  const [showOrderDeleteModal, setShowOrderDeleteModal] = useState(false);
-  const [orderModalMode, setOrderModalMode] =
-    useState<'add' | 'edit' | 'delete'>('add');
+  const [showOrderViewModal, setShowOrderViewModal] = useState(false);
   const [orderModalData, setOrderModalData] = useState<any>(null);
   const [orderForm, setOrderForm] = useState({
     order_number: '',
@@ -363,7 +361,7 @@ export default function Dashboard() {
   });
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatus, setOrderStatus] =
-    useState<'all' | 'pending' | 'completed'>('all');
+    useState<'all' | 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled'>('all');
   const [orderOpLoading, setOrderOpLoading] = useState(false);
   const [orderToast, setOrderToast] = useState<Toast>(null);
 
@@ -854,21 +852,19 @@ export default function Dashboard() {
     }
   };
 
-  const handleEditOrder = async (payload: {
+  const handleUpdateOrderStatus = async (payload: {
     id: string | number;
-    order_number: string;
-    total_amount: number;
     status: string;
+    payment_status?: string;
   }) => {
     try {
       setOrderOpLoading(true);
-      await updateOrderMutation({
+      await updateOrderStatusMutation({
         id: payload.id as Id<"orders">,
-        order_number: payload.order_number,
-        total_amount: payload.total_amount,
         status: payload.status,
+        payment_status: payload.payment_status,
       });
-      setOrderToast({ type: 'success', message: t('dashboard.success.order_updated', 'Commande mise à jour') });
+      setOrderToast({ type: 'success', message: t('dashboard.success.order_updated', 'Statut de commande mis à jour') });
       return { success: true };
     } catch (err: unknown) {
       const message =
@@ -1028,25 +1024,19 @@ export default function Dashboard() {
       case 'orders':
         return (
           <OrdersSection
-            data={dashboardData as any}
-            orderForm={orderForm}
-            setOrderForm={setOrderForm as any}
+            orders={ordersData || []}
             orderStatus={orderStatus}
             setOrderStatus={setOrderStatus}
             orderSearch={orderSearch}
             setOrderSearch={setOrderSearch}
-            onAdd={() => {
-              setOrderModalMode('add');
-              setOrderModalData(null);
-              setShowOrderModal(true);
-            }}
-            onEdit={(order) => {
-              setOrderModalMode('edit');
+            onView={(order) => {
               setOrderModalData(order);
-              setShowOrderModal(true);
+              setShowOrderViewModal(true);
+            }}
+            onUpdateStatus={async (orderId, status) => {
+              await handleUpdateOrderStatus({ id: orderId, status });
             }}
             onDelete={(order) => {
-              setOrderModalMode('delete');
               setOrderModalData(order);
               setShowOrderDeleteModal(true);
             }}
@@ -1185,20 +1175,10 @@ export default function Dashboard() {
         onConfirm={confirmDeleteProduct}
       />
 
-      <OrderModal
-        open={showOrderModal}
-        mode={orderModalMode}
-        form={orderForm}
-        loading={orderOpLoading}
-        onClose={() => setShowOrderModal(false)}
-        onSubmit={async (payload) => {
-          if (orderModalMode === 'edit' && orderModalData) {
-            await handleEditOrder({ id: orderModalData.id, ...payload });
-          } else {
-            await handleAddOrder(payload);
-          }
-          setShowOrderModal(false);
-        }}
+      <OrderViewModal
+        open={showOrderViewModal}
+        order={orderModalData}
+        onClose={() => setShowOrderViewModal(false)}
       />
 
       <ConfirmModal
@@ -1215,7 +1195,7 @@ export default function Dashboard() {
         onCancel={() => setShowOrderDeleteModal(false)}
         onConfirm={async () => {
           if (!orderModalData) return;
-          await handleDeleteOrder(orderModalData.id);
+          await handleDeleteOrder(orderModalData._id);
           setShowOrderDeleteModal(false);
         }}
       />
@@ -2048,42 +2028,65 @@ function ProductsSection({
 }
 
 function OrdersSection({
-  data,
-  orderForm,
-  setOrderForm,
+  orders,
   orderStatus,
   setOrderStatus,
   orderSearch,
   setOrderSearch,
-  onAdd,
-  onEdit,
+  onView,
+  onUpdateStatus,
   onDelete,
   orderToast,
 }: {
-  data: DashboardData | null;
-  orderForm: { order_number: string; total_amount: string | number; status: string };
-  setOrderForm: (form: { order_number: string; total_amount: string | number; status: string }) => void;
-  orderStatus: 'all' | 'pending' | 'completed';
-  setOrderStatus: (status: 'all' | 'pending' | 'completed') => void;
+  orders: any[];
+  orderStatus: 'all' | 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  setOrderStatus: (status: 'all' | 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled') => void;
   orderSearch: string;
   setOrderSearch: (value: string) => void;
-  onAdd: () => void;
-  onEdit: (order: any) => void;
+  onView: (order: any) => void;
+  onUpdateStatus: (orderId: string, status: string) => void;
   onDelete: (order: any) => void;
   orderToast: Toast;
 }) {
   const { formatCurrency } = useCurrency();
   const filteredOrders =
-    data?.orders?.filter((order: any) => {
+    orders?.filter((order: any) => {
       const matchesSearch =
         orderSearch === '' ||
         (order.order_number || '')
+          .toLowerCase()
+          .includes(orderSearch.toLowerCase()) ||
+        (order.shipping_address?.full_name || '')
           .toLowerCase()
           .includes(orderSearch.toLowerCase());
       const matchesStatus =
         orderStatus === 'all' || order.status === orderStatus;
       return matchesSearch && matchesStatus;
     }) || [];
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      pending: 'En attente',
+      confirmed: 'Confirmée',
+      processing: 'En traitement',
+      shipped: 'Expédiée',
+      delivered: 'Livrée',
+      cancelled: 'Annulée',
+    };
+    return labels[status] || status;
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      confirmed: 'bg-blue-100 text-blue-800',
+      processing: 'bg-purple-100 text-purple-800',
+      shipped: 'bg-indigo-100 text-indigo-800',
+      delivered: 'bg-green-100 text-green-800',
+      cancelled: 'bg-red-100 text-red-800',
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
 
   return (
     <div className="space-y-6">
@@ -2093,16 +2096,9 @@ function OrdersSection({
             Suivi des commandes
           </h2>
           <p className="text-sm text-gray-600">
-            Gérez vos commandes et suivez leur statut.
+            Gérez vos commandes clients et suivez leur statut.
           </p>
         </div>
-        <button
-          onClick={onAdd}
-          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-        >
-          <i className="ri-add-line mr-2" />
-          Ajouter une commande
-        </button>
       </div>
 
       {orderToast && (
@@ -2118,18 +2114,22 @@ function OrdersSection({
           value={orderSearch}
           onChange={(event) => setOrderSearch(event.target.value)}
           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500 sm:max-w-xs"
-          placeholder="Rechercher par numéro..."
+          placeholder="Rechercher..."
         />
         <select
           value={orderStatus}
           onChange={(event) =>
-            setOrderStatus(event.target.value as 'all' | 'pending' | 'completed')
+            setOrderStatus(event.target.value as any)
           }
           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500 sm:w-auto"
         >
           <option value="all">Tous les statuts</option>
           <option value="pending">En attente</option>
-          <option value="completed">Terminée</option>
+          <option value="confirmed">Confirmée</option>
+          <option value="processing">En traitement</option>
+          <option value="shipped">Expédiée</option>
+          <option value="delivered">Livrée</option>
+          <option value="cancelled">Annulée</option>
         </select>
       </div>
 
@@ -2138,7 +2138,13 @@ function OrdersSection({
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left font-semibold text-gray-600">
-                Numéro
+                N° Commande
+              </th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                Client
+              </th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                Articles
               </th>
               <th className="px-4 py-3 text-left font-semibold text-gray-600">
                 Montant
@@ -2158,7 +2164,7 @@ function OrdersSection({
             {filteredOrders.length === 0 ? (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={7}
                   className="px-4 py-6 text-center text-sm text-gray-500"
                 >
                   Aucune commande ne correspond aux filtres sélectionnés.
@@ -2166,15 +2172,23 @@ function OrdersSection({
               </tr>
             ) : (
               filteredOrders.map((order: any) => (
-                <tr key={order.id}>
+                <tr key={order._id}>
                   <td className="px-4 py-3 font-medium text-gray-900">
                     #{order.order_number}
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {order.shipping_address?.full_name || 'N/A'}
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {order.order_items?.length || 0} article(s)
                   </td>
                   <td className="px-4 py-3 text-gray-700">
                     {formatCurrency(Number(order.total_amount || 0))}
                   </td>
                   <td className="px-4 py-3">
-                    <StatusPill status={order.status} />
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                      {getStatusLabel(order.status)}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-gray-700">
                     {order.created_at
@@ -2182,13 +2196,27 @@ function OrdersSection({
                       : '-'}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2">
                       <button
-                        className="text-sm font-medium text-green-600 hover:text-green-800"
-                        onClick={() => onEdit(order)}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                        onClick={() => onView(order)}
                       >
-                        Modifier
+                        Voir
                       </button>
+                      {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                        <select
+                          value={order.status}
+                          onChange={(e) => onUpdateStatus(order._id, e.target.value)}
+                          className="text-xs rounded border border-gray-300 px-2 py-1 focus:ring-2 focus:ring-green-500"
+                        >
+                          <option value="pending">En attente</option>
+                          <option value="confirmed">Confirmée</option>
+                          <option value="processing">En traitement</option>
+                          <option value="shipped">Expédiée</option>
+                          <option value="delivered">Livrée</option>
+                          <option value="cancelled">Annulée</option>
+                        </select>
+                      )}
                       <button
                         className="text-sm font-medium text-red-600 hover:text-red-800"
                         onClick={() => onDelete(order)}
@@ -2567,6 +2595,121 @@ function ProductModal({
           </button>
         </div>
       </form>
+    </Modal>
+  );
+}
+
+function OrderViewModal({
+  open,
+  order,
+  onClose,
+}: {
+  open: boolean;
+  order: any;
+  onClose: () => void;
+}) {
+  const { formatCurrency } = useCurrency();
+  
+  if (!open || !order) return null;
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      pending: 'En attente',
+      confirmed: 'Confirmée',
+      processing: 'En traitement',
+      shipped: 'Expédiée',
+      delivered: 'Livrée',
+      cancelled: 'Annulée',
+    };
+    return labels[status] || status;
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      confirmed: 'bg-blue-100 text-blue-800',
+      processing: 'bg-purple-100 text-purple-800',
+      shipped: 'bg-indigo-100 text-indigo-800',
+      delivered: 'bg-green-100 text-green-800',
+      cancelled: 'bg-red-100 text-red-800',
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  return (
+    <Modal title={`Commande #${order.order_number}`} onClose={onClose}>
+      <div className="space-y-6 max-h-[80vh] overflow-y-auto">
+        {/* Status */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-600">Statut:</span>
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
+            {getStatusLabel(order.status)}
+          </span>
+        </div>
+
+        {/* Customer Info */}
+        <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+          <h4 className="font-medium text-gray-900">Informations client</h4>
+          <p className="text-sm"><span className="text-gray-600">Nom:</span> {order.shipping_address?.full_name || 'N/A'}</p>
+          <p className="text-sm"><span className="text-gray-600">Téléphone:</span> {order.shipping_address?.phone || 'N/A'}</p>
+          <p className="text-sm"><span className="text-gray-600">Adresse:</span> {order.shipping_address?.address || 'N/A'}</p>
+          <p className="text-sm"><span className="text-gray-600">Ville:</span> {order.shipping_address?.city || 'N/A'}, {order.shipping_address?.state || 'N/A'}</p>
+        </div>
+
+        {/* Order Items */}
+        <div>
+          <h4 className="font-medium text-gray-900 mb-3">Articles commandés</h4>
+          <div className="space-y-3">
+            {order.order_items?.map((item: any, index: number) => (
+              <div key={index} className="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
+                {item.image_url ? (
+                  <img src={item.image_url} alt={item.product_name} className="w-12 h-12 rounded object-cover" />
+                ) : (
+                  <div className="w-12 h-12 rounded bg-gray-200 flex items-center justify-center">
+                    <i className="ri-shopping-bag-line text-gray-400" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <p className="font-medium text-sm">{item.product_name}</p>
+                  <p className="text-xs text-gray-600">Qté: {Number(item.quantity)} × {formatCurrency(Number(item.unit_price))}</p>
+                </div>
+                <p className="font-medium text-sm">{formatCurrency(Number(item.total_price))}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Total */}
+        <div className="border-t pt-4">
+          <div className="flex justify-between items-center">
+            <span className="font-medium text-gray-900">Total</span>
+            <span className="font-bold text-lg text-green-600">{formatCurrency(Number(order.total_amount))}</span>
+          </div>
+        </div>
+
+        {/* Dates */}
+        <div className="text-xs text-gray-500 space-y-1">
+          <p>Commandée le: {order.created_at ? new Date(order.created_at).toLocaleString('fr-FR') : 'N/A'}</p>
+          <p>Dernière mise à jour: {order.updated_at ? new Date(order.updated_at).toLocaleString('fr-FR') : 'N/A'}</p>
+        </div>
+
+        {/* Notes */}
+        {order.notes && (
+          <div className="bg-yellow-50 rounded-lg p-3">
+            <h4 className="font-medium text-sm text-yellow-800 mb-1">Notes</h4>
+            <p className="text-sm text-yellow-700">{order.notes}</p>
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <button
+            onClick={onClose}
+            className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
     </Modal>
   );
 }
@@ -3156,7 +3299,10 @@ function RecentReviewsCard({ reviews }: { reviews: any[] }) {
 
 function StatusPill({ status }: { status: string }) {
   const mapping: Record<string, { label: string; className: string }> = {
-    completed: { label: 'Terminée', className: 'bg-green-100 text-green-700' },
+    delivered: { label: 'Livrée', className: 'bg-green-100 text-green-700' },
+    shipped: { label: 'Expédiée', className: 'bg-indigo-100 text-indigo-700' },
+    processing: { label: 'En traitement', className: 'bg-purple-100 text-purple-700' },
+    confirmed: { label: 'Confirmée', className: 'bg-blue-100 text-blue-700' },
     pending: { label: 'En attente', className: 'bg-yellow-100 text-yellow-700' },
     cancelled: { label: 'Annulée', className: 'bg-red-100 text-red-700' },
   };

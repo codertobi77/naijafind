@@ -1,11 +1,15 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { api } from '../../../convex/_generated/api';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
 import { useTranslation } from 'react-i18next';
 import LanguageSelector from '../../components/base/LanguageSelector';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
 
 interface Supplier {
   id: string;
@@ -29,20 +33,251 @@ interface Supplier {
   address?: string;
 }
 
-// Component to display suppliers on a map
-function SupplierMapView({ suppliers }: { suppliers: Supplier[] }) {
+// Component to display suppliers on a map using Mapbox with 3D terrain
+function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; userLocation?: { lat: number; lng: number } | null }) {
   const { t } = useTranslation();
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
   const [mapCenter, setMapCenter] = useState({ lat: 9.0820, lng: 8.6753 }); // Default Nigeria center
   const [mapZoom, setMapZoom] = useState(6);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const approximatedSuppliersRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
+  const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
+
+  // Generate deterministic approximate coordinates based on location string
+  const getApproximateCoordinates = (supplier: Supplier): { lat: number; lng: number } | null => {
+    // If already computed, return cached
+    if (approximatedSuppliersRef.current.has(supplier.id)) {
+      return approximatedSuppliersRef.current.get(supplier.id)!;
+    }
+    
+    // For suppliers with exact coordinates, use them
+    if (supplier.latitude && supplier.longitude) {
+      const coords = { lat: supplier.latitude, lng: supplier.longitude };
+      approximatedSuppliersRef.current.set(supplier.id, coords);
+      return coords;
+    }
+    
+    // Parse location field to extract city, state, country
+    // Location format is typically: "City, State, Country" or "City, State"
+    const locationParts = (supplier.location || '').split(',').map(p => p.trim()).filter(Boolean);
+    const cityFromLocation = locationParts[0] || '';
+    const stateFromLocation = locationParts[1] || '';
+    const countryFromLocation = locationParts[2] || supplier.country || 'Nigeria';
+    
+    // Also check city and state fields as fallback
+    const city = supplier.city || cityFromLocation;
+    const state = supplier.state || stateFromLocation;
+    
+    // Create a unique key based on the parsed location
+    const locationKey = `${city},${state},${countryFromLocation}`;
+    
+    // For approximate locations, generate pseudorandom offset based on location string hash
+    const hash = locationKey.split('').reduce((acc, char) => {
+      return ((acc << 5) - acc) + char.charCodeAt(0) | 0;
+    }, 0);
+    
+    // Base coordinates for major Nigerian cities and states
+    const locationCoords: Record<string, { lat: number; lng: number }> = {
+      // Major cities
+      'lagos': { lat: 6.5244, lng: 3.3792 },
+      'abuja': { lat: 9.0765, lng: 7.3986 },
+      'fct': { lat: 9.0765, lng: 7.3986 },
+      'ibadan': { lat: 7.3775, lng: 3.9470 },
+      'port harcourt': { lat: 4.8156, lng: 7.0498 },
+      'kano': { lat: 12.0022, lng: 8.5920 },
+      'kaduna': { lat: 10.5105, lng: 7.4165 },
+      'enugu': { lat: 6.5244, lng: 7.5186 },
+      'benin': { lat: 6.3350, lng: 5.6037 },
+      'jos': { lat: 9.8965, lng: 8.8583 },
+      'ilorin': { lat: 8.4799, lng: 4.5418 },
+      'aba': { lat: 5.1066, lng: 7.3667 },
+      'calabar': { lat: 4.9757, lng: 8.3417 },
+      'owerri': { lat: 5.4836, lng: 7.0333 },
+      'akure': { lat: 7.2571, lng: 5.2058 },
+      'ife': { lat: 7.4825, lng: 4.5603 },
+      'lokoja': { lat: 7.8023, lng: 6.7430 },
+      'makurdi': { lat: 7.7337, lng: 8.5333 },
+      'minna': { lat: 9.6139, lng: 6.5569 },
+      'sokoto': { lat: 13.0059, lng: 5.2476 },
+      'maiduguri': { lat: 11.8469, lng: 13.1571 },
+      'yola': { lat: 9.2035, lng: 12.4954 },
+      'bauchi': { lat: 10.3157, lng: 9.8434 },
+      'gombe': { lat: 10.2897, lng: 11.1711 },
+      'damaturu': { lat: 11.7470, lng: 11.9608 },
+      'jalingo': { lat: 8.8937, lng: 11.3590 },
+      'dutse': { lat: 11.7591, lng: 9.3230 },
+      'birnin kebbi': { lat: 12.4539, lng: 4.1975 },
+      'awka': { lat: 6.2100, lng: 7.0700 },
+      'yenegoa': { lat: 4.9247, lng: 6.2640 },
+      'asaba': { lat: 6.2000, lng: 6.7333 },
+      'abakaliki': { lat: 6.3249, lng: 8.1137 },
+      'ado ekiti': { lat: 7.6213, lng: 5.2210 },
+      'abeokuta': { lat: 7.1475, lng: 3.3619 },
+      'akwa ibom': { lat: 5.0000, lng: 7.8333 },
+      'uyo': { lat: 5.0333, lng: 7.9167 },
+      'ikeja': { lat: 6.5965, lng: 3.3421 },
+      'lekki': { lat: 6.4698, lng: 3.5852 },
+      'ikekja': { lat: 6.5965, lng: 3.3421 },
+      'yaba': { lat: 6.5000, lng: 3.3667 },
+      'surulere': { lat: 6.5000, lng: 3.3500 },
+      'apapa': { lat: 6.4500, lng: 3.3667 },
+      'oshodi': { lat: 6.5500, lng: 3.3500 },
+      'ikoyi': { lat: 6.4500, lng: 3.4333 },
+      'victoria island': { lat: 6.4333, lng: 3.4167 },
+      'vi': { lat: 6.4333, lng: 3.4167 },
+      'ikeja g': { lat: 6.6249, lng: 3.3506 },
+      // States (approximate centers)
+      'lagos state': { lat: 6.5244, lng: 3.3792 },
+      'fct (abuja)': { lat: 9.0765, lng: 7.3986 },
+      'oyo state': { lat: 7.3775, lng: 3.9470 },
+      'rivers state': { lat: 4.8156, lng: 7.0498 },
+      'kano state': { lat: 12.0022, lng: 8.5920 },
+      'kaduna state': { lat: 10.5105, lng: 7.4165 },
+      'enugu state': { lat: 6.5244, lng: 7.5186 },
+      'edo state': { lat: 6.3350, lng: 5.6037 },
+      'plateau state': { lat: 9.8965, lng: 8.8583 },
+      'kwara state': { lat: 8.4799, lng: 4.5418 },
+      'abia state': { lat: 5.1066, lng: 7.3667 },
+      'cross river': { lat: 4.9757, lng: 8.3417 },
+      'imo state': { lat: 5.4836, lng: 7.0333 },
+      'ondo state': { lat: 7.2571, lng: 5.2058 },
+      'osun state': { lat: 7.4825, lng: 4.5603 },
+      'kogi state': { lat: 7.8023, lng: 6.7430 },
+      'benue state': { lat: 7.7337, lng: 8.5333 },
+      'niger state': { lat: 9.6139, lng: 6.5569 },
+      'sokoto state': { lat: 13.0059, lng: 5.2476 },
+      'borno state': { lat: 11.8469, lng: 13.1571 },
+      'adamawa state': { lat: 9.2035, lng: 12.4954 },
+      'bauchi state': { lat: 10.3157, lng: 9.8434 },
+      'gombe state': { lat: 10.2897, lng: 11.1711 },
+      'yobe state': { lat: 11.7470, lng: 11.9608 },
+      'taraba state': { lat: 8.8937, lng: 11.3590 },
+      'jigawa state': { lat: 11.7591, lng: 9.3230 },
+      'kebbi state': { lat: 12.4539, lng: 4.1975 },
+      'anambra state': { lat: 6.2100, lng: 7.0700 },
+      'bayelsa state': { lat: 4.9247, lng: 6.2640 },
+      'delta state': { lat: 6.2000, lng: 6.7333 },
+      'ebonyi state': { lat: 6.3249, lng: 8.1137 },
+      'ekiti state': { lat: 7.6213, lng: 5.2210 },
+      'ogun state': { lat: 7.1475, lng: 3.3619 },
+      'akwa ibom state': { lat: 5.0333, lng: 7.9167 },
+    };
+    
+    // Try to match city or state from location
+    const searchKey = locationKey.toLowerCase();
+    let baseCoords = locationCoords['lagos']; // Default to Lagos
+    let matchedLocation = '';
+    
+    // First try to match full location string
+    for (const [key, coords] of Object.entries(locationCoords)) {
+      if (searchKey.includes(key)) {
+        baseCoords = coords;
+        matchedLocation = key;
+        break;
+      }
+    }
+    
+    // If no match found, try individual parts
+    if (!matchedLocation) {
+      // Try city match
+      if (city) {
+        const cityLower = city.toLowerCase();
+        for (const [key, coords] of Object.entries(locationCoords)) {
+          if (cityLower.includes(key) || key.includes(cityLower)) {
+            baseCoords = coords;
+            matchedLocation = key;
+            break;
+          }
+        }
+      }
+      
+      // If still no match, try state
+      if (!matchedLocation && state) {
+        const stateLower = state.toLowerCase();
+        for (const [key, coords] of Object.entries(locationCoords)) {
+          if (stateLower.includes(key) || key.includes(stateLower)) {
+            baseCoords = coords;
+            matchedLocation = key;
+            break;
+          }
+        }
+      }
+    }
+    
+    // Generate approximate offset (different for each supplier to avoid overlap)
+    // Use a smaller offset for city-level precision (~2-3km)
+    const offsetLat = (Math.abs(hash) % 500 - 250) / 10000; // ±0.025 degrees (~2-3km)
+    const offsetLng = (Math.abs(hash >> 8) % 500 - 250) / 10000;
+    
+    const approxCoords = {
+      lat: baseCoords.lat + offsetLat,
+      lng: baseCoords.lng + offsetLng
+    };
+    
+    approximatedSuppliersRef.current.set(supplier.id, approxCoords);
+    return approxCoords;
+  };
+
+  // Add or update user location marker
+  const addUserMarker = () => {
+    if (!mapInstanceRef.current || !userLocation) return;
+
+    // Remove existing user marker
+    if (userMarkerRef.current) {
+      userMarkerRef.current.remove();
+    }
+
+    // Create user location marker element
+    const el = document.createElement('div');
+    el.className = 'user-marker';
+    el.style.width = '24px';
+    el.style.height = '24px';
+    el.innerHTML = `
+      <div class="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white ring-2 ring-blue-300 animate-pulse">
+        <i class="ri-user-fill text-white text-xs"></i>
+      </div>
+    `;
+
+    const popup = new mapboxgl.Popup({ offset: 10 }).setHTML(
+      `<div class="p-2 text-sm">
+        <p class="font-medium text-gray-900">Votre position</p>
+      </div>`
+    );
+
+    userMarkerRef.current = new mapboxgl.Marker(el)
+      .setLngLat([userLocation.lng, userLocation.lat])
+      .setPopup(popup)
+      .addTo(mapInstanceRef.current);
+  };
+
+  // Update user marker when location changes
+  useEffect(() => {
+    if (mapInstanceRef.current && userLocation) {
+      addUserMarker();
+      // Center map on user location
+      mapInstanceRef.current.setCenter([userLocation.lng, userLocation.lat]);
+      mapInstanceRef.current.setZoom(13);
+    }
+  }, [userLocation]);
 
   // Calculate map center based on suppliers with valid coordinates
   useEffect(() => {
-    const suppliersWithCoords = suppliers.filter(s => s.latitude && s.longitude);
+    const suppliersWithCoords = suppliers.filter(s => {
+      const coords = getApproximateCoordinates(s);
+      return coords !== null;
+    });
     
     if (suppliersWithCoords.length > 0) {
-      const avgLat = suppliersWithCoords.reduce((sum, s) => sum + (s.latitude || 0), 0) / suppliersWithCoords.length;
-      const avgLng = suppliersWithCoords.reduce((sum, s) => sum + (s.longitude || 0), 0) / suppliersWithCoords.length;
+      const avgLat = suppliersWithCoords.reduce((sum, s) => {
+        const coords = getApproximateCoordinates(s);
+        return sum + (coords?.lat || 0);
+      }, 0) / suppliersWithCoords.length;
+      const avgLng = suppliersWithCoords.reduce((sum, s) => {
+        const coords = getApproximateCoordinates(s);
+        return sum + (coords?.lng || 0);
+      }, 0) / suppliersWithCoords.length;
       setMapCenter({ lat: avgLat, lng: avgLng });
       
       // Adjust zoom based on number of suppliers and spread
@@ -53,78 +288,249 @@ function SupplierMapView({ suppliers }: { suppliers: Supplier[] }) {
       } else {
         setMapZoom(10);
       }
-    } else if (suppliers.length > 0) {
-      // If no exact coordinates, try to geocode the first supplier's location
-      const firstSupplier = suppliers[0];
-      const locationQuery = firstSupplier.city || firstSupplier.state || firstSupplier.location;
-      if (locationQuery) {
-        geocodeLocation(locationQuery, firstSupplier.country);
-      }
     }
   }, [suppliers]);
 
-  const geocodeLocation = async (location: string, country?: string) => {
-    try {
-      const query = encodeURIComponent(`${location}, ${country || 'Nigeria'}`);
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
-      const data = await response.json();
+  // Add 3D buildings layer
+  const add3DBuildings = (map: mapboxgl.Map) => {
+    if (!map.getLayer('3d-buildings')) {
+      map.addLayer({
+        'id': '3d-buildings',
+        'source': 'composite',
+        'source-layer': 'building',
+        'filter': ['==', 'extrude', 'true'],
+        'type': 'fill-extrusion',
+        'minzoom': 12,
+        'paint': {
+          'fill-extrusion-color': '#d4a574',
+          'fill-extrusion-height': ['get', 'height'],
+          'fill-extrusion-base': ['get', 'min_height'],
+          'fill-extrusion-opacity': 0.8,
+          'fill-extrusion-vertical-gradient': true,
+          'fill-extrusion-ambient-occlusion-intensity': 0.3
+        }
+      });
+    }
+  };
+
+  // Initialize Mapbox map with 3D terrain
+  useEffect(() => {
+    if (mapRef.current && !mapInstanceRef.current) {
+      mapboxgl.accessToken = MAPBOX_TOKEN;
       
-      if (data && data.length > 0) {
-        setMapCenter({
-          lat: parseFloat(data[0].lat),
-          lng: parseFloat(data[0].lon)
+      const map = new mapboxgl.Map({
+        container: mapRef.current,
+        style: 'mapbox://styles/mapbox/dark-v11',
+        center: [mapCenter.lng, mapCenter.lat],
+        zoom: mapZoom,
+        pitch: 45, // Tilt for 3D perspective
+        bearing: -17.6,
+        antialias: true
+      });
+
+      mapInstanceRef.current = map;
+
+      map.on('load', () => {
+        // Add 3D terrain
+        map.addSource('mapbox-dem', {
+          'type': 'raster-dem',
+          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+          'tileSize': 512,
+          'maxzoom': 14
         });
-        setMapZoom(10);
+        
+        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+        
+        // Add 3D buildings
+        add3DBuildings(map);
+        
+        // Add markers for suppliers
+        addSupplierMarkers();
+      });
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markersRef.current = [];
       }
-    } catch (error) {
-      console.error('Geocoding error:', error);
-    }
-  };
-
-  // Build map URL with markers for suppliers
-  const buildMapUrl = () => {
-    const baseUrl = 'https://www.google.com/maps/embed/v1/view';
-    const apiKey = ''; // No API key needed for embed view
-    
-    // If we have suppliers with coordinates, create a more focused view
-    const suppliersWithCoords = suppliers.filter(s => s.latitude && s.longitude);
-    
-    if (suppliersWithCoords.length > 0) {
-      // For now, use a simple map centered on the calculated center
-      // In a production app, you'd want to use the Google Maps JavaScript API
-      // to add custom markers and interactivity
-      return `https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d250000!2d${mapCenter.lng}!3d${mapCenter.lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2s!4v1`;
-    }
-    
-    // Default view centered on calculated center
-    return `https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d250000!2d${mapCenter.lng}!3d${mapCenter.lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2s!4v1`;
-  };
-
-  // Get supplier location for display
-  const getSupplierDisplayLocation = (supplier: Supplier) => {
-    if (supplier.latitude && supplier.longitude) {
-      return { lat: supplier.latitude, lng: supplier.longitude, exact: true };
-    }
-    // Fallback: use city/state/location for approximate positioning
-    return { 
-      lat: null, 
-      lng: null, 
-      exact: false,
-      locationText: supplier.city || supplier.state || supplier.location 
     };
+  }, []);
+
+  // Update map center and markers when suppliers change
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setCenter([mapCenter.lng, mapCenter.lat]);
+      mapInstanceRef.current.setZoom(mapZoom);
+      
+      // Clear existing markers
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current = [];
+      
+      // Add new markers
+      addSupplierMarkers();
+    }
+  }, [mapCenter, mapZoom, suppliers]);
+
+  const addSupplierMarkers = () => {
+    if (!mapInstanceRef.current) return;
+
+    // Mapping des catégories aux icônes Remix Icon
+    const getCategoryIcon = (category: string): string => {
+      const categoryLower = category.toLowerCase();
+      const iconMap: Record<string, string> = {
+        'restaurant': 'ri-restaurant-line',
+        'food': 'ri-restaurant-2-line',
+        'cafe': 'ri-cup-line',
+        'hotel': 'ri-hotel-bed-line',
+        'hôtel': 'ri-hotel-bed-line',
+        'shop': 'ri-shopping-bag-line',
+        'store': 'ri-store-line',
+        'boutique': 'ri-t-shirt-line',
+        'clothing': 'ri-t-shirt-air-line',
+        'fashion': 'ri-t-shirt-line',
+        'pharmacy': 'ri-medicine-bottle-line',
+        'pharmacie': 'ri-medicine-bottle-line',
+        'hospital': 'ri-hospital-line',
+        'clinic': 'ri-first-aid-kit-line',
+        'bank': 'ri-bank-line',
+        'banque': 'ri-bank-line',
+        'atm': 'ri-money-cny-circle-line',
+        'salon': 'ri-scissors-line',
+        'barber': 'ri-scissors-cut-line',
+        'beauty': 'ri-eye-line',
+        'spa': 'ri-drop-line',
+        'gym': 'ri-run-line',
+        'fitness': 'ri-heart-pulse-line',
+        'school': 'ri-school-line',
+        'école': 'ri-school-line',
+        'university': 'ri-graduation-cap-line',
+        'gas': 'ri-gas-station-line',
+        'station': 'ri-gas-station-line',
+        'car': 'ri-car-line',
+        'auto': 'ri-car-washing-line',
+        'repair': 'ri-tools-line',
+        'service': 'ri-customer-service-line',
+        'office': 'ri-building-line',
+        'bureau': 'ri-building-line',
+        'market': 'ri-shopping-cart-line',
+        'supermarket': 'ri-shopping-cart-2-line',
+        'electronics': 'ri-smartphone-line',
+        'tech': 'ri-computer-line',
+        'it': 'ri-code-line',
+        'consulting': 'ri-briefcase-line',
+        'lawyer': 'ri-scales-line',
+        'legal': 'ri-file-shield-line',
+        'real estate': 'ri-home-line',
+        'immobilier': 'ri-building-4-line',
+        'construction': 'ri-building-3-line',
+        'plumber': 'ri-water-flash-line',
+        'electrician': 'ri-flashlight-line',
+        'cleaning': 'ri-brush-line',
+        'delivery': 'ri-truck-line',
+        'transport': 'ri-bus-line',
+        'taxi': 'ri-taxi-line',
+        'travel': 'ri-plane-line',
+        'tourism': 'ri-map-pin-range-line',
+        'entertainment': 'ri-movie-line',
+        'event': 'ri-calendar-event-line',
+        'photography': 'ri-camera-line',
+        'printing': 'ri-printer-line',
+        'bookstore': 'ri-book-line',
+        'library': 'ri-book-open-line',
+        'art': 'ri-paint-brush-line',
+        'gallery': 'ri-gallery-line',
+        'music': 'ri-music-line',
+        'dance': 'ri-user-voice-line',
+      };
+      
+      // Recherche exacte d'abord
+      if (iconMap[categoryLower]) {
+        return iconMap[categoryLower];
+      }
+      
+      // Recherche partielle
+      for (const [key, icon] of Object.entries(iconMap)) {
+        if (categoryLower.includes(key) || key.includes(categoryLower)) {
+          return icon;
+        }
+      }
+      
+      // Icône par défaut
+      return 'ri-store-2-line';
+    };
+
+    suppliers.forEach(supplier => {
+      const coords = getApproximateCoordinates(supplier);
+      if (!coords) return;
+      
+      const isExact = supplier.latitude && supplier.longitude;
+      const categoryIcon = getCategoryIcon(supplier.category);
+      
+      // Create custom marker element
+      const el = document.createElement('div');
+      el.className = 'custom-marker';
+      el.style.width = '40px';
+      el.style.height = '40px';
+      el.innerHTML = `
+        <div class="w-10 h-10 ${isExact ? 'bg-green-600' : 'bg-yellow-500'} rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:scale-110 transition-transform border-3 border-white ring-2 ${isExact ? 'ring-green-400' : 'ring-yellow-300'}">
+          <i class="${categoryIcon} text-white text-sm"></i>
+        </div>
+        ${!isExact ? '<div class="absolute -bottom-1 -right-1 w-4 h-4 bg-yellow-600 rounded-full flex items-center justify-center border border-white"><i class="ri-question-line text-white text-[8px]"></i></div>' : ''}
+      `;
+
+      const popup = new mapboxgl.Popup({ 
+        offset: 25,
+        closeButton: false,
+        closeOnClick: false
+      }).setHTML(
+        `<div class="p-3 min-w-[200px]">
+          <div class="flex items-center gap-2 mb-2">
+            <h3 class="font-semibold text-sm text-gray-900">${supplier.name}</h3>
+            ${isExact 
+              ? '<span class="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Exact</span>'
+              : '<span class="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">Approximate</span>'
+            }
+          </div>
+          <p class="text-xs text-gray-600 mb-1">${supplier.category}</p>
+          <p class="text-xs text-gray-500">${supplier.location}</p>
+          ${supplier.rating ? `<div class="flex items-center gap-1 mt-2"><i class="ri-star-fill text-yellow-500 text-xs"></i><span class="text-xs font-medium">${supplier.rating}</span></div>` : ''}
+        </div>`
+      );
+
+      const marker = new mapboxgl.Marker(el)
+        .setLngLat([coords.lng, coords.lat])
+        .setPopup(popup);
+      
+      if (mapInstanceRef.current) {
+        marker.addTo(mapInstanceRef.current);
+      }
+
+      // Afficher le popup au hover
+      el.addEventListener('mouseenter', () => {
+        if (mapInstanceRef.current) {
+          marker.togglePopup();
+        }
+      });
+
+      // Cacher le popup quand on quitte le hover
+      el.addEventListener('mouseleave', () => {
+        popup.remove();
+      });
+
+      // Click pour sélectionner le supplier
+      el.addEventListener('click', () => {
+        setSelectedSupplier(supplier);
+      });
+
+      markersRef.current.push(marker);
+    });
   };
 
   return (
     <div className="relative w-full h-full">
-      <iframe
-        src={buildMapUrl()}
-        width="100%"
-        height="100%"
-        style={{ border: 0 }}
-        allowFullScreen
-        loading="lazy"
-        referrerPolicy="no-referrer-when-downgrade"
-      ></iframe>
+      <div ref={mapRef} className="w-full h-full bg-gray-100" />
       
       {/* Supplier list overlay */}
       <div className="absolute bottom-4 left-4 right-4 bg-white rounded-lg shadow-lg p-3 max-h-32 overflow-y-auto">
@@ -133,12 +539,12 @@ function SupplierMapView({ suppliers }: { suppliers: Supplier[] }) {
         </p>
         <div className="space-y-1">
           {suppliers.slice(0, 5).map((supplier) => {
-            const location = getSupplierDisplayLocation(supplier);
+            const isExact = !!(supplier.latitude && supplier.longitude);
             return (
               <div key={supplier.id} className="flex items-center gap-2 text-xs">
-                <i className={`ri-map-pin-${location.exact ? 'fill' : 'line'} ${location.exact ? 'text-green-600' : 'text-yellow-600'}`}></i>
+                <i className={`ri-map-pin-${isExact ? 'fill' : 'line'} ${isExact ? 'text-green-600' : 'text-yellow-600'}`}></i>
                 <span className="truncate">{supplier.name}</span>
-                {!location.exact && (
+                {!isExact && (
                   <span className="text-gray-400 text-[10px]">({t('map.approximate')})</span>
                 )}
               </div>
@@ -158,11 +564,38 @@ function SupplierMapView({ suppliers }: { suppliers: Supplier[] }) {
           <i className="ri-map-pin-fill text-green-600"></i>
           <span>{t('map.exact_location')}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mb-1">
           <i className="ri-map-pin-line text-yellow-600"></i>
           <span>{t('map.approximate_location')}</span>
         </div>
+        <div className="flex items-center gap-2">
+          <i className="ri-user-fill text-blue-500"></i>
+          <span>Votre position</span>
+        </div>
       </div>
+
+      {/* Selected supplier popup */}
+      {selectedSupplier && (
+        <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 max-w-xs">
+          <div className="flex justify-between items-start mb-2">
+            <h4 className="font-semibold text-sm">{selectedSupplier.name}</h4>
+            <button 
+              onClick={() => setSelectedSupplier(null)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <i className="ri-close-line"></i>
+            </button>
+          </div>
+          <p className="text-xs text-gray-600 mb-1">{selectedSupplier.category}</p>
+          <p className="text-xs text-gray-500">{selectedSupplier.location}</p>
+          <Link 
+            to={`/supplier/${selectedSupplier.id}`}
+            className="mt-2 text-xs text-green-600 hover:text-green-700 font-medium inline-flex items-center"
+          >
+            {t('supplier.see_details')} <i className="ri-arrow-right-line ml-1"></i>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
@@ -192,18 +625,126 @@ export default function Search() {
 
   const cityOptions = Array.from(new Set(suppliers.map(s => s.location.split(',')[0].trim())));
   const citySuggestions = ['Lagos', 'Abuja', 'Ibadan', 'Port Harcourt']; // mock pop
+
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+
+  // Request user's geolocation
+  const requestUserLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('La géolocalisation n\'est pas supportée par votre navigateur');
+      return;
+    }
+
+    setLocationLoading(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+        setLocationLoading(false);
+      },
+      (error) => {
+        setLocationLoading(false);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            setLocationError('Vous avez refusé l\'accès à votre position');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            setLocationError('Position indisponible');
+            break;
+          case error.TIMEOUT:
+            setLocationError('Délai de demande de position dépassé');
+            break;
+          default:
+            setLocationError('Erreur lors de l\'obtention de la position');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
+  // Get coordinates for selected location to enable distance filtering (fallback)
+  const getLocationCoords = (location: string): { lat: number; lng: number } | null => {
+    if (!location) return null;
+    
+    const locationLower = location.toLowerCase();
+    
+    const locationCoords: Record<string, { lat: number; lng: number }> = {
+      'lagos': { lat: 6.5244, lng: 3.3792 },
+      'abuja': { lat: 9.0765, lng: 7.3986 },
+      'fct': { lat: 9.0765, lng: 7.3986 },
+      'ibadan': { lat: 7.3775, lng: 3.9470 },
+      'port harcourt': { lat: 4.8156, lng: 7.0498 },
+      'kano': { lat: 12.0022, lng: 8.5920 },
+      'kaduna': { lat: 10.5105, lng: 7.4165 },
+      'enugu': { lat: 6.5244, lng: 7.5186 },
+      'benin': { lat: 6.3350, lng: 5.6037 },
+      'jos': { lat: 9.8965, lng: 8.8583 },
+      'ilorin': { lat: 8.4799, lng: 4.5418 },
+      'aba': { lat: 5.1066, lng: 7.3667 },
+      'calabar': { lat: 4.9757, lng: 8.3417 },
+      'owerri': { lat: 5.4836, lng: 7.0333 },
+      'akure': { lat: 7.2571, lng: 5.2058 },
+      'ife': { lat: 7.4825, lng: 4.5603 },
+      'lokoja': { lat: 7.8023, lng: 6.7430 },
+      'makurdi': { lat: 7.7337, lng: 8.5333 },
+      'minna': { lat: 9.6139, lng: 6.5569 },
+      'sokoto': { lat: 13.0059, lng: 5.2476 },
+      'maiduguri': { lat: 11.8469, lng: 13.1571 },
+      'yola': { lat: 9.2035, lng: 12.4954 },
+      'bauchi': { lat: 10.3157, lng: 9.8434 },
+      'gombe': { lat: 10.2897, lng: 11.1711 },
+      'damaturu': { lat: 11.7470, lng: 11.9608 },
+      'jalingo': { lat: 8.8937, lng: 11.3590 },
+      'dutse': { lat: 11.7591, lng: 9.3230 },
+      'birnin kebbi': { lat: 12.4539, lng: 4.1975 },
+      'awka': { lat: 6.2100, lng: 7.0700 },
+      'yenegoa': { lat: 4.9247, lng: 6.2640 },
+      'asaba': { lat: 6.2000, lng: 6.7333 },
+      'abakaliki': { lat: 6.3249, lng: 8.1137 },
+      'ado ekiti': { lat: 7.6213, lng: 5.2210 },
+      'abeokuta': { lat: 7.1475, lng: 3.3619 },
+      'akwa ibom': { lat: 5.0000, lng: 7.8333 },
+      'uyo': { lat: 5.0333, lng: 7.9167 },
+      'ikeja': { lat: 6.5965, lng: 3.3421 },
+      'lekki': { lat: 6.4698, lng: 3.5852 },
+      'yaba': { lat: 6.5000, lng: 3.3667 },
+      'surulere': { lat: 6.5000, lng: 3.3500 },
+      'apapa': { lat: 6.4500, lng: 3.3667 },
+      'oshodi': { lat: 6.5500, lng: 3.3500 },
+      'ikoyi': { lat: 6.4500, lng: 3.4333 },
+      'victoria island': { lat: 6.4333, lng: 3.4167 },
+      'vi': { lat: 6.4333, lng: 3.4167 },
+    };
+    
+    for (const [key, coords] of Object.entries(locationCoords)) {
+      if (locationLower.includes(key)) {
+        return coords;
+      }
+    }
+    
+    return null;
+  };
+
   const handleScrollToResults = () => {
     setTimeout(()=>{
       document.getElementById('resultSection')?.scrollIntoView({ behavior: 'smooth' });
     }, 400);
   };
 
+  // Use user's location if available, otherwise fall back to selected city coordinates
+  const effectiveLocationCoords = userLocation || getLocationCoords(filters.location);
   const queryArgs = {
     q: filters.query || undefined,
     category: filters.category || undefined,
     location: filters.location || undefined,
-    lat: undefined as number | undefined,
-    lng: undefined as number | undefined,
+    lat: effectiveLocationCoords?.lat,
+    lng: effectiveLocationCoords?.lng,
     radiusKm: Number(filters.distance || '50'),
     minRating: filters.rating ? Number(filters.rating) : undefined,
     verified: filters.verified || undefined,
@@ -248,6 +789,10 @@ export default function Search() {
     })) as Supplier[];
     setSuppliers(list);
     setTotalCount(convexResult.total ?? list.length);
+    // Scroll to results after loading completes
+    if (!queryLoading && list.length > 0) {
+      handleScrollToResults();
+    }
   }, [convexResult, queryLoading]);
 
   useEffect(() => {
@@ -407,6 +952,50 @@ export default function Search() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   {t('filter.max_distance')}
                 </label>
+                
+                {/* User location button */}
+                <div className="mb-3">
+                  {!userLocation ? (
+                    <button
+                      onClick={requestUserLocation}
+                      disabled={locationLoading}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm"
+                    >
+                      {locationLoading ? (
+                        <>
+                          <i className="ri-loader-4-line animate-spin"></i>
+                          <span>Localisation en cours...</span>
+                        </>
+                      ) : (
+                        <>
+                          <i className="ri-crosshair-line"></i>
+                          <span>Utiliser ma position</span>
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="flex items-center justify-between px-3 py-2 bg-green-50 text-green-700 rounded-lg text-sm">
+                      <span className="flex items-center gap-2">
+                        <i className="ri-map-pin-fill"></i>
+                        <span>Ma position</span>
+                      </span>
+                      <button
+                        onClick={() => setUserLocation(null)}
+                        className="text-green-600 hover:text-green-800"
+                        title="Réinitialiser"
+                      >
+                        <i className="ri-close-line"></i>
+                      </button>
+                    </div>
+                  )}
+                  {locationError && (
+                    <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                      <i className="ri-error-warning-line"></i>
+                      {locationError}
+                    </p>
+                  )}
+                </div>
+
                 <select
                   value={filters.distance}
                   onChange={(e) => setFilters({...filters, distance: e.target.value})}
@@ -417,7 +1006,14 @@ export default function Search() {
                   <option value="50">50 km</option>
                   <option value="100">100 km</option>
                 </select>
-                <div className="text-xs text-gray-600 mt-1">{t('filter.by_distance')}</div>
+                <div className="text-xs text-gray-600 mt-1">
+                  {userLocation 
+                    ? 'Distance depuis votre position actuelle'
+                    : filters.location 
+                      ? `Distance depuis ${filters.location}` 
+                      : 'Sélectionnez une ville ou utilisez votre position'
+                  }
+                </div>
               </div>
 
               {/* Minimum rating */}
@@ -436,19 +1032,6 @@ export default function Search() {
                   <option value="4.8">4.8+ {t('filter.stars')}</option>
                 </select>
                 <div className="text-xs text-gray-600 mt-1">{t('filter.by_rating')}</div>
-              </div>
-
-              {/* Verified */}
-              <div className="mb-6">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={filters.verified}
-                    onChange={(e) => setFilters({...filters, verified: e.target.checked})}
-                    className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">{t('filter.verified_only')}</span>
-                </label>
               </div>
 
               <button
@@ -524,7 +1107,7 @@ export default function Search() {
 
             {viewMode === 'map' && (
               <div className="bg-white rounded-lg shadow-sm mb-6 h-64 sm:h-96 overflow-hidden">
-                <SupplierMapView suppliers={suppliers} />
+                <SupplierMapView suppliers={suppliers} userLocation={userLocation} />
               </div>
             )}
 

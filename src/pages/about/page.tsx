@@ -1,8 +1,13 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import LanguageSelector from '../../components/base/LanguageSelector';
+import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import { useConvexQuery } from '../../hooks/useConvexQuery';
+import { api } from '../../../convex/_generated/api';
 
 export default function About() {
   const { t } = useTranslation();
+  const { data: meData } = useConvexQuery(api.users.me, {}, { staleTime: 2 * 60 * 1000 });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-green-50">
@@ -27,12 +32,33 @@ export default function About() {
               <Link to="/about" className="px-4 py-2 rounded-lg text-green-600 bg-green-50 font-medium transition-all">{t('nav.about')}</Link>
             </nav>
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <Link to="/auth/login" className="text-gray-700 hover:text-green-600 font-medium px-4 py-2 rounded-lg hover:bg-green-50 transition-all">
-                {t('nav.login')}
-              </Link>
-              <Link to="/auth/register" className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 sm:px-6 py-2.5 rounded-xl hover:shadow-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-medium whitespace-nowrap transform hover:-translate-y-0.5">
-                {t('about.add_business')}
-              </Link>
+              <LanguageSelector />
+              <SignedOut>
+                <Link to="/auth/login" className="text-gray-700 hover:text-green-600 font-medium px-4 py-2 rounded-lg hover:bg-green-50 transition-all">
+                  {t('nav.login')}
+                </Link>
+                <Link to="/auth/register" className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 sm:px-6 py-2.5 rounded-xl hover:shadow-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-medium whitespace-nowrap transform hover:-translate-y-0.5">
+                  {t('about.add_business')}
+                </Link>
+              </SignedOut>
+              <SignedIn>
+                {meData?.user?.user_type === 'supplier' && (
+                  <Link 
+                    to="/dashboard"
+                    className="text-gray-700 hover:text-green-600 font-medium px-3 py-2 rounded-lg transition-colors hidden sm:block"
+                  >
+                    {t('nav.dashboard')}
+                  </Link>
+                )}
+                <UserButton 
+                  afterSignOutUrl="/"
+                  appearance={{
+                    elements: {
+                      avatarBox: "w-10 h-10"
+                    }
+                  }}
+                />
+              </SignedIn>
             </div>
           </div>
         </div>

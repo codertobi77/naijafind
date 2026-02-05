@@ -98,7 +98,7 @@ export const searchSuppliers = query({
     }
 
     if (args.verified) {
-      all = all.filter(s => s.verified === true);
+      all = all.filter(s => s.approved === true);
     }
 
     if (args.lat !== undefined && args.lng !== undefined) {

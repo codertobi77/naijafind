@@ -1,9 +1,92 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useTranslation } from 'react-i18next';
+import LanguageSelector from '../../components/base/LanguageSelector';
+import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { contactFormSchema, validateForm } from '../../lib/validation';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
+
+// Mapbox Map Component
+function ContactMap() {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
+
+  useEffect(() => {
+    if (mapRef.current && !mapInstanceRef.current) {
+      mapboxgl.accessToken = MAPBOX_TOKEN;
+
+      const map = new mapboxgl.Map({
+        container: mapRef.current,
+        style: 'mapbox://styles/mapbox/light-v11',
+        center: [3.4240, 6.4281], // Lagos, Nigeria
+        zoom: 13,
+        pitch: 45,
+        bearing: -17.6,
+        antialias: true
+      });
+
+      mapInstanceRef.current = map;
+
+      map.on('load', () => {
+        // Add 3D terrain
+        map.addSource('mapbox-dem', {
+          'type': 'raster-dem',
+          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+          'tileSize': 512,
+          'maxzoom': 14
+        });
+        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+
+        // Add 3D buildings
+        if (!map.getLayer('3d-buildings')) {
+          map.addLayer({
+            'id': '3d-buildings',
+            'source': 'composite',
+            'source-layer': 'building',
+            'filter': ['==', 'extrude', 'true'],
+            'type': 'fill-extrusion',
+            'minzoom': 12,
+            'paint': {
+              'fill-extrusion-color': '#a8a8a8',
+              'fill-extrusion-height': ['get', 'height'],
+              'fill-extrusion-base': ['get', 'min_height'],
+              'fill-extrusion-opacity': 0.6
+            }
+          });
+        }
+
+        // Add marker for office location
+        markerRef.current = new mapboxgl.Marker({ color: '#16a34a' })
+          .setLngLat([3.4240, 6.4281])
+          .setPopup(
+            new mapboxgl.Popup({ offset: 25 }).setHTML(
+              `<div class="p-2">
+                <h3 class="font-semibold text-sm">NaijaFind Office</h3>
+                <p class="text-xs text-gray-600">Victoria Island, Lagos</p>
+              </div>`
+            )
+          )
+          .addTo(map);
+      });
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  return <div ref={mapRef} className="w-full h-full min-h-[250px] bg-gray-100" />;
+}
 
 export default function Contact() {
   const { t } = useTranslation();
@@ -135,17 +218,38 @@ export default function Contact() {
               <Link to="/about" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.about')}</Link>
             </nav>
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <Link to="/auth/login" className="text-gray-700 hover:text-green-600 font-medium text-sm sm:text-base">
-                {t('nav.login')}
-              </Link>
-              <button 
-                onClick={handleAddBusinessClick}
-                disabled={isLoading}
-                className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="hidden sm:inline">{t('about.add_business')}</span>
-                <span className="sm:hidden">{t('about.add_business')}</span>
-              </button>
+              <LanguageSelector />
+              <SignedOut>
+                <Link to="/auth/login" className="text-gray-700 hover:text-green-600 font-medium text-sm sm:text-base">
+                  {t('nav.login')}
+                </Link>
+                <button 
+                  onClick={handleAddBusinessClick}
+                  disabled={isLoading}
+                  className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="hidden sm:inline">{t('about.add_business')}</span>
+                  <span className="sm:hidden">{t('about.add_business')}</span>
+                </button>
+              </SignedOut>
+              <SignedIn>
+                {meData?.user?.user_type === 'supplier' && (
+                  <Link 
+                    to="/dashboard"
+                    className="text-gray-700 hover:text-green-600 font-medium px-3 py-2 rounded-lg transition-colors hidden sm:block"
+                  >
+                    {t('nav.dashboard')}
+                  </Link>
+                )}
+                <UserButton 
+                  afterSignOutUrl="/"
+                  appearance={{
+                    elements: {
+                      avatarBox: "w-10 h-10"
+                    }
+                  }}
+                />
+              </SignedIn>
             </div>
           </div>
         </div>
@@ -388,16 +492,8 @@ export default function Contact() {
             </div>
 
             {/* Map */}
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-              <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3964.7708!2d3.4240!3d6.4281!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x103bf4c7e6b8b5e5%3A0x5a5a5a5a5a5a5a5a!2sVictoria%20Island%2C%20Lagos%20Nigeria!5e0!3m2!1sen!2s!4v1234567890"
-                width="100%"
-                height="250"
-                style={{ border: 0 }}
-                allowFullScreen
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              ></iframe>
+            <div className="bg-white rounded-lg shadow-lg overflow-hidden h-[250px]">
+              <ContactMap />
             </div>
 
             {/* FAQ Link */}

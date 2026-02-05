@@ -271,18 +271,17 @@ export default function SupplierDetail() {
                   {/* Mobile menu button */}
                   <div className="flex items-center space-x-2 sm:space-x-4">
                     {/* Mobile menu button */}
-                    <button 
-                      className="md:hidden text-gray-700"
-                      onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                      aria-label="Toggle menu"
-                    >
-                      <i className="ri-menu-line text-2xl"></i>
-                    </button>
-                    <LanguageSelector />
-                  </div>
-                  <div className="flex items-center space-x-2 sm:space-x-4">
-                    <LanguageSelector />
-                    <SignedOut>
+                  <button 
+                    className="md:hidden text-gray-700"
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    aria-label="Toggle menu"
+                  >
+                    <i className="ri-menu-line text-2xl"></i>
+                  </button>
+                </div>
+                <div className="flex items-center space-x-2 sm:space-x-4">
+                  <LanguageSelector />
+                  <SignedOut>
                       <Link to="/auth/login" className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 sm:px-6 py-2.5 rounded-xl hover:shadow-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-medium whitespace-nowrap text-sm sm:text-base transform hover:-translate-y-0.5">
                         {t('nav.login')}
                       </Link>
