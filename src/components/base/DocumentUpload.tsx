@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { uploadImageToCloudinary, validateImageFile } from '../../lib/cloudinary';
+import { uploadDocumentToCloudinary, validateDocumentFile } from '../../lib/cloudinary';
 
 interface DocumentUploadProps {
   label: string;
@@ -27,9 +27,10 @@ export default function DocumentUpload({
   const handleFileChange = async (file: File | null) => {
     if (!file) return;
 
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      setError('Le fichier est trop volumineux (max 10MB)');
+    // Validate file using proper document validation
+    const validationError = validateDocumentFile(file);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -38,8 +39,8 @@ export default function DocumentUpload({
     setFileName(file.name);
 
     try {
-      // Upload the file to Cloudinary
-      const result = await uploadImageToCloudinary(
+      // Upload the file to Cloudinary using document upload
+      const result = await uploadDocumentToCloudinary(
         file, 
         `naijafind/verification/${documentType}`
       );

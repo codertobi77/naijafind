@@ -3,13 +3,13 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi as vitest } from 'vitest';
 import DocumentUpload from '../DocumentUpload';
 
-// Mock the uploadImageToCloudinary function
+// Mock the cloudinary functions
 vi.mock('../../../lib/cloudinary', () => ({
-  uploadImageToCloudinary: vitest.fn(),
-  validateImageFile: vitest.fn(),
+  uploadDocumentToCloudinary: vitest.fn(),
+  validateDocumentFile: vitest.fn(),
 }));
 
-import { uploadImageToCloudinary, validateImageFile } from '../../../lib/cloudinary';
+import { uploadDocumentToCloudinary, validateDocumentFile } from '../../../lib/cloudinary';
 
 describe('DocumentUpload Component', () => {
   const mockOnChange = vitest.fn();
@@ -39,7 +39,7 @@ describe('DocumentUpload Component', () => {
       url: 'https://example.com/uploaded-doc.pdf',
     };
 
-    (uploadImageToCloudinary as ReturnType<typeof vitest.fn>).mockResolvedValue(mockResult);
+    (uploadDocumentToCloudinary as ReturnType<typeof vitest.fn>).mockResolvedValue(mockResult);
 
     render(
       <DocumentUpload
@@ -56,7 +56,7 @@ describe('DocumentUpload Component', () => {
     fireEvent.change(fileInput, { target: { files: [file] } });
 
     await waitFor(() => {
-      expect(uploadImageToCloudinary).toHaveBeenCalledWith(
+      expect(uploadDocumentToCloudinary).toHaveBeenCalledWith(
         file,
         'naijafind/verification/business_registration'
       );
@@ -64,8 +64,11 @@ describe('DocumentUpload Component', () => {
     });
   });
 
-  it('shows error for files larger than 10MB', async () => {
-    const largeFile = new File([new ArrayBuffer(11 * 1024 * 1024)], 'large-file.pdf', { type: 'application/pdf' });
+  it('shows error for files larger than 20MB', async () => {
+    // Mock the validation to return an error for large files
+    (validateDocumentFile as ReturnType<typeof vitest.fn>).mockReturnValue('Document size must be less than 20MB');
+    
+    const largeFile = new File([new ArrayBuffer(21 * 1024 * 1024)], 'large-file.pdf', { type: 'application/pdf' });
 
     render(
       <DocumentUpload
@@ -79,7 +82,7 @@ describe('DocumentUpload Component', () => {
     const fileInput = screen.getByLabelText('Business Registration');
     fireEvent.change(fileInput, { target: { files: [largeFile] } });
 
-    expect(screen.getByText('Le fichier est trop volumineux (max 10MB)')).toBeInTheDocument();
+    expect(screen.getByText('Document size must be less than 20MB')).toBeInTheDocument();
     expect(mockOnChange).not.toHaveBeenCalled();
   });
 
@@ -99,7 +102,7 @@ describe('DocumentUpload Component', () => {
 
   it('shows loading state during upload', async () => {
     const mockPromise = new Promise(() => {}); // Never resolves to keep loading state
-    (uploadImageToCloudinary as ReturnType<typeof vitest.fn>).mockReturnValue(mockPromise as Promise<any>);
+    (uploadDocumentToCloudinary as ReturnType<typeof vitest.fn>).mockReturnValue(mockPromise as Promise<any>);
 
     render(
       <DocumentUpload
