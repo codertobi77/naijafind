@@ -105,7 +105,19 @@ export const admin = {
   "admin.supplier_rejected": "Supplier rejected successfully",
   "admin.products": "Products",
   "admin.galleries": "Galleries",
-  "admin.categories": "Categories"
+  "admin.categories": "Categories",
+  "admin.products_management_description": "Track and manage all products across the platform.",
+  "admin.total_products": "Total Products",
+  "admin.active_products": "Active Products",
+  "admin.inactive_products": "Inactive Products",
+  "admin.total_stock": "Total Stock",
+  "admin.all_products": "All Products",
+  "admin.price": "Price",
+  "admin.stock": "Stock",
+  "admin.supplier": "Supplier",
+  "admin.product_details": "Product Details",
+  "admin.images": "Images",
+  "admin.no_products": "No products"
 };
 
 export default admin;

@@ -105,7 +105,19 @@ export const admin = {
   "admin.supplier_rejected": "Fournisseur rejeté avec succès",
   "admin.products": "Produits",
   "admin.galleries": "Galeries",
-  "admin.categories": "Catégories"
+  "admin.categories": "Catégories",
+  "admin.products_management_description": "Suivez et gérez tous les produits de la plateforme.",
+  "admin.total_products": "Produits totaux",
+  "admin.active_products": "Produits actifs",
+  "admin.inactive_products": "Produits inactifs",
+  "admin.total_stock": "Stock total",
+  "admin.all_products": "Tous les produits",
+  "admin.price": "Prix",
+  "admin.stock": "Stock",
+  "admin.supplier": "Fournisseur",
+  "admin.product_details": "Détails du produit",
+  "admin.images": "Images",
+  "admin.no_products": "Aucun produit"
 };
 
 export default admin;

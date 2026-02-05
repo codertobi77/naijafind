@@ -119,7 +119,35 @@ export const common = {
   "page.privacy": "Privacy",
   "page.categories": "Categories",
   "page.supplier": "Supplier",
-  "page.admin": "Admin"
+  "page.admin": "Admin",
+
+  // Location picker
+  "location.country": "Country",
+  "location.state_department": "State/Department",
+  "location.city": "City",
+  "location.address": "Address",
+  "location.exact_location": "Exact Location",
+  "location.select_country": "Select a country",
+  "location.select_state": "Select a state/department",
+  "location.city_placeholder": "Enter city name",
+  "location.address_placeholder": "Enter street address",
+  "location.select_country_state_first": "Please select a country and state first",
+  "location.select_on_map": "Select location on map",
+  "location.location_selected": "Location selected",
+  "location.select_exact_location": "Select exact location",
+  "location.map_instructions": "Click on the map to set your exact location, or enter coordinates manually below.",
+  "location.manual_coords": "Manual coordinates (optional)",
+  "location.latitude": "Latitude",
+  "location.longitude": "Longitude",
+  "location.confirm_location": "Confirm location",
+  "location.coords": "Coordinates: {{lat}}, {{lng}}",
+
+  // Map view
+  "map.suppliers_found": "{{count}} suppliers found",
+  "map.more_suppliers": "more suppliers",
+  "map.exact_location": "Exact location",
+  "map.approximate_location": "Approximate location",
+  "map.approximate": "approximate"
 };
 
 export default common;

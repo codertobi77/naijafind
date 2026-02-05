@@ -4,9 +4,9 @@ import { useAuth, useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useTranslation } from 'react-i18next';
-import LanguageSelector from '../../components/base/LanguageSelector';
 import ImageUpload from '../../components/base/ImageUpload';
 import ImageGalleryUpload from '../../components/base/ImageGalleryUpload';
+import LocationPicker from '../../components/base/LocationPicker';
 
 export default function SupplierSetup() {
   const { t } = useTranslation();
@@ -25,6 +25,9 @@ export default function SupplierSetup() {
     address: '',
     city: '',
     state: '',
+    country: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
     website: '',
     image: '',
     imageGallery: [] as string[],
@@ -68,6 +71,9 @@ export default function SupplierSetup() {
     if (!formData.category) {
       newErrors.category = t('supplier_setup.errors.category_required');
     }
+    if (!formData.country) {
+      newErrors.country = t('supplier_setup.errors.country_required');
+    }
     if (!formData.city.trim()) {
       newErrors.city = t('supplier_setup.errors.city_required');
     }
@@ -103,6 +109,9 @@ export default function SupplierSetup() {
         address: formData.address || undefined,
         city: formData.city,
         state: formData.state,
+        country: formData.country || undefined,
+        latitude: formData.latitude || undefined,
+        longitude: formData.longitude || undefined,
         website: formData.website || undefined,
         image: formData.image || undefined,
         imageGallery: formData.imageGallery.length > 0 ? formData.imageGallery : undefined,
@@ -327,71 +336,32 @@ export default function SupplierSetup() {
               </div>
             </div>
 
-            {/* Adresse */}
+            {/* Adresse avec LocationPicker */}
             <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
               <h3 className="text-sm font-semibold text-purple-800 mb-4 flex items-center">
                 <i className="ri-map-pin-line mr-2"></i>
                 {t('supplier_setup.address_info')}
               </h3>
-              <div className="space-y-4">
-                {/* Adresse */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('supplier_setup.address')}
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => setFormData({...formData, address: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                    placeholder={t('supplier_setup.address_placeholder')}
-                  />
-                </div>
-
-                {/* Ville */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('supplier_setup.city')} *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.city}
-                    onChange={(e) => setFormData({...formData, city: e.target.value})}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${
-                      errors.city ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
-                    }`}
-                    placeholder={t('supplier_setup.city_placeholder')}
-                  />
-                  {errors.city && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center">
-                      <i className="ri-error-warning-line mr-1"></i>
-                      {errors.city}
-                    </p>
-                  )}
-                </div>
-
-                {/* État */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('supplier_setup.state')} *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.state}
-                    onChange={(e) => setFormData({...formData, state: e.target.value})}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${
-                      errors.state ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
-                    }`}
-                    placeholder={t('supplier_setup.state_placeholder')}
-                  />
-                  {errors.state && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center">
-                      <i className="ri-error-warning-line mr-1"></i>
-                      {errors.state}
-                    </p>
-                  )}
-                </div>
-              </div>
+              <LocationPicker
+                value={{
+                  country: formData.country,
+                  state: formData.state,
+                  city: formData.city,
+                  address: formData.address,
+                  latitude: formData.latitude,
+                  longitude: formData.longitude,
+                }}
+                onChange={(location) => setFormData({
+                  ...formData,
+                  country: location.country,
+                  state: location.state,
+                  city: location.city,
+                  address: location.address,
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                })}
+                errors={errors}
+              />
             </div>
 
             {/* Business Hours */}
@@ -404,7 +374,7 @@ export default function SupplierSetup() {
                 {Object.entries(formData.business_hours).map(([day, hours]) => (
                   <div key={day} className="flex items-center justify-between">
                     <label className="block text-sm font-medium text-gray-700 w-24">
-                      {t(`supplier_setup.days.${day}`)}
+                      {t(`supplier_setup.days.${day}` as 'supplier_setup.days.monday')}
                     </label>
                     <div className="flex items-center space-x-2">
                       <input

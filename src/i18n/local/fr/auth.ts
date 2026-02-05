@@ -108,6 +108,7 @@ export const auth = {
   "supplier_setup.home": "Retour à l'accueil",
   "supplier_setup.errors.business_name_required": "Le nom de l'entreprise est requis",
   "supplier_setup.errors.category_required": "La catégorie est requise",
+  "supplier_setup.errors.country_required": "Le pays est requis",
   "supplier_setup.errors.city_required": "La ville est requise",
   "supplier_setup.errors.state_required": "L'état est requis",
   "supplier_setup.errors.email_not_available": "Email non disponible",

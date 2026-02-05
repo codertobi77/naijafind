@@ -36,7 +36,8 @@ type DashboardTab =
   | 'subscription'
   | 'verification'
   | 'settings'
-  | 'team';
+  | 'team'
+  | 'galerie';
 
 type Toast = { type: 'success' | 'error'; message: string } | null;
 
@@ -57,12 +58,12 @@ interface DashboardData {
   reviews?: any[];
 }
 
-function getSidebarTabs(category: string | undefined) {
+function getSidebarTabs(category: string | undefined): Array<{ id: DashboardTab; label: string; icon: string }> {
   // À adapter selon les vraies catégories "vendeur de produits" vs "prestataire de services"
   const isProductVendor = category === 'Vente de produits';
   const isServiceProvider = category === 'Services';
 
-  const baseTabs = [
+  const baseTabs: Array<{ id: DashboardTab; label: string; icon: string }> = [
     { id: 'overview', label: 'Aperçu', icon: 'ri-dashboard-line' },
     { id: 'profile', label: 'Profil', icon: 'ri-building-line' },
     { id: 'orders', label: 'Commandes', icon: 'ri-shopping-cart-line' },
@@ -73,12 +74,12 @@ function getSidebarTabs(category: string | undefined) {
     { id: 'settings', label: 'Paramètres', icon: 'ri-settings-line' },
     { id: 'team', label: 'Équipe', icon: 'ri-team-line' },
   ];
-  const tabs = [...baseTabs];
+  const tabs: Array<{ id: DashboardTab; label: string; icon: string }> = [...baseTabs];
   if (isProductVendor) {
-    tabs.splice(2, 0, { id: 'products', label: 'Produits', icon: 'ri-product-hunt-line' });
+    tabs.splice(2, 0, { id: 'products' as const, label: 'Produits', icon: 'ri-product-hunt-line' });
   }
   if (isServiceProvider) {
-    tabs.splice(2, 0, { id: 'galerie', label: 'Galerie', icon: 'ri-image-line' });
+    tabs.splice(2, 0, { id: 'galerie' as const, label: 'Galerie', icon: 'ri-image-line' });
   }
   return tabs;
 }
@@ -313,7 +314,6 @@ export default function Dashboard() {
   const createOrderMutation = useMutation(api.orders.createOrder);
   const updateOrderMutation = useMutation(api.orders.updateOrder);
   const deleteOrderMutation = useMutation(api.orders.deleteOrder);
-  const createReviewMutation = useMutation(api.reviews.createReview);
   const updateReviewMutation = useMutation(api.reviews.updateReview);
   const deleteReviewMutation = useMutation(api.reviews.deleteReview);
   const updateSupplierProfileMutation = useMutation(api.suppliers.updateSupplierProfile);
@@ -344,6 +344,9 @@ export default function Dashboard() {
     price: '',
     stock: '',
     status: 'active' as 'active' | 'inactive',
+    category: '',
+    description: '',
+    images: [] as string[],
   });
   const [productOpLoading, setProductOpLoading] = useState(false);
   const [productToast, setProductToast] = useState<Toast>(null);
@@ -366,7 +369,7 @@ export default function Dashboard() {
 
   const [showReviewRespondModal, setShowReviewRespondModal] = useState(false);
   const [showReviewDeleteModal, setShowReviewDeleteModal] = useState(false);
-  const [reviewModalMode, setReviewModalMode] =
+  const [_reviewModalMode, setReviewModalMode] =
     useState<'respond' | 'delete'>('respond');
   const [reviewModalData, setReviewModalData] = useState<any>(null);
   const [reviewOpLoading, setReviewOpLoading] = useState(false);
@@ -503,9 +506,12 @@ export default function Dashboard() {
         stock: String(productModalData.stock ?? ''),
         status:
           (productModalData.status as 'active' | 'inactive') ?? 'active',
+        category: productModalData.category ?? '',
+        description: productModalData.description ?? '',
+        images: productModalData.images ?? [],
       });
     } else if (productModalMode === 'add') {
-      setProductForm({ name: '', price: '', stock: '', status: 'active' });
+      setProductForm({ name: '', price: '', stock: '', status: 'active', category: '', description: '', images: [] });
     }
   }, [productModalMode, productModalData, showProductModal]);
 
@@ -697,6 +703,9 @@ export default function Dashboard() {
     price: number;
     stock: number;
     status: 'active' | 'inactive';
+    category?: string;
+    description?: string;
+    images?: string[];
   }) => {
     try {
       await createProductMutation({
@@ -704,6 +713,9 @@ export default function Dashboard() {
         price: payload.price,
         stock: BigInt(payload.stock),
         status: payload.status,
+        category: payload.category,
+        description: payload.description,
+        images: payload.images,
       });
       return { success: true };
     } catch (err: unknown) {
@@ -721,6 +733,9 @@ export default function Dashboard() {
     price: number;
     stock: number;
     status: 'active' | 'inactive';
+    category?: string;
+    description?: string;
+    images?: string[];
   }) => {
     try {
       await updateProductMutation({
@@ -729,6 +744,9 @@ export default function Dashboard() {
         price: payload.price,
         stock: BigInt(payload.stock),
         status: payload.status,
+        category: payload.category,
+        description: payload.description,
+        images: payload.images,
       });
       return { success: true };
     } catch (err: unknown) {
@@ -763,6 +781,9 @@ export default function Dashboard() {
       price: Number(productForm.price) || 0,
       stock: Number(productForm.stock) || 0,
       status: productForm.status,
+      category: productForm.category.trim() || undefined,
+      description: productForm.description.trim() || undefined,
+      images: productForm.images.length > 0 ? productForm.images : undefined,
     };
 
     let result;
@@ -1929,7 +1950,13 @@ function ProductsSection({
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                Image
+              </th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-600">
                 Nom
+              </th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                Catégorie
               </th>
               <th className="px-4 py-3 text-left font-semibold text-gray-600">
                 Prix
@@ -1949,7 +1976,7 @@ function ProductsSection({
             {products.length === 0 ? (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={7}
                   className="px-4 py-6 text-center text-sm text-gray-500"
                 >
                   Aucun produit enregistré pour le moment.
@@ -1958,8 +1985,24 @@ function ProductsSection({
             ) : (
               products.map((product) => (
                 <tr key={product.id}>
+                  <td className="px-4 py-3">
+                    {product.images && product.images.length > 0 ? (
+                      <img
+                        src={product.images[0]}
+                        alt={product.name}
+                        className="h-12 w-12 rounded object-cover border"
+                      />
+                    ) : (
+                      <div className="h-12 w-12 rounded bg-gray-200 flex items-center justify-center text-gray-400">
+                        <i className="ri-image-line text-xl" />
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 font-medium text-gray-900">
                     {product.name}
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {product.category || '-'}
                   </td>
                   <td className="px-4 py-3 text-gray-700">
                     {formatCurrency(Number(product.price || 0))}
@@ -2378,7 +2421,15 @@ function ProductModal({
 }: {
   open: boolean;
   mode: 'add' | 'edit' | 'delete';
-  form: { name: string; price: string; stock: string; status: 'active' | 'inactive' };
+  form: { 
+    name: string; 
+    price: string; 
+    stock: string; 
+    status: 'active' | 'inactive';
+    category: string;
+    description: string;
+    images: string[];
+  };
   loading: boolean;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
@@ -2388,9 +2439,14 @@ function ProductModal({
       price: string;
       stock: string;
       status: 'active' | 'inactive';
+      category: string;
+      description: string;
+      images: string[];
     }>
   >;
 }) {
+  const [imageUrl, setImageUrl] = useState('');
+  
   if (!open) return null;
   return (
     <Modal title={mode === 'add' ? 'Ajouter un produit' : 'Modifier le produit'} onClose={onClose}>
@@ -2433,6 +2489,66 @@ function ProductModal({
             <option value="active">Actif</option>
             <option value="inactive">Inactif</option>
           </select>
+        </div>
+        <Field
+          label="Catégorie"
+          value={form.category}
+          placeholder="Ex: Électronique, Vêtements, Alimentation..."
+          readOnly={false}
+          onChange={(value) => onChange((prev) => ({ ...prev, category: value }))}
+        />
+        <Textarea
+          label="Description"
+          value={form.description}
+          placeholder="Description du produit..."
+          readOnly={false}
+          onChange={(value) => onChange((prev) => ({ ...prev, description: value }))}
+        />
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Images du produit</label>
+          <div className="flex flex-wrap gap-2">
+            {form.images.map((img, index) => (
+              <div key={index} className="relative">
+                <img src={img} alt={`Product ${index}`} className="h-16 w-16 rounded object-cover border" />
+                <button
+                  type="button"
+                  onClick={() =>
+                    onChange((prev) => ({
+                      ...prev,
+                      images: prev.images.filter((_, i) => i !== index),
+                    }))
+                  }
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="URL de l'image..."
+              className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (imageUrl.trim()) {
+                  onChange((prev) => ({
+                    ...prev,
+                    images: [...prev.images, imageUrl.trim()],
+                  }));
+                  setImageUrl('');
+                }
+              }}
+              className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
+            >
+              Ajouter
+            </button>
+          </div>
         </div>
         <div className="flex justify-end space-x-2">
           <button

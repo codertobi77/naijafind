@@ -119,7 +119,35 @@ export const common = {
   "page.privacy": "Confidentialité",
   "page.categories": "Catégories",
   "page.supplier": "Fournisseur",
-  "page.admin": "Admin"
+  "page.admin": "Admin",
+
+  // Location picker
+  "location.country": "Pays",
+  "location.state_department": "État/Département",
+  "location.city": "Ville",
+  "location.address": "Adresse",
+  "location.exact_location": "Localisation exacte",
+  "location.select_country": "Sélectionnez un pays",
+  "location.select_state": "Sélectionnez un état/département",
+  "location.city_placeholder": "Entrez le nom de la ville",
+  "location.address_placeholder": "Entrez l'adresse",
+  "location.select_country_state_first": "Veuillez d'abord sélectionner un pays et un état",
+  "location.select_on_map": "Sélectionner sur la carte",
+  "location.location_selected": "Localisation sélectionnée",
+  "location.select_exact_location": "Sélectionner la localisation exacte",
+  "location.map_instructions": "Cliquez sur la carte pour définir votre localisation exacte, ou entrez les coordonnées manuellement ci-dessous.",
+  "location.manual_coords": "Coordonnées manuelles (optionnel)",
+  "location.latitude": "Latitude",
+  "location.longitude": "Longitude",
+  "location.confirm_location": "Confirmer la localisation",
+  "location.coords": "Coordonnées : {{lat}}, {{lng}}",
+
+  // Map view
+  "map.suppliers_found": "{{count}} fournisseurs trouvés",
+  "map.more_suppliers": "fournisseurs de plus",
+  "map.exact_location": "Localisation exacte",
+  "map.approximate_location": "Localisation approximative",
+  "map.approximate": "approximatif"
 };
 
 export default common;

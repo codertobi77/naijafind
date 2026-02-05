@@ -20,6 +20,151 @@ interface Supplier {
   description: string;
   phone: string;
   email: string;
+  // Location fields for map
+  latitude?: number;
+  longitude?: number;
+  city?: string;
+  state?: string;
+  country?: string;
+  address?: string;
+}
+
+// Component to display suppliers on a map
+function SupplierMapView({ suppliers }: { suppliers: Supplier[] }) {
+  const { t } = useTranslation();
+  const [mapCenter, setMapCenter] = useState({ lat: 9.0820, lng: 8.6753 }); // Default Nigeria center
+  const [mapZoom, setMapZoom] = useState(6);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+
+  // Calculate map center based on suppliers with valid coordinates
+  useEffect(() => {
+    const suppliersWithCoords = suppliers.filter(s => s.latitude && s.longitude);
+    
+    if (suppliersWithCoords.length > 0) {
+      const avgLat = suppliersWithCoords.reduce((sum, s) => sum + (s.latitude || 0), 0) / suppliersWithCoords.length;
+      const avgLng = suppliersWithCoords.reduce((sum, s) => sum + (s.longitude || 0), 0) / suppliersWithCoords.length;
+      setMapCenter({ lat: avgLat, lng: avgLng });
+      
+      // Adjust zoom based on number of suppliers and spread
+      if (suppliersWithCoords.length === 1) {
+        setMapZoom(14);
+      } else if (suppliersWithCoords.length <= 5) {
+        setMapZoom(12);
+      } else {
+        setMapZoom(10);
+      }
+    } else if (suppliers.length > 0) {
+      // If no exact coordinates, try to geocode the first supplier's location
+      const firstSupplier = suppliers[0];
+      const locationQuery = firstSupplier.city || firstSupplier.state || firstSupplier.location;
+      if (locationQuery) {
+        geocodeLocation(locationQuery, firstSupplier.country);
+      }
+    }
+  }, [suppliers]);
+
+  const geocodeLocation = async (location: string, country?: string) => {
+    try {
+      const query = encodeURIComponent(`${location}, ${country || 'Nigeria'}`);
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        setMapCenter({
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon)
+        });
+        setMapZoom(10);
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+    }
+  };
+
+  // Build map URL with markers for suppliers
+  const buildMapUrl = () => {
+    const baseUrl = 'https://www.google.com/maps/embed/v1/view';
+    const apiKey = ''; // No API key needed for embed view
+    
+    // If we have suppliers with coordinates, create a more focused view
+    const suppliersWithCoords = suppliers.filter(s => s.latitude && s.longitude);
+    
+    if (suppliersWithCoords.length > 0) {
+      // For now, use a simple map centered on the calculated center
+      // In a production app, you'd want to use the Google Maps JavaScript API
+      // to add custom markers and interactivity
+      return `https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d250000!2d${mapCenter.lng}!3d${mapCenter.lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2s!4v1`;
+    }
+    
+    // Default view centered on calculated center
+    return `https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d250000!2d${mapCenter.lng}!3d${mapCenter.lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2s!4v1`;
+  };
+
+  // Get supplier location for display
+  const getSupplierDisplayLocation = (supplier: Supplier) => {
+    if (supplier.latitude && supplier.longitude) {
+      return { lat: supplier.latitude, lng: supplier.longitude, exact: true };
+    }
+    // Fallback: use city/state/location for approximate positioning
+    return { 
+      lat: null, 
+      lng: null, 
+      exact: false,
+      locationText: supplier.city || supplier.state || supplier.location 
+    };
+  };
+
+  return (
+    <div className="relative w-full h-full">
+      <iframe
+        src={buildMapUrl()}
+        width="100%"
+        height="100%"
+        style={{ border: 0 }}
+        allowFullScreen
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+      ></iframe>
+      
+      {/* Supplier list overlay */}
+      <div className="absolute bottom-4 left-4 right-4 bg-white rounded-lg shadow-lg p-3 max-h-32 overflow-y-auto">
+        <p className="text-xs font-semibold text-gray-700 mb-2">
+          {t('map.suppliers_found', { count: suppliers.length })}
+        </p>
+        <div className="space-y-1">
+          {suppliers.slice(0, 5).map((supplier) => {
+            const location = getSupplierDisplayLocation(supplier);
+            return (
+              <div key={supplier.id} className="flex items-center gap-2 text-xs">
+                <i className={`ri-map-pin-${location.exact ? 'fill' : 'line'} ${location.exact ? 'text-green-600' : 'text-yellow-600'}`}></i>
+                <span className="truncate">{supplier.name}</span>
+                {!location.exact && (
+                  <span className="text-gray-400 text-[10px]">({t('map.approximate')})</span>
+                )}
+              </div>
+            );
+          })}
+          {suppliers.length > 5 && (
+            <p className="text-xs text-gray-500">
+              +{suppliers.length - 5} {t('map.more_suppliers')}
+            </p>
+          )}
+        </div>
+      </div>
+      
+      {/* Legend */}
+      <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-2 text-xs">
+        <div className="flex items-center gap-2 mb-1">
+          <i className="ri-map-pin-fill text-green-600"></i>
+          <span>{t('map.exact_location')}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <i className="ri-map-pin-line text-yellow-600"></i>
+          <span>{t('map.approximate_location')}</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function Search() {
@@ -93,6 +238,13 @@ export default function Search() {
       description: s.description ?? '',
       phone: s.phone ?? '',
       email: s.email ?? '',
+      // Include location data for map
+      latitude: s.latitude,
+      longitude: s.longitude,
+      city: s.city,
+      state: s.state,
+      country: s.country,
+      address: s.address,
     })) as Supplier[];
     setSuppliers(list);
     setTotalCount(convexResult.total ?? list.length);
@@ -371,16 +523,8 @@ export default function Search() {
             </div>
 
             {viewMode === 'map' && (
-              <div className="bg-white rounded-lg shadow-sm mb-6 h-64 sm:h-96">
-                <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3964.7708!2d3.3792!3d6.5244!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x103b8b2ae68280c1%3A0xdc9e87a367c3d9cb!2sLagos%2C%20Nigeria!5e0!3m2!1sen!2s!4v1234567890"
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0, borderRadius: '8px' }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                ></iframe>
+              <div className="bg-white rounded-lg shadow-sm mb-6 h-64 sm:h-96 overflow-hidden">
+                <SupplierMapView suppliers={suppliers} />
               </div>
             )}
 

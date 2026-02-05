@@ -28,6 +28,9 @@ export const createProduct = mutation({
     price: v.float64(),
     stock: v.int64(),
     status: v.string(),
+    category: v.optional(v.string()),
+    description: v.optional(v.string()),
+    images: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -46,6 +49,9 @@ export const createProduct = mutation({
       price: args.price,
       stock: args.stock,
       status: args.status,
+      category: args.category,
+      description: args.description,
+      images: args.images,
       created_at: now,
       updated_at: now,
     });
@@ -60,6 +66,9 @@ export const updateProduct = mutation({
     price: v.optional(v.float64()),
     stock: v.optional(v.int64()),
     status: v.optional(v.string()),
+    category: v.optional(v.string()),
+    description: v.optional(v.string()),
+    images: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -76,6 +85,9 @@ export const updateProduct = mutation({
       price: args.price ?? prod.price,
       stock: args.stock ?? prod.stock,
       status: args.status ?? prod.status,
+      category: args.category !== undefined ? args.category : prod.category,
+      description: args.description !== undefined ? args.description : prod.description,
+      images: args.images !== undefined ? args.images : prod.images,
       updated_at: new Date().toISOString(),
     });
     return { success: true };

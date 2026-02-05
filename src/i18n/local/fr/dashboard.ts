@@ -48,6 +48,9 @@ export const dashboard = {
   "products.price": "Prix",
   "products.stock": "Stock",
   "products.category": "Catégorie",
+  "products.description": "Description",
+  "products.images": "Images",
+  "products.image": "Image",
   "products.status": "Statut",
   "products.in_development": "Fonctionnalité en cours de développement",
   

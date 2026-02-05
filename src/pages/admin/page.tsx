@@ -153,7 +153,7 @@ const totalRevenue = allProducts ? allProducts.reduce((acc, p) => acc + (p.total
   const setSupplierFeatured = useMutation(api.admin.setSupplierFeatured);
   const { data: featuredSuppliers, refetch: refetchFeaturedSuppliers } = useConvexQuery(api.admin.getFeaturedSuppliers, {}, { staleTime: 2 * 60 * 1000 });
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products'>('overview');
   // Suppression de l’état fournisseurs simulé (on utilise allSuppliers de Convex)
 
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -168,6 +168,8 @@ const totalRevenue = allProducts ? allProducts.reduce((acc, p) => acc + (p.total
   });
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
   // Vérifier l'accès admin
   // Be more lenient with the admin check to allow for loading states
@@ -895,6 +897,130 @@ const totalRevenue = allProducts ? allProducts.reduce((acc, p) => acc + (p.total
             </div>
           </div>
         );
+      case 'products':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                {t('admin.products')}
+              </h2>
+              <p className="mt-1 text-gray-600">
+                {t('admin.products_management_description')}
+              </p>
+            </div>
+
+            {/* Products Stats */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+              <StatCard
+                label={t('admin.total_products')}
+                value={allProducts?.length || 0}
+                icon="ri-shopping-bag-line"
+                iconColor="text-blue-600"
+                iconBg="bg-blue-100"
+              />
+              <StatCard
+                label={t('admin.active_products')}
+                value={allProducts?.filter((p: any) => p.status === 'active').length || 0}
+                icon="ri-check-line"
+                iconColor="text-green-600"
+                iconBg="bg-green-100"
+              />
+              <StatCard
+                label={t('admin.inactive_products')}
+                value={allProducts?.filter((p: any) => p.status === 'inactive').length || 0}
+                icon="ri-close-line"
+                iconColor="text-red-600"
+                iconBg="bg-red-100"
+              />
+              <StatCard
+                label={t('admin.total_stock')}
+                value={allProducts?.reduce((acc: number, p: any) => acc + (Number(p.stock) || 0), 0) || 0}
+                icon="ri-archive-line"
+                iconColor="text-purple-600"
+                iconBg="bg-purple-100"
+              />
+            </div>
+
+            {/* Products Table */}
+            <div className="bg-white rounded-lg border p-6">
+              <h3 className="font-semibold mb-4">{t('admin.all_products')}</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.image')}</th>
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.name')}</th>
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.category')}</th>
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.price')}</th>
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.stock')}</th>
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.status')}</th>
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.supplier')}</th>
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allProducts && allProducts.length > 0 ? (
+                      allProducts.map((product: any) => (
+                        <tr key={product._id} className="border-b hover:bg-gray-50">
+                          <td className="px-2 py-3">
+                            {product.images && product.images.length > 0 ? (
+                              <img 
+                                src={product.images[0]} 
+                                alt={product.name}
+                                className="h-12 w-12 rounded object-cover border"
+                              />
+                            ) : (
+                              <div className="h-12 w-12 rounded bg-gray-200 flex items-center justify-center text-gray-400">
+                                <i className="ri-image-line text-xl" />
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-2 py-3 font-medium">{product.name}</td>
+                          <td className="px-2 py-3">{product.category || '-'}</td>
+                          <td className="px-2 py-3">{formatCurrency(Number(product.price || 0))}</td>
+                          <td className="px-2 py-3">{product.stock ?? 0}</td>
+                          <td className="px-2 py-3">
+                            {product.status === 'active' ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                {t('admin.active')}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                {t('admin.inactive')}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-2 py-3">
+                            {allSuppliers?.find((s: any) => s._id === product.supplierId)?.business_name || product.supplierId}
+                          </td>
+                          <td className="px-2 py-3">
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedProduct(product);
+                                  setIsProductModalOpen(true);
+                                }}
+                                className="text-xs px-2 py-1 rounded bg-gray-600 text-white hover:bg-gray-700 transition-colors"
+                              >
+                                {t('admin.view')}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={8} className="text-center text-gray-400 p-4">
+                          {t('admin.no_products')}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
       default:
         return null;
     }
@@ -1353,6 +1479,160 @@ const totalRevenue = allProducts ? allProducts.reduce((acc, p) => acc + (p.total
     setCategoryForm({ name: '', description: '', icon: '', image: '', is_active: true, order: 0 });
   };
 
+  // Product Details Modal component
+  function ProductDetailsModal({
+    product,
+    isOpen,
+    onClose,
+    suppliers,
+  }: {
+    product: any;
+    isOpen: boolean;
+    onClose: () => void;
+    suppliers: any[];
+  }) {
+    if (!isOpen || !product) return null;
+
+    const supplier = suppliers?.find((s: any) => s._id === product.supplierId);
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900">
+                {t('admin.product_details')}
+              </h3>
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <i className="ri-close-line text-2xl"></i>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Product Images */}
+              {product.images && product.images.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('admin.images')}
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {product.images.map((img: string, idx: number) => (
+                      <img
+                        key={idx}
+                        src={img}
+                        alt={`${product.name} ${idx + 1}`}
+                        className="h-20 w-20 rounded object-cover border"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    {t('admin.name')}
+                  </label>
+                  <p className="mt-1 text-sm text-gray-900">{product.name}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    {t('admin.category')}
+                  </label>
+                  <p className="mt-1 text-sm text-gray-900">{product.category || '-'}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    {t('admin.price')}
+                  </label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {formatCurrency(Number(product.price || 0))}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    {t('admin.stock')}
+                  </label>
+                  <p className="mt-1 text-sm text-gray-900">{product.stock ?? 0}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    {t('admin.status')}
+                  </label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {product.status === 'active' ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        {t('admin.active')}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        {t('admin.inactive')}
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    {t('admin.supplier')}
+                  </label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {supplier?.business_name || product.supplierId}
+                  </p>
+                </div>
+              </div>
+
+              {product.description && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    {t('admin.description')}
+                  </label>
+                  <p className="mt-1 text-sm text-gray-900">{product.description}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    {t('admin.created_at')}
+                  </label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {product.created_at ? new Date(product.created_at).toLocaleDateString() : '-'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    {t('admin.updated_at')}
+                  </label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {product.updated_at ? new Date(product.updated_at).toLocaleDateString() : '-'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={onClose}
+                className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                {t('admin.close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading || meData === undefined) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -1444,6 +1724,17 @@ const totalRevenue = allProducts ? allProducts.reduce((acc, p) => acc + (p.total
                 <span className="font-medium">{t('admin.categories')}</span>
               </button>
               <button
+                onClick={() => setActiveTab('products')}
+                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                  activeTab === 'products'
+                    ? 'bg-green-600 text-white shadow'
+                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
+                }`}
+              >
+                <i className="ri-shopping-bag-line text-lg" />
+                <span className="font-medium">{t('admin.products')}</span>
+              </button>
+              <button
                 onClick={() => setActiveTab('featured')}
                 className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
                   activeTab === 'featured'
@@ -1483,6 +1774,7 @@ const totalRevenue = allProducts ? allProducts.reduce((acc, p) => acc + (p.total
                 {activeTab === 'suppliers' && t('admin.suppliers')}
                 {activeTab === 'categories' && t('admin.categories')}
                 {activeTab === 'featured' && t('admin.featured_businesses')}
+                {activeTab === 'products' && t('admin.products')}
               </h1>
             </div>
             <div className="flex items-center space-x-3 sm:space-x-6">
@@ -1519,7 +1811,18 @@ const totalRevenue = allProducts ? allProducts.reduce((acc, p) => acc + (p.total
         onCancel={() => setShowConfirmModal(false)}
         isDanger={isDangerAction}
       />
-      
+
+      {/* Add Product Details Modal */}
+      <ProductDetailsModal
+        product={selectedProduct}
+        isOpen={isProductModalOpen}
+        onClose={() => {
+          setIsProductModalOpen(false);
+          setSelectedProduct(null);
+        }}
+        suppliers={allSuppliers || []}
+      />
+
       {/* Add Toast */}
       <Toast toast={toast} onDismiss={() => setToast(null)} t={t} />
     </div>
