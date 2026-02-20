@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useTranslation } from 'react-i18next';
-import LanguageSelector from '../../components/base/LanguageSelector';
+import { Header } from '../../components/base';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { contactFormSchema, validateForm } from '../../lib/validation';
@@ -202,58 +202,7 @@ export default function Contact() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link to="/" className="text-xl sm:text-2xl font-bold text-green-600" style={{ fontFamily: "Pacifico, serif" }}>
-                Olufinja
-              </Link>
-            </div>
-            <nav className="hidden md:flex space-x-8">
-              <Link to="/" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.home')}</Link>
-              <Link to="/search" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.search')}</Link>
-              <Link to="/categories" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.categories')}</Link>
-              <Link to="/about" className="text-gray-700 hover:text-green-600 font-medium">{t('nav.about')}</Link>
-            </nav>
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <LanguageSelector />
-              <SignedOut>
-                <Link to="/auth/login" className="text-gray-700 hover:text-green-600 font-medium text-sm sm:text-base">
-                  {t('nav.login')}
-                </Link>
-                <button 
-                  onClick={handleAddBusinessClick}
-                  disabled={isLoading}
-                  className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="hidden sm:inline">{t('about.add_business')}</span>
-                  <span className="sm:hidden">{t('about.add_business')}</span>
-                </button>
-              </SignedOut>
-              <SignedIn>
-                {meData?.user?.user_type === 'supplier' && (
-                  <Link 
-                    to="/dashboard"
-                    className="text-gray-700 hover:text-green-600 font-medium px-3 py-2 rounded-lg transition-colors hidden sm:block"
-                  >
-                    {t('nav.dashboard')}
-                  </Link>
-                )}
-                <UserButton 
-                  afterSignOutUrl="/"
-                  appearance={{
-                    elements: {
-                      avatarBox: "w-10 h-10"
-                    }
-                  }}
-                />
-              </SignedIn>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Hero Section */}
       <section className="bg-green-600 py-12 sm:py-16">

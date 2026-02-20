@@ -418,7 +418,8 @@ export const subscribeToNewsletter = mutation({
     
     // Send welcome email
     try {
-      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
+      console.log("Scheduling welcome email for:", normalizedEmail);
+      const jobId = await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
         to: normalizedEmail,
         subject: "Welcome to Olufinja newsletter!",
         html: `
@@ -436,8 +437,9 @@ export const subscribeToNewsletter = mutation({
           <p>Best regards,<br>The Olufinja Team</p>
         `,
       });
+      console.log("Welcome email scheduled successfully, job ID:", jobId);
     } catch (emailError) {
-      console.error("Failed to send welcome email:", emailError);
+      console.error("Failed to schedule welcome email:", emailError);
     }
     
     console.log("Newsletter subscription created:", subscriptionId);
