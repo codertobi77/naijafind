@@ -617,6 +617,7 @@ export default function Search() {
   const [showFiltersMobile, setShowFiltersMobile] = useState(false);
   const [sortBy, setSortBy] = useState('relevance');
   const [currentPage, setCurrentPage] = useState(0);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const itemsPerPage = 20;
 
   const cityOptions = Array.from(new Set(suppliers.map(s => s.location.split(',')[0].trim())));

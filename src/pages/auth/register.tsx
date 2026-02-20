@@ -1,159 +1,114 @@
 import { useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { SignUp, useAuth, SignedIn, SignedOut } from '@clerk/clerk-react';
 import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useTranslation } from 'react-i18next';
+import { AuthLayout } from '../../components/layout';
+import { Link } from 'react-router-dom';
 
 export default function Register() {
-	const { t } = useTranslation();
-	const [searchParams] = useSearchParams();
-	const { isSignedIn, isLoaded } = useAuth();
-	const meData = useQuery(api.users.me, {});
-	const navigate = useNavigate();
+  const { t } = useTranslation();
+  const { isSignedIn, isLoaded } = useAuth();
+  const meData = useQuery(api.users.me, {});
+  const navigate = useNavigate();
 
-	// Redirect signed-in users to appropriate page based on their role
-	useEffect(() => {
-		if (isLoaded && isSignedIn && meData !== undefined && meData !== null) {
-			// If user doesn't have a role yet, redirect to role selection
-			if (meData.user && !meData.user.user_type) {
-				navigate('/auth/choose-role', { replace: true });
-			} else if (meData.user && meData.user.user_type === 'supplier') {
-				// If supplier but no supplier profile, redirect to setup
-				if (!meData.supplier) {
-					navigate('/auth/supplier-setup', { replace: true });
-				} else {
-					navigate('/dashboard', { replace: true });
-				}
-			} else if (meData.user && meData.user.user_type === 'admin') {
-				navigate('/admin', { replace: true });
-			} else {
-				navigate('/', { replace: true });
-			}
-		}
-	}, [isLoaded, isSignedIn, meData, navigate]);
+  // Redirect signed-in users to appropriate page based on their role
+  useEffect(() => {
+    if (isLoaded && isSignedIn && meData !== undefined && meData !== null) {
+      // If user doesn't have a role yet, redirect to role selection
+      if (meData.user && !meData.user.user_type) {
+        navigate('/auth/choose-role', { replace: true });
+      } else if (meData.user && meData.user.user_type === 'supplier') {
+        // If supplier but no supplier profile, redirect to setup
+        if (!meData.supplier) {
+          navigate('/auth/supplier-setup', { replace: true });
+        } else {
+          navigate('/dashboard', { replace: true });
+        }
+      } else if (meData.user && meData.user.user_type === 'admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [isLoaded, isSignedIn, meData, navigate]);
 
-	// Show loading state while checking authentication
-	if (!isLoaded) {
-		return (
-			<div className="min-h-screen bg-gray-50 flex items-center justify-center">
-				<div className="text-center">
-					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-					<p className="mt-4 text-gray-600">{t('loading')}</p>
-				</div>
-			</div>
-		);
-	}
+  // Show loading state while checking authentication
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">{t('loading')}</p>
+        </div>
+      </div>
+    );
+  }
 
-	return (
-		<div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-			{/* Decorative background elements */}
-			<div className="absolute top-0 left-0 w-96 h-96 bg-green-200 rounded-full filter blur-3xl opacity-30 -translate-x-1/2 -translate-y-1/2 animate-pulse"></div>
-			<div className="absolute bottom-0 right-0 w-96 h-96 bg-emerald-200 rounded-full filter blur-3xl opacity-30 translate-x-1/2 translate-y-1/2 animate-pulse" style={{ animationDelay: '1s' }}></div>
-			<div className="absolute top-1/2 left-1/2 w-64 h-64 bg-green-100 rounded-full filter blur-3xl opacity-20 -translate-x-1/2 -translate-y-1/2"></div>
-			
-			<div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-				<Link to="/" className="flex justify-center group mb-8">
-					<div className="text-center">
-						<div className="inline-flex items-center space-x-3 mb-4">
-							<div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
-								<i className="ri-compass-3-fill text-white text-2xl"></i>
-							</div>
-							<span className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent group-hover:from-green-700 group-hover:to-emerald-700 transition-all duration-300" style={{ fontFamily: 'Pacifico, serif' }}>
-								Olufinja
-							</span>
-						</div>
-						<div className="h-1 w-24 bg-gradient-to-r from-green-600 to-emerald-600 mx-auto rounded-full group-hover:w-32 transition-all duration-300 shadow-lg"></div>
-					</div>
-				</Link>
-				<div className="mt-4 text-center animate-fade-in">
-					<h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-						{t('register.title')}
-					</h2>
-					<p className="text-lg sm:text-xl text-gray-600">
-						{t('register.subtitle')}
-					</p>
-				</div>
-				<div className="mt-4 text-center">
-					<p className="text-sm text-gray-600">
-						{t('register.already_member')}{' '}
-						<Link to="/auth/login" className="font-semibold text-green-600 hover:text-green-700 hover:underline transition-all duration-200">
-							{t('register.login')}
-						</Link>
-					</p>
-				</div>
-			</div>
+  const benefits = [
+    {
+      icon: 'ri-search-line',
+      iconColor: 'from-green-100 to-emerald-100',
+      text: t('register.benefit1'),
+    },
+    {
+      icon: 'ri-shield-check-line',
+      iconColor: 'from-blue-100 to-indigo-100',
+      text: t('register.benefit2'),
+    },
+    {
+      icon: 'ri-rocket-line',
+      iconColor: 'from-purple-100 to-pink-100',
+      text: t('register.benefit3'),
+    },
+  ];
 
-			<div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-				<div className="bg-white py-10 px-6 shadow-2xl shadow-green-100/50 sm:rounded-3xl sm:px-12 border border-gray-100 transition-all duration-300 hover:shadow-3xl backdrop-blur-sm">
-					<SignedOut>
-						<div className="flex justify-center">
-							<SignUp 
-								appearance={{ 
-									variables: { 
-										colorPrimary: '#16a34a',
-										borderRadius: '0.75rem'
-									},
-									elements: {
-										card: 'shadow-none',
-										formButtonPrimary: 'hover:bg-green-700 transition-colors duration-200',
-										footerActionLink: 'text-green-600 hover:text-green-700'
-									}
-								}} 
-								routing="hash" 
-								afterSignUpUrl="/auth/check-role" 
-								signInUrl="/auth/login" 
-							/>
-						</div>
-					</SignedOut>
-					<SignedIn>
-						<div className="text-center py-8 animate-scale-in">
-							<div className="w-20 h-20 bg-gradient-to-br from-green-100 to-emerald-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-								<i className="ri-checkbox-circle-line text-4xl text-green-600"></i>
-							</div>
-							<p className="text-gray-700 font-semibold mb-6 text-lg">{t('register.already_signed_in')}</p>
-							<Link to="/" className="inline-flex items-center text-green-600 hover:text-green-700 font-semibold transition-colors px-6 py-3 rounded-xl bg-green-50 hover:bg-green-100">
-								<i className="ri-home-line mr-2 text-xl"></i>
-								{t('register.home')}
-							</Link>
-						</div>
-					</SignedIn>
-					<div className="mt-8 pt-6 border-t border-gray-200 text-center">
-						<Link to="/" className="inline-flex items-center text-gray-600 hover:text-green-600 font-medium transition-colors group">
-							<i className="ri-arrow-left-line mr-2 group-hover:-translate-x-1 transition-transform"></i>
-							{t('register.home')}
-						</Link>
-					</div>
-				</div>
-
-				{/* Benefits section */}
-				<div className="mt-6 grid grid-cols-1 gap-4">
-					<div className="bg-white p-5 rounded-2xl border border-green-100 shadow-soft hover:shadow-md transition-all duration-300 hover:-translate-y-1">
-						<div className="flex items-center space-x-4">
-							<div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl flex items-center justify-center shadow-sm">
-								<i className="ri-search-line text-xl text-green-600"></i>
-							</div>
-							<p className="text-sm text-gray-700 font-semibold">{t('register.benefit1')}</p>
-						</div>
-					</div>
-					<div className="bg-white p-5 rounded-2xl border border-green-100 shadow-soft hover:shadow-md transition-all duration-300 hover:-translate-y-1">
-						<div className="flex items-center space-x-4">
-							<div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl flex items-center justify-center shadow-sm">
-								<i className="ri-shield-check-line text-xl text-blue-600"></i>
-							</div>
-							<p className="text-sm text-gray-700 font-semibold">{t('register.benefit2')}</p>
-						</div>
-					</div>
-					<div className="bg-white p-5 rounded-2xl border border-green-100 shadow-soft hover:shadow-md transition-all duration-300 hover:-translate-y-1">
-						<div className="flex items-center space-x-4">
-							<div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl flex items-center justify-center shadow-sm">
-								<i className="ri-rocket-line text-xl text-purple-600"></i>
-							</div>
-							<p className="text-sm text-gray-700 font-semibold">{t('register.benefit3')}</p>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	);
+  return (
+    <AuthLayout
+      title={t('register.title')}
+      subtitle={t('register.subtitle')}
+      footerLinkText={t('register.already_member')}
+      footerLinkTo="/auth/login"
+      footerLinkLabel={t('register.login')}
+      showBenefits={true}
+      benefits={benefits}
+    >
+      <SignedOut>
+        <div className="flex justify-center">
+          <SignUp
+            appearance={{
+              variables: {
+                colorPrimary: '#16a34a',
+                borderRadius: '0.75rem',
+              },
+              elements: {
+                card: 'shadow-none',
+                formButtonPrimary: 'hover:bg-green-700 transition-colors duration-200',
+                footerActionLink: 'text-green-600 hover:text-green-700',
+              },
+            }}
+            routing="hash"
+            afterSignUpUrl="/auth/check-role"
+            signInUrl="/auth/login"
+          />
+        </div>
+      </SignedOut>
+      <SignedIn>
+        <div className="text-center py-8 animate-scale-in">
+          <div className="w-20 h-20 bg-gradient-to-br from-green-100 to-emerald-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+            <i className="ri-checkbox-circle-line text-4xl text-green-600"></i>
+          </div>
+          <p className="text-gray-700 font-semibold mb-6 text-lg">{t('register.already_signed_in')}</p>
+          <Link
+            to="/"
+            className="inline-flex items-center text-green-600 hover:text-green-700 font-semibold transition-colors px-6 py-3 rounded-xl bg-green-50 hover:bg-green-100"
+          >
+            <i className="ri-home-line mr-2 text-xl"></i>
+            {t('register.home')}
+          </Link>
+        </div>
+      </SignedIn>
+    </AuthLayout>
+  );
 }
