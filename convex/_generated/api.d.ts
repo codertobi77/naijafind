@@ -15,7 +15,6 @@ import type * as emails from "../emails.js";
 import type * as http from "../http.js";
 import type * as init from "../init.js";
 import type * as notifications from "../notifications.js";
-import type * as orders from "../orders.js";
 import type * as products from "../products.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as reviews from "../reviews.js";
@@ -46,7 +45,6 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   init: typeof init;
   notifications: typeof notifications;
-  orders: typeof orders;
   products: typeof products;
   rateLimit: typeof rateLimit;
   reviews: typeof reviews;

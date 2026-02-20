@@ -11,14 +11,12 @@ export const dashboard = {
   "stats.avg_rating": "Average Rating",
   "stats.total_products": "Total Products",
   "stats.active_products": "Active Products",
-  "stats.pending_orders": "Pending Orders",
   "stats.monthly_revenue": "Monthly Revenue",
   
   // Navigation tabs
   "tab.overview": "Overview",
   "tab.profile": "Profile",
   "tab.products": "Products",
-  "tab.orders": "Orders",
   "tab.reviews": "Reviews",
   "tab.analytics": "Analytics",
   "tab.subscription": "Subscription",
@@ -100,16 +98,10 @@ export const dashboard = {
   "dashboard.errors.add_product": "Unknown error when adding product",
   "dashboard.errors.update_product": "Unknown error when updating product",
   "dashboard.errors.delete_product": "Unknown error when deleting product",
-  "dashboard.errors.add_order": "Error creating order",
-  "dashboard.errors.update_order": "Error updating order",
-  "dashboard.errors.delete_order": "Error deleting order",
   "dashboard.errors.update_review": "Error updating review",
   "dashboard.errors.delete_review": "Error deleting review",
 
   // Success messages
-  "dashboard.success.order_added": "Order added",
-  "dashboard.success.order_updated": "Order updated",
-  "dashboard.success.order_deleted": "Order deleted",
   "dashboard.success.review_updated": "Review updated",
   "dashboard.success.review_deleted": "Review deleted",
 
@@ -135,8 +127,6 @@ export const dashboard = {
   "dashboard.tour.profile.content": "Manage your business information and contact details.",
   "dashboard.tour.products.title": "Products",
   "dashboard.tour.products.content": "Add, edit or delete your products and services.",
-  "dashboard.tour.orders.title": "Orders",
-  "dashboard.tour.orders.content": "Track and manage your customers' orders.",
   "dashboard.tour.reviews.title": "Reviews",
   "dashboard.tour.reviews.content": "View and respond to customer reviews.",
   "dashboard.tour.analytics.title": "Analytics",

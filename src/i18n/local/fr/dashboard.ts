@@ -11,14 +11,12 @@ export const dashboard = {
   "stats.avg_rating": "Note moyenne",
   "stats.total_products": "Produits totaux",
   "stats.active_products": "Produits actifs",
-  "stats.pending_orders": "Commandes en attente",
   "stats.monthly_revenue": "Revenus mensuels",
   
   // Navigation tabs
   "tab.overview": "Aperçu",
   "tab.profile": "Profil",
   "tab.products": "Produits",
-  "tab.orders": "Commandes",
   "tab.reviews": "Avis",
   "tab.analytics": "Analyses",
   "tab.subscription": "Abonnement",
@@ -100,16 +98,10 @@ export const dashboard = {
   "dashboard.errors.add_product": "Erreur inconnue lors de l'ajout du produit",
   "dashboard.errors.update_product": "Erreur inconnue lors de la mise à jour du produit",
   "dashboard.errors.delete_product": "Erreur inconnue lors de la suppression du produit",
-  "dashboard.errors.add_order": "Erreur lors de la création de la commande",
-  "dashboard.errors.update_order": "Erreur lors de la mise à jour de la commande",
-  "dashboard.errors.delete_order": "Erreur lors de la suppression de la commande",
   "dashboard.errors.update_review": "Erreur lors de la mise à jour de l'avis",
   "dashboard.errors.delete_review": "Erreur lors de la suppression de l'avis",
 
   // Success messages
-  "dashboard.success.order_added": "Commande ajoutée",
-  "dashboard.success.order_updated": "Commande mise à jour",
-  "dashboard.success.order_deleted": "Commande supprimée",
   "dashboard.success.review_updated": "Avis mis à jour",
   "dashboard.success.review_deleted": "Avis supprimé",
 
@@ -135,8 +127,6 @@ export const dashboard = {
   "dashboard.tour.profile.content": "Gérez les informations de votre entreprise et vos coordonnées.",
   "dashboard.tour.products.title": "Produits",
   "dashboard.tour.products.content": "Ajoutez, modifiez ou supprimez vos produits et services.",
-  "dashboard.tour.orders.title": "Commandes",
-  "dashboard.tour.orders.content": "Suivez et gérez les commandes de vos clients.",
   "dashboard.tour.reviews.title": "Avis",
   "dashboard.tour.reviews.content": "Consultez et répondez aux avis de vos clients.",
   "dashboard.tour.analytics.title": "Analytics",

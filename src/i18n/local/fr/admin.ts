@@ -1,8 +1,8 @@
 export const admin = {
   "admin.title": "Olufinja Admin",
+  "admin.checking_permissions": "Vérification des permissions...",
   "admin.suppliers": "Fournisseurs",
   "admin.users": "Utilisateurs",
-  "admin.orders": "Commandes",
   "admin.reviews": "Avis",
   "admin.total_revenue": "Revenu Total",
   "admin.pending_suppliers": "Fournisseurs en attente",
@@ -15,9 +15,6 @@ export const admin = {
   "admin.no_pending_suppliers": "Aucun fournisseur en attente",
   "admin.confirm_reject": "Êtes-vous sûr de vouloir rejeter ce fournisseur ? Cette action est irréversible.",
   "admin.recent_activity": "Activité récente",
-  "admin.latest_orders": "Dernières commandes",
-  "admin.order": "Commande",
-  "admin.no_orders": "Aucune commande",
   "admin.latest_reviews": "Derniers avis",
   "admin.no_reviews": "Aucun avis",
   "admin.category_management": "Gestion des catégories",
@@ -66,6 +63,7 @@ export const admin = {
   "admin.no_featured_businesses": "Aucune entreprise en vedette",
   "admin.error_approve_supplier": "Erreur lors de l'approbation du fournisseur",
   "admin.error_reject_supplier": "Erreur lors du rejet du fournisseur",
+  "admin.error_delete_supplier": "Erreur lors de la suppression du fournisseur",
   "admin.error_init_categories": "Erreur lors de l'initialisation des catégories",
   "admin.error_set_featured": "Erreur lors de la mise en vedette",
   "admin.error_remove_featured": "Erreur lors du retrait des vedettes",
@@ -104,6 +102,7 @@ export const admin = {
   "admin.reject_supplier": "Rejeter le fournisseur",
   "admin.supplier_rejected": "Fournisseur rejeté avec succès",
   "admin.products": "Produits",
+  "admin.products_description": "Gérez et suivez tous les produits de la plateforme.",
   "admin.galleries": "Galeries",
   "admin.categories": "Catégories",
   "admin.products_management_description": "Suivez et gérez tous les produits de la plateforme.",
@@ -117,7 +116,9 @@ export const admin = {
   "admin.supplier": "Fournisseur",
   "admin.product_details": "Détails du produit",
   "admin.images": "Images",
-  "admin.no_products": "Aucun produit"
+  "admin.no_products": "Aucun produit",
+  "admin.order": "Commande",
+  "admin.no_orders": "Aucune commande"
 };
 
 export default admin;

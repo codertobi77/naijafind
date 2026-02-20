@@ -77,9 +77,6 @@ export default function SupplierDetail() {
   const [showContactForm, setShowContactForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Toast notification system
-  const { toasts, showToast, removeToast } = useToast();
-  
   // Extract data from Convex response
   const supplier = supplierData?.supplier as any; // Type assertion for Convex supplier data
   const reviews = supplierData?.reviews || [];

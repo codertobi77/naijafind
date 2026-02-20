@@ -57,38 +57,6 @@ export default defineSchema({
     created_at: v.string(),
     updated_at: v.string(),
   }),
-  orders: defineTable({
-    supplierId: v.string(),
-    customerId: v.string(), // userId du client qui passe la commande
-    order_number: v.string(),
-    total_amount: v.float64(),
-    status: v.string(), // 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'
-    payment_status: v.optional(v.string()), // 'pending', 'paid', 'failed', 'refunded'
-    shipping_address: v.object({
-      full_name: v.string(),
-      phone: v.string(),
-      address: v.string(),
-      city: v.string(),
-      state: v.string(),
-      country: v.optional(v.string()),
-      postal_code: v.optional(v.string()),
-    }),
-    order_items: v.array(v.object({
-      productId: v.string(),
-      product_name: v.string(),
-      quantity: v.int64(),
-      unit_price: v.float64(),
-      total_price: v.float64(),
-      image_url: v.optional(v.string()),
-    })),
-    notes: v.optional(v.string()),
-    created_at: v.string(),
-    updated_at: v.string(),
-  })
-    .index("supplierId", ["supplierId"])
-    .index("customerId", ["customerId"])
-    .index("status", ["status"])
-    .index("created_at", ["created_at"]),
   reviews: defineTable({
     supplierId: v.string(),
     userId: v.string(),

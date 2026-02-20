@@ -1,8 +1,8 @@
 export const admin = {
   "admin.title": "Olufinja Admin",
+  "admin.checking_permissions": "Checking permissions...",
   "admin.suppliers": "Suppliers",
   "admin.users": "Users",
-  "admin.orders": "Orders",
   "admin.reviews": "Reviews",
   "admin.total_revenue": "Total Revenue",
   "admin.pending_suppliers": "Pending Suppliers",
@@ -15,9 +15,6 @@ export const admin = {
   "admin.no_pending_suppliers": "No pending suppliers",
   "admin.confirm_reject": "Are you sure you want to reject this supplier? This action cannot be undone.",
   "admin.recent_activity": "Recent Activity",
-  "admin.latest_orders": "Latest Orders",
-  "admin.order": "Order",
-  "admin.no_orders": "No orders",
   "admin.latest_reviews": "Latest Reviews",
   "admin.no_reviews": "No reviews",
   "admin.category_management": "Category Management",
@@ -66,6 +63,7 @@ export const admin = {
   "admin.no_featured_businesses": "No featured businesses",
   "admin.error_approve_supplier": "Error approving supplier",
   "admin.error_reject_supplier": "Error rejecting supplier",
+  "admin.error_delete_supplier": "Error deleting supplier",
   "admin.error_init_categories": "Error initializing categories",
   "admin.error_set_featured": "Error setting featured status",
   "admin.error_remove_featured": "Error removing featured status",
@@ -104,6 +102,7 @@ export const admin = {
   "admin.reject_supplier": "Reject Supplier",
   "admin.supplier_rejected": "Supplier rejected successfully",
   "admin.products": "Products",
+  "admin.products_description": "Manage and track all products across the platform.",
   "admin.galleries": "Galleries",
   "admin.categories": "Categories",
   "admin.products_management_description": "Track and manage all products across the platform.",
@@ -117,7 +116,9 @@ export const admin = {
   "admin.supplier": "Supplier",
   "admin.product_details": "Product Details",
   "admin.images": "Images",
-  "admin.no_products": "No products"
+  "admin.no_products": "No products",
+  "admin.order": "Order",
+  "admin.no_orders": "No orders"
 };
 
 export default admin;

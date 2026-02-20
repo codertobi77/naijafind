@@ -59,8 +59,10 @@ export default function About() {
       {/* Hero Section */}
       <HeroSection
         backgroundImage="https://readdy.ai/api/search-image?query=Modern%20Nigerian%20business%20district%20with%20skyscrapers%20and%20traditional%20markets%2C%20aerial%20view%20of%20Lagos%20commercial%20area%2C%20blend%20of%20modern%20and%20traditional%20architecture%2C%20vibrant%20economic%20activity%2C%20professional%20photography%2C%20golden%20hour%20lighting&width=1200&height=400&seq=about-hero&orientation=landscape"
-        overlay="from-black/70 via-black/50 to-black/40"
-        badge={{ icon: 'ri-information-line', text: 'Our Story' }}
+        backgroundGradient="from-black/70 via-black/50 to-black/40"
+        showBadge={true}
+        badgeText="Our Story"
+        badgeIcon="ri-information-line"
         title={t('about.title')}
         subtitle={t('about.subtitle')}
         className="py-24 sm:py-32"
@@ -140,13 +142,11 @@ export default function About() {
           to: '/auth/register',
           label: t('about.cta_become_supplier'),
           icon: 'ri-add-circle-line',
-          variant: 'primary',
         }}
         secondaryAction={{
           to: '/search',
           label: t('about.cta_search_suppliers'),
           icon: 'ri-search-line',
-          variant: 'secondary',
         }}
       />
 

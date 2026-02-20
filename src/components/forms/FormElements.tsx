@@ -171,5 +171,3 @@ export const FormSelect = forwardRef<HTMLSelectElement, FormSelectProps>(
 );
 
 FormSelect.displayName = 'FormSelect';
-
-export { FormInput, FormTextarea, FormSelect };

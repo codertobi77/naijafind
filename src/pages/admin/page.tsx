@@ -109,9 +109,7 @@ const { data: allGalleries } = useConvexQuery(api.suppliers.listAllGalleriesAdmi
 
 // Statistiques dynamiques
 const usersCount = allSuppliers ? allSuppliers.length : 0;
-const ordersCount = allProducts ? allProducts.reduce((acc, p) => acc + Number(p.orders_count || 0), 0) : 0;
 const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number(s.reviews_count || 0), 0) : 0;
-const totalRevenue = allProducts ? allProducts.reduce((acc, p) => acc + Number(p.total_sales || 0), 0) : 0;
   
   const addCategory = useMutation(api.categories.addCategory);
   const updateCategory = useMutation(api.categories.updateCategory);
@@ -122,13 +120,10 @@ const totalRevenue = allProducts ? allProducts.reduce((acc, p) => acc + Number(p
   const deleteSupplier = useMutation(api.admin.deleteSupplier);
   const setSupplierFeatured = useMutation(api.admin.setSupplierFeatured);
   const { data: featuredSuppliers, refetch: refetchFeaturedSuppliers } = useConvexQuery(api.admin.getFeaturedSuppliers, {}, { staleTime: 2 * 60 * 1000 });
-const { data: allOrders, refetch: refetchAllOrders } = useConvexQuery(api.orders.getAllOrders, {}, { staleTime: 1 * 60 * 1000 });
-const updateOrderStatusMutation = useMutation(api.orders.updateOrderStatus);
-  const deleteOrderMutation = useMutation(api.orders.deleteOrder);
   const sendAdminNotification = useMutation(api.notifications.sendAdminNotification);
   const sendBulkNotification = useMutation(api.notifications.sendBulkNotification);
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'orders' | 'notifications'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications'>('overview');
   // Suppression de l’état fournisseurs simulé (on utilise allSuppliers de Convex)
 
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -155,6 +150,7 @@ const updateOrderStatusMutation = useMutation(api.orders.updateOrderStatus);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [sendingNotification, setSendingNotification] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
 
   // Vérifier l'accès admin
   // Be more lenient with the admin check to allow for loading states
@@ -190,7 +186,7 @@ const updateOrderStatusMutation = useMutation(api.orders.updateOrderStatus);
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
                 label={t('admin.pending_suppliers')}
                 value={pendingSuppliers?.length || 0}
@@ -206,25 +202,20 @@ const updateOrderStatusMutation = useMutation(api.orders.updateOrderStatus);
                 iconBg="bg-green-100"
               />
               <StatCard
-                label={t('admin.orders')}
-                value={ordersCount ?? 0}
-                icon="ri-shopping-cart-line"
-                iconColor="text-purple-600"
-                iconBg="bg-purple-100"
-              />
-              <StatCard
                 label={t('admin.reviews')}
                 value={reviewsCount ?? 0}
                 icon="ri-star-line"
                 iconColor="text-yellow-600"
                 iconBg="bg-yellow-100"
               />
-              <StatCard
-                label={t('admin.total_revenue')}
-                value={formatCurrency(totalRevenue ?? 0)}
-                icon="ri-money-dollar-circle-line"
-                iconColor="text-red-600"
-                iconBg="bg-red-100"
+            </div>
+
+            {/* Recent Pending Suppliers Card */}
+            <div className="mt-6">
+              <RecentSuppliersCard
+                suppliers={pendingSuppliers || []}
+                onApprove={() => {}}
+                onReject={() => {}}
               />
             </div>
 
@@ -300,8 +291,8 @@ const updateOrderStatusMutation = useMutation(api.orders.updateOrderStatus);
                   <tbody>
                     {allGalleries?.map((gallery) => (
                       <tr key={gallery._id}>
-                        <td className="px-2 py-2">{gallery.name}</td>
-                        <td className="px-2 py-2">{gallery.description}</td>
+                        <td className="px-2 py-2">{gallery.business_name}</td>
+                        <td className="px-2 py-2">{gallery.imageGallery?.length || 0} images</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1457,47 +1448,6 @@ const updateOrderStatusMutation = useMutation(api.orders.updateOrderStatus);
     );
   }
 
-  // RecentActivityCard component
-  function RecentActivityCard({
-    orders,
-    reviews,
-  }: {
-    orders: any[];
-    reviews: any[];
-  }) {
-    const { formatCurrency } = useCurrency();
-    
-    return (
-      <div className="bg-white rounded-lg border p-6">
-        <h3 className="font-semibold mb-4">{t('admin.recent_activity')}</h3>
-        <div className="mb-6">
-          <div className="mb-2 text-sm font-bold">{t('admin.latest_orders')}</div>
-          <ul className="pl-4 list-disc">
-            {orders.map((order) => (
-              <li key={order.id} className="mb-1">
-                {t('admin.order')} #{order.num}: {formatCurrency(order.montant)}{' '}
-                <span className="ml-2 text-gray-400 text-xs">({order.supplier})</span>
-              </li>
-            ))}
-            {orders.length === 0 && <li className="text-gray-400">{t('admin.no_orders')}</li>}
-          </ul>
-        </div>
-        <div>
-          <div className="mb-2 text-sm font-bold">{t('admin.latest_reviews')}</div>
-          <ul className="pl-4 list-disc">
-            {reviews.map((review) => (
-              <li key={review.id} className="mb-1">
-                {review.user}: <span className="italic">"{review.comment}"</span>
-              </li>
-            ))}
-            {reviews.length === 0 && <li className="text-gray-400">{t('admin.no_reviews')}</li>}
-          </ul>
-        </div>
-      </div>
-    );
-  }
-
-  // Supplier Details Modal component
   function SupplierDetailsModal({ 
     supplier, 
     isOpen, 
@@ -1675,251 +1625,6 @@ const updateOrderStatusMutation = useMutation(api.orders.updateOrderStatus);
     setEditingCategory(null);
     setCategoryForm({ name: '', description: '', icon: '', image: '', is_active: true, order: 0 });
   };
-
-  // Product Details Modal component
-  function ProductsSection({
-    products,
-    suppliers,
-    onView,
-  }: {
-    products: any[];
-    suppliers: any[];
-    onView: (product: any) => void;
-  }) {
-    const { formatCurrency } = useCurrency();
-    
-    return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            {t('admin.products')}
-          </h2>
-          <p className="mt-1 text-gray-600">
-            {t('admin.products_description')}
-          </p>
-        </div>
-
-        <div className="bg-white rounded-lg border p-6">
-          <h3 className="font-semibold mb-4">{t('admin.all_products')}</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.name')}</th>
-                  <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.price')}</th>
-                  <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.stock')}</th>
-                  <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.category')}</th>
-                  <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.supplier')}</th>
-                  <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.status')}</th>
-                  <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.length > 0 ? (
-                  products.map((product) => {
-                    const supplier = suppliers.find((s: any) => s._id === product.supplierId);
-                    return (
-                      <tr key={product._id} className="border-b">
-                        <td className="px-2 py-3 font-medium">{product.name}</td>
-                        <td className="px-2 py-3">{formatCurrency(product.price)}</td>
-                        <td className="px-2 py-3">{product.stock ?? 0}</td>
-                        <td className="px-2 py-3">{product.category || '-'}</td>
-                        <td className="px-2 py-3">{supplier?.business_name || product.supplierId}</td>
-                        <td className="px-2 py-3">
-                          {product.status === 'active' ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              {t('admin.active')}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                              {t('admin.inactive')}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-2 py-3">
-                          <button
-                            onClick={() => onView(product)}
-                            className="text-xs px-2 py-1 rounded bg-gray-600 text-white hover:bg-gray-700 transition-colors"
-                          >
-                            {t('admin.view')}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={7} className="text-center text-gray-400 p-4">
-                      {t('admin.no_products')}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  function OrdersSection({
-    orders,
-    onUpdateStatus,
-    onDelete,
-  }: {
-    orders: any[];
-    onUpdateStatus: (orderId: string, status: string) => void;
-    onDelete: (orderId: string) => void;
-  }) {
-    const { formatCurrency } = useCurrency();
-    const [statusFilter, setStatusFilter] = useState<string>('all');
-    
-    const filteredOrders = statusFilter === 'all' 
-      ? orders 
-      : orders.filter((o: any) => o.status === statusFilter);
-
-    const getStatusLabel = (status: string) => {
-      const labels: Record<string, string> = {
-        pending: 'En attente',
-        confirmed: 'Confirmée',
-        processing: 'En traitement',
-        shipped: 'Expédiée',
-        delivered: 'Livrée',
-        cancelled: 'Annulée',
-      };
-      return labels[status] || status;
-    };
-
-    const getStatusColor = (status: string) => {
-      const colors: Record<string, string> = {
-        pending: 'bg-yellow-100 text-yellow-800',
-        confirmed: 'bg-blue-100 text-blue-800',
-        processing: 'bg-purple-100 text-purple-800',
-        shipped: 'bg-indigo-100 text-indigo-800',
-        delivered: 'bg-green-100 text-green-800',
-        cancelled: 'bg-red-100 text-red-800',
-      };
-      return colors[status] || 'bg-gray-100 text-gray-800';
-    };
-
-    return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            {t('admin.orders')}
-          </h2>
-          <p className="mt-1 text-gray-600">
-            Suivi de toutes les commandes sur la plateforme
-          </p>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-lg border p-4">
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setStatusFilter('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === 'all' 
-                  ? 'bg-green-600 text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Toutes
-            </button>
-            {['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map((status) => (
-              <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  statusFilter === status 
-                    ? 'bg-green-600 text-white' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {getStatusLabel(status)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Orders Table */}
-        <div className="bg-white rounded-lg border p-6">
-          <h3 className="font-semibold mb-4">{t('admin.all_orders')}</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left px-2 py-3 font-semibold text-gray-600">N° Commande</th>
-                  <th className="text-left px-2 py-3 font-semibold text-gray-600">Client</th>
-                  <th className="text-left px-2 py-3 font-semibold text-gray-600">Fournisseur</th>
-                  <th className="text-left px-2 py-3 font-semibold text-gray-600">Articles</th>
-                  <th className="text-left px-2 py-3 font-semibold text-gray-600">Total</th>
-                  <th className="text-left px-2 py-3 font-semibold text-gray-600">Statut</th>
-                  <th className="text-left px-2 py-3 font-semibold text-gray-600">Date</th>
-                  <th className="text-left px-2 py-3 font-semibold text-gray-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredOrders.length > 0 ? (
-                  filteredOrders.map((order: any) => (
-                    <tr key={order._id} className="border-b">
-                      <td className="px-2 py-3 font-medium">#{order.order_number}</td>
-                      <td className="px-2 py-3">{order.customerName || order.customerId?.slice(0, 8) || 'N/A'}</td>
-                      <td className="px-2 py-3">{order.supplierName || 'N/A'}</td>
-                      <td className="px-2 py-3">{order.order_items?.length || 0}</td>
-                      <td className="px-2 py-3">{formatCurrency(order.total_amount)}</td>
-                      <td className="px-2 py-3">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                          {getStatusLabel(order.status)}
-                        </span>
-                      </td>
-                      <td className="px-2 py-3">
-                        {order.created_at ? new Date(order.created_at).toLocaleDateString('fr-FR') : '-'}
-                      </td>
-                      <td className="px-2 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          {order.status !== 'delivered' && order.status !== 'cancelled' && (
-                            <select
-                              value={order.status}
-                              onChange={(e) => onUpdateStatus(order._id, e.target.value)}
-                              className="text-xs border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-green-500"
-                            >
-                              <option value="pending">En attente</option>
-                              <option value="confirmed">Confirmée</option>
-                              <option value="processing">En traitement</option>
-                              <option value="shipped">Expédiée</option>
-                              <option value="delivered">Livrée</option>
-                              <option value="cancelled">Annulée</option>
-                            </select>
-                          )}
-                          <button
-                            onClick={() => {
-                              if (confirm('Voulez-vous vraiment supprimer cette commande ?')) {
-                                onDelete(order._id);
-                              }
-                            }}
-                            className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 transition-colors"
-                          >
-                            Supprimer
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={8} className="text-center text-gray-400 p-4">
-                      Aucune commande
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   function ProductDetailsModal({
     product,
@@ -2176,17 +1881,6 @@ const updateOrderStatusMutation = useMutation(api.orders.updateOrderStatus);
                 <span className="font-medium">{t('admin.products')}</span>
               </button>
               <button
-                onClick={() => setActiveTab('orders')}
-                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
-                  activeTab === 'orders'
-                    ? 'bg-green-600 text-white shadow'
-                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
-                }`}
-              >
-                <i className="ri-shopping-cart-line text-lg" />
-                <span className="font-medium">{t('admin.orders')}</span>
-              </button>
-              <button
                 onClick={() => setActiveTab('featured')}
                 className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
                   activeTab === 'featured'
@@ -2238,7 +1932,6 @@ const updateOrderStatusMutation = useMutation(api.orders.updateOrderStatus);
                 {activeTab === 'categories' && t('admin.categories')}
                 {activeTab === 'featured' && t('admin.featured_businesses')}
                 {activeTab === 'products' && t('admin.products')}
-                {activeTab === 'orders' && t('admin.orders')}
                 {activeTab === 'notifications' && 'Envoyer une notification'}
               </h1>
             </div>
@@ -2294,6 +1987,16 @@ const updateOrderStatusMutation = useMutation(api.orders.updateOrderStatus);
           setSelectedProduct(null);
         }}
         suppliers={allSuppliers || []}
+      />
+
+      {/* Add Supplier Details Modal */}
+      <SupplierDetailsModal
+        supplier={selectedSupplier}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedSupplier(null);
+        }}
       />
 
       {/* Toast Notifications */}

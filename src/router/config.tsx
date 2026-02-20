@@ -18,7 +18,6 @@ const SupplierSetup = lazy(() => import('../pages/auth/supplier-setup'));
 const Dashboard = lazy(() => import('../pages/dashboard/page'));
 const NotFound = lazy(() => import('../pages/NotFound'));
 const Admin = lazy(() => import('../pages/admin/page'));
-const MyOrders = lazy(() => import('../pages/my-orders/page'));
 
 const routes: RouteObject[] = [
   {
@@ -80,10 +79,6 @@ const routes: RouteObject[] = [
   {
     path: '/dashboard',
     element: <Dashboard />,
-  },
-  {
-    path: '/my-orders',
-    element: <MyOrders />,
   },
   {
     path: '/admin/*',

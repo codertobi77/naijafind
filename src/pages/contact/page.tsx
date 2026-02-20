@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useConvexAuth } from 'convex/react';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
-import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { contactFormSchema, validateForm } from '../../lib/validation';
 import { HeroSection, Section, Container, Footer } from '../../components/layout';
 import { FormInput, FormTextarea, FormSelect } from '../../components/forms';
@@ -96,7 +95,7 @@ const inquiryTypeOptions = [
   { value: 'technical', label: 'contact.type_technical' },
   { value: 'partnership', label: 'contact.type_partnership' },
   { value: 'feedback', label: 'contact.type_feedback' },
-];
+] as const;
 
 export default function Contact() {
   const { t } = useTranslation();
@@ -111,9 +110,6 @@ export default function Contact() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error' | 'rate_limited'>('idle');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const navigate = useNavigate();
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const meData = useQuery(api.users.me, {});
 
   // Convex mutations and queries
   const sendContactEmail = useMutation(api.emails.sendContactEmail);
@@ -219,10 +215,10 @@ export default function Contact() {
 
       {/* Hero Section */}
       <HeroSection
-        variant="gradient"
-        overlay="from-green-600/95 to-emerald-600/90"
+        backgroundGradient="from-green-600/95 to-emerald-600/90"
         title={t('contact.title')}
         subtitle={t('contact.subtitle')}
+        size="sm"
         className="py-12 sm:py-16"
       />
 
