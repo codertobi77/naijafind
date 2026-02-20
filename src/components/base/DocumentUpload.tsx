@@ -42,7 +42,7 @@ export default function DocumentUpload({
       // Upload the file to Cloudinary using document upload
       const result = await uploadDocumentToCloudinary(
         file, 
-        `naijafind/verification/${documentType}`
+        `Olufinja/verification/${documentType}`
       );
       
       if (result.success) {

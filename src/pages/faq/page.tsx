@@ -87,7 +87,7 @@ export default function FAQ() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <Link to="/" className="text-2xl font-bold text-green-600" style={{ fontFamily: "Pacifico, serif" }}>
-                NaijaFind
+                Olufinja
               </Link>
             </div>
             <nav className="hidden md:flex space-x-8">
@@ -238,7 +238,7 @@ export default function FAQ() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <h3 className="text-xl font-bold mb-4" style={{ fontFamily: "Pacifico, serif" }}>
-                NaijaFind
+                Olufinja
               </h3>
               <p className="text-gray-400">
                 {t('footer.description')}
@@ -281,7 +281,7 @@ export default function FAQ() {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 NaijaFind. {t('footer.rights')} | <a href="https://readdy.ai/?origin=logo" className="hover:text-white">{t('footer.powered_by')}</a></p>
+            <p>&copy; 2024 Olufinja. {t('footer.rights')} | <a href="https://readdy.ai/?origin=logo" className="hover:text-white">{t('footer.powered_by')}</a></p>
           </div>
         </div>
       </footer>

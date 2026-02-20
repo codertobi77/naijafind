@@ -17,7 +17,7 @@ export default function AudioUpload({
   onChange,
   placeholder = 'Click to upload or drag and drop an audio file',
   maxSizeMB = 50,
-  folder = 'naijafind/audio',
+  folder = 'Olufinja/audio',
   showWaveform = true,
 }: AudioUploadProps) {
   const [isDragging, setIsDragging] = useState(false);

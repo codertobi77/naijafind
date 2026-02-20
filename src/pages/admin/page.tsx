@@ -1930,7 +1930,7 @@ const deleteOrderMutation = useMutation(api.orders.deleteOrder);
                 className="text-xl font-bold text-green-600"
                 style={{ fontFamily: 'Pacifico, serif' }}
               >
-                NaijaFind
+                Olufinja
               </span>
             </Link>
           </div>

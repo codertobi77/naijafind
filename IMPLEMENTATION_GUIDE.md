@@ -1,4 +1,4 @@
-# NaijaFind Implementation Guide
+# Olufinja Implementation Guide
 
 This document provides a comprehensive guide for implementing the recommended features prioritized by urgency and importance.
 
@@ -113,7 +113,7 @@ import DocumentUpload from '../../components/base/DocumentUpload';
 2. **Configure Environment Variables** in Convex Dashboard:
    ```
    RESEND_API_KEY=re_your_api_key_here
-   FROM_EMAIL=noreply@naijafind.com
+   FROM_EMAIL=noreply@olufinja.com
    ```
 
 3. **Update `convex/sendEmail.ts`** to properly access environment variables:
@@ -451,7 +451,7 @@ VITE_CLERK_PUBLISHABLE_KEY=your_clerk_key
 **Convex Environment Variables:**
 ```
 RESEND_API_KEY=re_your_resend_key
-FROM_EMAIL=noreply@naijafind.com
+FROM_EMAIL=noreply@olufinja.com
 ```
 
 ### API Keys to Obtain:

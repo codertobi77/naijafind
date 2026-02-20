@@ -1,8 +1,8 @@
 export const about = {
-  "about.title": "À propos de NaijaFind",
+  "about.title": "À propos de Olufinja",
   "about.subtitle": "La plateforme de référence pour connecter les entreprises avec les meilleurs fournisseurs du Nigeria",
   "about.mission_title": "Notre Mission",
-  "about.mission_text1": "NaijaFind révolutionne la façon dont les entreprises trouvent et se connectent avec les fournisseurs au Nigeria. Notre plateforme géolocalisée permet de découvrir facilement les meilleurs partenaires commerciaux dans tout le pays.",
+  "about.mission_text1": "Olufinja révolutionne la façon dont les entreprises trouvent et se connectent avec les fournisseurs au Nigeria. Notre plateforme géolocalisée permet de découvrir facilement les meilleurs partenaires commerciaux dans tout le pays.",
   "about.mission_text2": "Nous croyons en la puissance de l'économie nigériane et nous nous engageons à faciliter les connexions qui stimulent la croissance des entreprises locales.",
   "about.stat_suppliers": "Fournisseurs actifs",
   "about.stat_states": "États couverts",
@@ -21,8 +21,8 @@ export const about = {
   "about.team_cto": "Directrice Technique",
   "about.team_cco": "Directeur Commercial",
   "about.our_leadership_label": "Notre Leadership",
-  "about.cta_title": "Rejoignez la communauté NaijaFind",
-  "about.cta_subtitle": "Que vous soyez fournisseur ou acheteur, découvrez comment NaijaFind peut transformer votre activité",
+  "about.cta_title": "Rejoignez la communauté Olufinja",
+  "about.cta_subtitle": "Que vous soyez fournisseur ou acheteur, découvrez comment Olufinja peut transformer votre activité",
   "about.cta_become_supplier": "Devenir fournisseur",
   "about.cta_search_suppliers": "Rechercher des fournisseurs",
   "about.add_business": "Ajouter votre entreprise"

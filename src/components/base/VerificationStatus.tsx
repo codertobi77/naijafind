@@ -137,7 +137,7 @@ export default function VerificationStatus({ supplierId }: VerificationStatusPro
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
                   {verificationStatus.allApproved 
-                    ? 'Your business has been verified by NaijaFind' 
+                    ? 'Your business has been verified by Olufinja' 
                     : 'Complete the verification process to gain customer trust'}
                 </p>
               </div>

@@ -1,5 +1,5 @@
 export const admin = {
-  "admin.title": "NaijaFind Admin",
+  "admin.title": "Olufinja Admin",
   "admin.suppliers": "Suppliers",
   "admin.users": "Users",
   "admin.orders": "Orders",

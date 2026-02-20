@@ -99,7 +99,7 @@ const DEFAULT_CATEGORIES = [
 
 async function main() {
   console.log('\n╔═══════════════════════════════════════════════════════╗');
-  console.log('║      Script d\'initialisation des catégories NaijaFind    ║');
+  console.log('║      Script d\'initialisation des catégories Olufinja    ║');
   console.log('╚═══════════════════════════════════════════════════════╝\n');
 
   try {

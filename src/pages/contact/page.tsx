@@ -68,7 +68,7 @@ function ContactMap() {
           .setPopup(
             new mapboxgl.Popup({ offset: 25 }).setHTML(
               `<div class="p-2">
-                <h3 class="font-semibold text-sm">NaijaFind Office</h3>
+                <h3 class="font-semibold text-sm">Olufinja Office</h3>
                 <p class="text-xs text-gray-600">Victoria Island, Lagos</p>
               </div>`
             )
@@ -208,7 +208,7 @@ export default function Contact() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <Link to="/" className="text-xl sm:text-2xl font-bold text-green-600" style={{ fontFamily: "Pacifico, serif" }}>
-                NaijaFind
+                Olufinja
               </Link>
             </div>
             <nav className="hidden md:flex space-x-8">
@@ -473,7 +473,7 @@ export default function Contact() {
                   </div>
                   <div>
                     <h4 className="font-medium text-gray-900 mb-1 text-sm sm:text-base">{t('contact.email_title')}</h4>
-                    <p className="text-gray-600 text-sm sm:text-base">contact@naijafind.com</p>
+                    <p className="text-gray-600 text-sm sm:text-base">contact@Olufinja.com</p>
                   </div>
                 </div>
                 
@@ -516,7 +516,7 @@ export default function Contact() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
             <div className="sm:col-span-2 md:col-span-1">
               <h3 className="text-lg sm:text-xl font-bold mb-4" style={{ fontFamily: "Pacifico, serif" }}>
-                NaijaFind
+                Olufinja
               </h3>
               <p className="text-gray-400 text-sm sm:text-base">
                 {t('footer.description')}
@@ -559,7 +559,7 @@ export default function Contact() {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-6 sm:mt-8 pt-6 sm:pt-8 text-center text-gray-400 text-sm sm:text-base">
-            <p>&copy; 2024 NaijaFind. {t('footer.rights')} | <a href="https://readdy.ai/?origin=logo" className="hover:text-white">{t('footer.powered_by')}</a></p>
+            <p>&copy; 2024 Olufinja. {t('footer.rights')} | <a href="https://readdy.ai/?origin=logo" className="hover:text-white">{t('footer.powered_by')}</a></p>
           </div>
         </div>
       </footer>

@@ -43,7 +43,7 @@ export default function ImageUpload({
 
     try {
       // Upload the file to Cloudinary
-      const result = await uploadImageToCloudinary(file, 'naijafind/suppliers');
+      const result = await uploadImageToCloudinary(file, 'Olufinja/suppliers');
       
       if (result.success) {
         setPreviewUrl(result.url);

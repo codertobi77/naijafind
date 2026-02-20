@@ -5,7 +5,7 @@ export const categories = {
   "categories.search_placeholder": "Search a category...",
   "categories.no_results": "No categories found",
   "categories.try_keywords": "Try with different keywords",
-  "categories.stats_title": "NaijaFind in numbers",
+  "categories.stats_title": "Olufinja in numbers",
   "categories.stats_subtitle": "The leading platform for Nigerian suppliers",
   "categories.verified_suppliers": "Verified suppliers",
   "categories.product_categories": "Product categories",

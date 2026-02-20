@@ -16,7 +16,7 @@ export default function VideoUpload({
   onChange,
   placeholder = 'Click to upload or drag and drop a video',
   maxSizeMB = 100,
-  folder = 'naijafind/videos',
+  folder = 'Olufinja/videos',
 }: VideoUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);

@@ -9,8 +9,8 @@ export default function Help() {
       title: t('help.browse_category'),
       icon: 'ri-rocket-line',
       description: t('help.browse_category') === 'Browse by category' ? 
-        'Learn to use NaijaFind effectively' : 
-        'Apprenez à utiliser NaijaFind efficacement',
+        'Learn to use Olufinja effectively' : 
+        'Apprenez à utiliser Olufinja efficacement',
       articles: [
         t('help.browse_category') === 'Browse by category' ? 
           'How to create an account' : 
@@ -199,7 +199,7 @@ export default function Help() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <Link to="/" className="text-2xl font-bold text-green-600" style={{ fontFamily: "Pacifico, serif" }}>
-                NaijaFind
+                Olufinja
               </Link>
             </div>
             <nav className="hidden md:flex space-x-8">
@@ -321,8 +321,8 @@ export default function Help() {
                   'How to create an effective supplier profile' : 
                   'Comment créer un profil fournisseur efficace',
                 description: t('help.popular_articles') === 'Popular articles' ? 
-                  'Complete guide to optimizing your presence on NaijaFind' : 
-                  'Guide complet pour optimiser votre présence sur NaijaFind',
+                  'Complete guide to optimizing your presence on Olufinja' : 
+                  'Guide complet pour optimiser votre présence sur Olufinja',
                 readTime: `5 ${t('help.read_time')}`,
                 category: t('help.popular_articles') === 'Popular articles' ? 
                   'Suppliers' : 
@@ -414,7 +414,7 @@ export default function Help() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <h3 className="text-xl font-bold mb-4" style={{ fontFamily: "Pacifico, serif" }}>
-                NaijaFind
+                Olufinja
               </h3>
               <p className="text-gray-400">
                 {t('footer.description')}
@@ -457,7 +457,7 @@ export default function Help() {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 NaijaFind. {t('footer.rights')} | <a href="https://readdy.ai/?origin=logo" className="hover:text-white">{t('footer.powered_by')}</a></p>
+            <p>&copy; 2024 Olufinja. {t('footer.rights')} | <a href="https://readdy.ai/?origin=logo" className="hover:text-white">{t('footer.powered_by')}</a></p>
           </div>
         </div>
       </footer>

@@ -1,14 +1,14 @@
-# NaijaFind Quick Start Guide
+# Olufinja Quick Start Guide
 
 ## 🚀 Get Started in 5 Minutes
 
-This quick start guide helps you get NaijaFind up and running with all essential features.
+This quick start guide helps you get Olufinja up and running with all essential features.
 
 ---
 
 ## ✅ What's Already Working
 
-Your NaijaFind application already has these features **fully functional**:
+Your Olufinja application already has these features **fully functional**:
 
 ### 1. ✅ **Cloudinary Image Upload**
 - Single image upload
@@ -60,7 +60,7 @@ Your NaijaFind application already has these features **fully functional**:
 
 ### Step 1: Install Dependencies
 ```bash
-cd naijafind
+cd olufinja
 npm install
 ```
 
@@ -202,7 +202,7 @@ This creates default business categories.
 ## 📁 Project Structure
 
 ```
-naijafind/
+olufinja/
 ├── convex/              # Backend (Database + API)
 │   ├── schema.ts        # Database schema
 │   ├── users.ts         # User management
@@ -272,7 +272,7 @@ naijafind/
 
 ## 🎉 You're All Set!
 
-Your NaijaFind application is now running with:
+Your Olufinja application is now running with:
 - ✅ User authentication
 - ✅ Supplier profiles
 - ✅ Search & discovery

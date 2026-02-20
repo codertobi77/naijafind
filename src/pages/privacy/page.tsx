@@ -12,7 +12,7 @@ export default function Privacy() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <Link to="/" className="text-2xl font-bold text-green-600" style={{ fontFamily: "Pacifico, serif" }}>
-                NaijaFind
+                Olufinja
               </Link>
             </div>
             <nav className="hidden md:flex space-x-8">
@@ -59,13 +59,13 @@ export default function Privacy() {
                   <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('privacy.intro_title')}</h2>
                   <p className="text-gray-700 mb-4">
                     {t('privacy.intro_title') === '1. Introduction' ? 
-                      'NaijaFind ("we", "our" or "ours") is committed to protecting and respecting your privacy. This privacy policy explains how we collect, use, store and protect your personal information when you use our platform.' : 
-                      'NaijaFind ("nous", "notre" ou "nos") s\'engage à protéger et respecter votre vie privée. Cette politique de confidentialité explique comment nous collectons, utilisons, stockons et protégeons vos informations personnelles lorsque vous utilisez notre plateforme.'}
+                      'Olufinja ("we", "our" or "ours") is committed to protecting and respecting your privacy. This privacy policy explains how we collect, use, store and protect your personal information when you use our platform.' : 
+                      'Olufinja ("nous", "notre" ou "nos") s\'engage à protéger et respecter votre vie privée. Cette politique de confidentialité explique comment nous collectons, utilisons, stockons et protégeons vos informations personnelles lorsque vous utilisez notre plateforme.'}
                   </p>
                   <p className="text-gray-700">
                     {t('privacy.intro_title') === '1. Introduction' ? 
-                      'By using NaijaFind, you accept the practices described in this privacy policy.' : 
-                      'En utilisant NaijaFind, vous acceptez les pratiques décrites dans cette politique de confidentialité.'}
+                      'By using Olufinja, you accept the practices described in this privacy policy.' : 
+                      'En utilisant Olufinja, vous acceptez les pratiques décrites dans cette politique de confidentialité.'}
                   </p>
                 </section>
 
@@ -209,8 +209,8 @@ export default function Privacy() {
                   </ul>
                   <p className="text-gray-700">
                     {t('privacy.your_rights_title') === '6. Your rights' ? 
-                      'To exercise these rights, contact us at privacy@naijafind.com' : 
-                      'Pour exercer ces droits, contactez-nous à privacy@naijafind.com'}
+                      'To exercise these rights, contact us at privacy@Olufinja.com' : 
+                      'Pour exercer ces droits, contactez-nous à privacy@Olufinja.com'}
                   </p>
                 </section>
 
@@ -284,7 +284,7 @@ export default function Privacy() {
                   </p>
                   <div className="bg-green-50 p-6 rounded-lg">
                     <ul className="space-y-2 text-gray-700">
-                      <li><strong>{t('privacy.contact_email')}</strong> privacy@naijafind.com</li>
+                      <li><strong>{t('privacy.contact_email')}</strong> privacy@Olufinja.com</li>
                       <li><strong>{t('privacy.contact_address')}</strong> 123 Victoria Island, Lagos, Nigeria</li>
                       <li><strong>{t('privacy.contact_phone')}</strong> +234 1 234 5678</li>
                     </ul>
@@ -302,7 +302,7 @@ export default function Privacy() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <h3 className="text-xl font-bold mb-4" style={{ fontFamily: "Pacifico, serif" }}>
-                NaijaFind
+                Olufinja
               </h3>
               <p className="text-gray-400">
                 {t('footer.description')}
@@ -345,7 +345,7 @@ export default function Privacy() {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 NaijaFind. {t('footer.rights')} | <a href="https://readdy.ai/?origin=logo" className="hover:text-white">{t('footer.powered_by')}</a></p>
+            <p>&copy; 2024 Olufinja. {t('footer.rights')} | <a href="https://readdy.ai/?origin=logo" className="hover:text-white">{t('footer.powered_by')}</a></p>
           </div>
         </div>
       </footer>

@@ -40,7 +40,7 @@ export default function ImageGalleryUpload({
 
     try {
       // Upload the files to Cloudinary
-      const results = await uploadImagesToCloudinary(fileArray, 'naijafind/gallery');
+      const results = await uploadImagesToCloudinary(fileArray, 'Olufinja/gallery');
       
       const successfulUploads = results
         .filter(result => result.success)

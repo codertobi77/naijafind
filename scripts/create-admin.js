@@ -85,7 +85,7 @@ async function getConvexUrl() {
 
 async function main() {
   console.log('\n╔═══════════════════════════════════════════════════════╗');
-  console.log('║     Script de création d\'administrateur NaijaFind    ║');
+  console.log('║     Script de création d\'administrateur Olufinja    ║');
   console.log('╚═══════════════════════════════════════════════════════╝\n');
 
   try {

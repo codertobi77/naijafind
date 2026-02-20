@@ -258,7 +258,7 @@ export default function SupplierDetail() {
                         <i className="ri-compass-3-fill text-white text-xl"></i>
                       </div>
                       <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent" style={{ fontFamily: "Pacifico, serif" }}>
-                        NaijaFind
+                        Olufinja
                       </span>
                     </Link>
                   </div>
@@ -574,7 +574,7 @@ export default function SupplierDetail() {
                       <ul className="space-y-2 text-green-800 text-xs sm:text-sm">
                         <li className="flex items-center">
                           <i className="ri-check-line mr-2 text-green-600 flex-shrink-0"></i>
-                          {t('supplier.verified_by_naijafind')}
+                          {t('supplier.verified_by_olufinja')}
                         </li>
                         <li className="flex items-center">
                           <i className="ri-check-line mr-2 text-green-600 flex-shrink-0"></i>

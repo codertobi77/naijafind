@@ -61,7 +61,7 @@ export default function Register() {
 								<i className="ri-compass-3-fill text-white text-2xl"></i>
 							</div>
 							<span className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent group-hover:from-green-700 group-hover:to-emerald-700 transition-all duration-300" style={{ fontFamily: 'Pacifico, serif' }}>
-								NaijaFind
+								Olufinja
 							</span>
 						</div>
 						<div className="h-1 w-24 bg-gradient-to-r from-green-600 to-emerald-600 mx-auto rounded-full group-hover:w-32 transition-all duration-300 shadow-lg"></div>

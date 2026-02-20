@@ -31,7 +31,7 @@ export const sendContactEmail = mutation({
     // Send email using Resend via HTTP action
     try {
       await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
-        to: "contact@naijafind.com",
+        to: "contact@Olufinja.com",
         subject: `[Contact Form] ${args.subject}`,
         html: `
           <h2>New Contact Form Submission</h2>
@@ -88,7 +88,7 @@ export const sendSupplierContactEmail = mutation({
     try {
       await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
         to: supplier.email,
-        subject: `[NaijaFind] New message from ${args.senderName}`,
+        subject: `[Olufinja] New message from ${args.senderName}`,
         html: `
           <h2>New Message for ${supplier.business_name}</h2>
           <p><strong>From:</strong> ${args.senderName}</p>
@@ -132,21 +132,21 @@ export const sendVerificationEmail = mutation({
     });
 
     // Send verification email using Resend
-    const verificationLink = `https://naijafind.com/verify?token=${verificationToken}`;
+    const verificationLink = `https://Olufinja.com/verify?token=${verificationToken}`;
     
     try {
       await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
         to: args.email,
-        subject: "Verify your NaijaFind account",
+        subject: "Verify your Olufinja account",
         html: `
-          <h2>Welcome to NaijaFind!</h2>
+          <h2>Welcome to Olufinja!</h2>
           <p>Please verify your email address by clicking the link below:</p>
           <p><a href="${verificationLink}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Verify Email</a></p>
           <p>Or copy and paste this link into your browser:</p>
           <p>${verificationLink}</p>
           <p>This link will expire in 24 hours.</p>
           <hr>
-          <p><small>If you didn't create an account on NaijaFind, please ignore this email.</small></p>
+          <p><small>If you didn't create an account on Olufinja, please ignore this email.</small></p>
         `,
       });
     } catch (emailError) {
@@ -188,12 +188,12 @@ export const sendPasswordResetEmail = mutation({
     });
 
     // Send password reset email using Resend
-    const resetLink = `https://naijafind.com/reset-password?token=${resetToken}`;
+    const resetLink = `https://Olufinja.com/reset-password?token=${resetToken}`;
     
     try {
       await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
         to: args.email,
-        subject: "Reset your NaijaFind password",
+        subject: "Reset your Olufinja password",
         html: `
           <h2>Password Reset Request</h2>
           <p>You requested to reset your password. Click the link below to create a new password:</p>
@@ -247,15 +247,15 @@ export const sendSupplierApprovalEmail = mutation({
 
     // Send approval/rejection email using Resend
     const emailSubject = args.approved 
-      ? "Your NaijaFind supplier account has been approved!" 
-      : "Update on your NaijaFind supplier application";
+      ? "Your Olufinja supplier account has been approved!" 
+      : "Update on your Olufinja supplier application";
     
-    const dashboardLink = "https://naijafind.com/dashboard";
+    const dashboardLink = "https://Olufinja.com/dashboard";
     const emailHtml = args.approved
       ? `
         <h2>Congratulations! Your supplier account is now active</h2>
         <p>Dear ${supplier.business_name},</p>
-        <p>We're excited to inform you that your supplier account has been approved and is now active on NaijaFind!</p>
+        <p>We're excited to inform you that your supplier account has been approved and is now active on Olufinja!</p>
         <p>You can now:</p>
         <ul>
           <li>Access your full dashboard</li>
@@ -264,16 +264,16 @@ export const sendSupplierApprovalEmail = mutation({
           <li>Build your business presence</li>
         </ul>
         <p><a href="${dashboardLink}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Go to Dashboard</a></p>
-        <p>Best regards,<br>The NaijaFind Team</p>
+        <p>Best regards,<br>The Olufinja Team</p>
       `
       : `
         <h2>Update on your supplier application</h2>
         <p>Dear ${supplier.business_name},</p>
-        <p>Thank you for your interest in joining NaijaFind. After reviewing your application, we need you to provide additional information or make some updates before we can approve your account.</p>
+        <p>Thank you for your interest in joining Olufinja. After reviewing your application, we need you to provide additional information or make some updates before we can approve your account.</p>
         ${args.reason ? `<p><strong>Reason:</strong> ${args.reason}</p>` : ""}
         <p>Please review your application and make the necessary updates. If you have any questions, feel free to contact our support team.</p>
         <p><a href="${dashboardLink}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Review Application</a></p>
-        <p>Best regards,<br>The NaijaFind Team</p>
+        <p>Best regards,<br>The Olufinja Team</p>
       `;
     
     try {
@@ -301,9 +301,9 @@ export const sendWelcomeEmail = mutation({
   handler: async (ctx, args) => {
     // Send welcome email using Resend
     const isSupplier = args.userType === "supplier";
-    const baseUrl = "https://naijafind.com";
+    const baseUrl = "https://Olufinja.com";
     const welcomeHtml = `
-      <h2>Welcome to NaijaFind${args.firstName ? `, ${args.firstName}` : ""}!</h2>
+      <h2>Welcome to Olufinja${args.firstName ? `, ${args.firstName}` : ""}!</h2>
       <p>We're thrilled to have you join our community.</p>
       ${isSupplier ? `
         <p>As a supplier, you can now:</p>
@@ -319,13 +319,13 @@ export const sendWelcomeEmail = mutation({
         <p><a href="${baseUrl}/search" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Find Suppliers</a></p>
       `}
       <p>If you have any questions, our support team is always here to help.</p>
-      <p>Best regards,<br>The NaijaFind Team</p>
+      <p>Best regards,<br>The Olufinja Team</p>
     `;
     
     try {
       await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
         to: args.email,
-        subject: "Welcome to NaijaFind!",
+        subject: "Welcome to Olufinja!",
         html: welcomeHtml,
       });
     } catch (emailError) {

@@ -1,6 +1,6 @@
 export const faq = {
   "faq.title": "Frequently Asked Questions",
-  "faq.subtitle": "Quickly find answers to your questions about NaijaFind",
+  "faq.subtitle": "Quickly find answers to your questions about Olufinja",
   "faq.search_placeholder": "Search in FAQ...",
   "faq.search_results": "Search results",
   "faq.no_results": "No results found",
@@ -17,12 +17,12 @@ export const faq = {
   "faq.cat_technical": "Technical",
   
   // General Questions
-  "faq.general.q1": "What is NaijaFind?",
-  "faq.general.a1": "NaijaFind is a geo-located search engine that allows you to easily find all suppliers in Nigeria. Our platform connects businesses with the best local suppliers in all categories.",
-  "faq.general.q2": "How to use NaijaFind?",
+  "faq.general.q1": "What is Olufinja?",
+  "faq.general.a1": "Olufinja is a geo-located search engine that allows you to easily find all suppliers in Nigeria. Our platform connects businesses with the best local suppliers in all categories.",
+  "faq.general.q2": "How to use Olufinja?",
   "faq.general.a2": "Simply enter what you are looking for in the search bar, specify your location and choose a category if necessary. Our results are sorted by relevance and geographical proximity.",
-  "faq.general.q3": "Is NaijaFind free?",
-  "faq.general.a3": "Yes, searching for suppliers on NaijaFind is completely free. Suppliers can also create a basic profile for free.",
+  "faq.general.q3": "Is Olufinja free?",
+  "faq.general.a3": "Yes, searching for suppliers on Olufinja is completely free. Suppliers can also create a basic profile for free.",
   
   // Buyer Questions
   "faq.buyers.q1": "How to contact a supplier?",
@@ -33,7 +33,7 @@ export const faq = {
   "faq.buyers.a3": "Yes, you can set a search radius (10, 25, 50 or 100 km) to find suppliers closest to your location.",
   
   // Supplier Questions
-  "faq.suppliers.q1": "How to add my business to NaijaFind?",
+  "faq.suppliers.q1": "How to add my business to Olufinja?",
   "faq.suppliers.a1": "Click on \"Add your business\" in the main menu, then create your account and fill in your business information. Creating a basic profile is free.",
   "faq.suppliers.q2": "How to get the \"Verified\" badge?",
   "faq.suppliers.a2": "After creating your profile, our team will verify your business information. This process usually takes 2-3 business days. You will receive a notification once verification is complete.",
@@ -43,8 +43,8 @@ export const faq = {
   "faq.suppliers.a4": "Complete your profile fully, add quality photos, encourage your customers to leave reviews, and keep your information up to date. We also offer premium options for more visibility.",
   
   // Technical Questions
-  "faq.technical.q1": "On which devices can I use NaijaFind?",
-  "faq.technical.a1": "NaijaFind works on all devices: computers, tablets and smartphones. Our website is optimized for all modern browsers.",
+  "faq.technical.q1": "On which devices can I use Olufinja?",
+  "faq.technical.a1": "Olufinja works on all devices: computers, tablets and smartphones. Our website is optimized for all modern browsers.",
   "faq.technical.q2": "Is my personal data secure?",
   "faq.technical.a2": "Yes, we take security very seriously. All your data is encrypted and we strictly comply with data protection regulations.",
   "faq.technical.q3": "What to do if I encounter a technical problem?",

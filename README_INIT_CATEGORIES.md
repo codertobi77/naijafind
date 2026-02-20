@@ -1,6 +1,6 @@
-# Initialisation des Catégories dans NaijaFind
+# Initialisation des Catégories dans Olufinja
 
-Ce script permet d'initialiser les catégories dans la base de données Convex de NaijaFind.
+Ce script permet d'initialiser les catégories dans la base de données Convex de Olufinja.
 
 ## Utilisation
 

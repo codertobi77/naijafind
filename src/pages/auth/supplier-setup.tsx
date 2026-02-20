@@ -156,7 +156,7 @@ export default function SupplierSetup() {
         <Link to="/" className="flex justify-center group">
           <div className="text-center">
             <span className="text-4xl font-bold text-green-600 group-hover:text-green-700 transition-colors duration-300" style={{ fontFamily: 'Pacifico, serif' }}>
-              NaijaFind
+              Olufinja
             </span>
             <div className="h-1 w-20 bg-green-600 mx-auto mt-2 rounded-full group-hover:w-32 transition-all duration-300"></div>
           </div>

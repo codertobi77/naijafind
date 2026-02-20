@@ -21,7 +21,7 @@ export default function About() {
                   <i className="ri-compass-3-fill text-white text-xl"></i>
                 </div>
                 <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent" style={{ fontFamily: "Pacifico, serif" }}>
-                  NaijaFind
+                  Olufinja
                 </span>
               </Link>
             </div>
@@ -262,7 +262,7 @@ export default function About() {
                   <i className="ri-compass-3-fill text-white text-2xl"></i>
                 </div>
                 <span className="text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent group-hover:from-green-300 group-hover:to-emerald-300 transition-all duration-300" style={{ fontFamily: "Pacifico, serif" }}>
-                  NaijaFind
+                  Olufinja
                 </span>
               </Link>
               <p className="text-gray-400 text-sm leading-relaxed">
@@ -345,7 +345,7 @@ export default function About() {
             </div>
           </div>
           <div className="border-t border-gray-800 pt-8 text-center text-gray-500 text-sm">
-            <p>&copy; 2024 NaijaFind. {t('footer.rights')} | <a href="https://readdy.ai/?origin=logo" className="text-green-400 hover:text-green-300 transition-colors">{t('footer.powered_by')}</a></p>
+            <p>&copy; 2024 Olufinja. {t('footer.rights')} | <a href="https://readdy.ai/?origin=logo" className="text-green-400 hover:text-green-300 transition-colors">{t('footer.powered_by')}</a></p>
           </div>
         </div>
       </footer>

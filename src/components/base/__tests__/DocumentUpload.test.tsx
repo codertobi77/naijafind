@@ -58,7 +58,7 @@ describe('DocumentUpload Component', () => {
     await waitFor(() => {
       expect(uploadDocumentToCloudinary).toHaveBeenCalledWith(
         file,
-        'naijafind/verification/business_registration'
+        'Olufinja/verification/business_registration'
       );
       expect(mockOnChange).toHaveBeenCalledWith(mockResult.url, 'registration.pdf');
     });

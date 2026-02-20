@@ -103,7 +103,7 @@ export default function Categories() {
                   <i className="ri-compass-3-fill text-white text-xl"></i>
                 </div>
                 <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent" style={{ fontFamily: "Pacifico, serif" }}>
-                  NaijaFind
+                  Olufinja
                 </span>
               </Link>
             </div>
@@ -278,7 +278,7 @@ export default function Categories() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
             <div className="sm:col-span-2 md:col-span-1">
               <h3 className="text-lg sm:text-xl font-bold mb-4" style={{ fontFamily: "Pacifico, serif" }}>
-                NaijaFind
+                Olufinja
               </h3>
               <p className="text-gray-400 text-sm sm:text-base">
                 {t('footer.description')}
@@ -321,7 +321,7 @@ export default function Categories() {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-6 sm:mt-8 pt-6 sm:pt-8 text-center text-gray-400 text-sm sm:text-base">
-            <p>&copy; 2024 NaijaFind. {t('footer.rights')} | <a href="https://readdy.ai/?origin=logo" className="hover:text-white">{t('footer.powered_by')}</a></p>
+            <p>&copy; 2024 Olufinja. {t('footer.rights')} | <a href="https://readdy.ai/?origin=logo" className="hover:text-white">{t('footer.powered_by')}</a></p>
           </div>
         </div>
       </footer>

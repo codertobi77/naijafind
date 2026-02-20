@@ -25,7 +25,7 @@ export const supplier = {
   "supplier.gallery": "Gallery",
   "supplier.about": "About",
   "supplier.important_info": "Important information",
-  "supplier.verified_by_naijafind": "Verified by NaijaFind",
+  "supplier.verified_by_olufinja": "Verified by Olufinja",
   "supplier.quick_response": "Quick response to requests",
   "supplier.quality_service": "Quality customer service",
   "supplier.avg_rating": "Average rating",

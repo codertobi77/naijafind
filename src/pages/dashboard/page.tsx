@@ -402,7 +402,7 @@ export default function Dashboard() {
     {
       id: 1,
       name: 'Alice N.',
-      email: 'alice@naijafind.com',
+      email: 'alice@olufinja.com',
       role: 'admin',
       status: 'active',
       isMe: true,
@@ -417,7 +417,7 @@ export default function Dashboard() {
     {
       id: 3,
       name: 'Jean L.',
-      email: 'jean@naijafind.com',
+      email: 'jean@olufinja.com',
       role: 'editor',
       status: 'pending',
     },
@@ -1276,7 +1276,7 @@ function DashboardSidebar({
                 className="text-xl font-bold text-green-600"
                 style={{ fontFamily: 'Pacifico, serif' }}
               >
-                NaijaFind
+                Olufinja
               </span>
             </Link>
           </div>
