@@ -41,6 +41,11 @@ export async function uploadFileToCloudinary(
     const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
     const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
+    // Debug logging
+    console.log('[Cloudinary Debug] cloudName:', cloudName);
+    console.log('[Cloudinary Debug] uploadPreset:', uploadPreset ? '***set***' : '***missing***');
+    console.log('[Cloudinary Debug] endpoint:', cloudName ? `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload` : 'undefined');
+
     if (!cloudName || !uploadPreset) {
       console.error('Cloudinary configuration missing. Please set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET');
       return fallbackUpload(file);
