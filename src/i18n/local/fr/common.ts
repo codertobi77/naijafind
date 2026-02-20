@@ -135,6 +135,7 @@ export const common = {
   "location.select_on_map": "Sélectionner sur la carte",
   "location.location_selected": "Localisation sélectionnée",
   "location.select_exact_location": "Sélectionner la localisation exacte",
+  "location.selected_coordinates": "Coordonnées sélectionnées",
   "location.map_instructions": "Cliquez sur la carte pour définir votre localisation exacte, ou entrez les coordonnées manuellement ci-dessous.",
   "location.manual_coords": "Coordonnées manuelles (optionnel)",
   "location.latitude": "Latitude",

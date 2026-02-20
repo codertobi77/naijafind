@@ -7,6 +7,7 @@ import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { api } from '../../../convex/_generated/api';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
 import type { Doc } from '../../../convex/_generated/dataModel';
+import Modal from '../../components/base/Modal';
 
 // Default category image URL for fallback
 const DEFAULT_CATEGORY_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23f3f4f6'/%3E%3Cg transform='translate(200,150)'%3E%3Cpath d='M-60-80h120v160h-120zM-40-100h80v20h-80zM-30-90h20v-20h-20z' fill='%239ca3af'/%3E%3Cpath d='M-40-40h80v20h-80zM-40-10h80v20h-80zM-40 20h60v20h-60z' fill='%23d1d5db'/%3E%3C/g%3E%3C/svg%3E";
@@ -36,6 +37,14 @@ export default function Home() {
   
   // State for displaying messages from navigation
   const [message, setMessage] = useState<string | null>(null);
+  
+  // Modal state for newsletter
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalConfig, setModalConfig] = useState({ 
+    title: '', 
+    message: '', 
+    icon: 'success' as 'success' | 'info' | 'warning' 
+  });
   
   // Handle location state message
   useEffect(() => {
@@ -363,7 +372,7 @@ export default function Home() {
                               {category.name}
                             </h3>
                             <p className="text-gray-600 text-sm line-clamp-2 mt-1">
-                              {category.description || t('categories.no_description')}
+                              {category.description || t('msg.no_description')}
                             </p>
                           </Link>
                         ))}
@@ -466,7 +475,7 @@ export default function Home() {
                       </div>
                     </div>
                     <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                      {supplier.description || t('no_description')}
+                      {supplier.description || t('msg.no_description')}
                     </p>
                     <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
                       <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full">
@@ -537,11 +546,21 @@ export default function Home() {
                     body: formData
                   });
                   if (response.ok) {
-                    alert('Inscription réussie ! Merci de vous être abonné à notre newsletter.');
+                    setModalConfig({
+                      title: 'Inscription réussie !',
+                      message: 'Merci de vous être abonné à notre newsletter.',
+                      icon: 'success'
+                    });
+                    setModalOpen(true);
                     (e.target as HTMLFormElement).reset();
                   }
                 } catch (error) {
-                  alert('Erreur lors de l\'inscription. Veuillez réessayer.');
+                  setModalConfig({
+                    title: 'Erreur',
+                    message: 'Erreur lors de l\'inscription. Veuillez réessayer.',
+                    icon: 'warning'
+                  });
+                  setModalOpen(true);
                 }
               }}>
                 <div>
@@ -683,6 +702,15 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        buttonText="OK"
+        icon={modalConfig.icon}
+      />
     </div>
   );
 }

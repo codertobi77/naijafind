@@ -311,7 +311,6 @@ export default function Dashboard() {
   const createProductMutation = useMutation(api.products.createProduct);
   const updateProductMutation = useMutation(api.products.updateProduct);
   const deleteProductMutation = useMutation(api.products.deleteProduct);
-  const createOrderMutation = useMutation(api.orders.createOrder);
   const updateOrderStatusMutation = useMutation(api.orders.updateOrderStatus);
   const deleteOrderMutation = useMutation(api.orders.deleteOrder);
   const updateReviewMutation = useMutation(api.reviews.updateReview);
@@ -351,14 +350,9 @@ export default function Dashboard() {
   const [productOpLoading, setProductOpLoading] = useState(false);
   const [productToast, setProductToast] = useState<Toast>(null);
 
-  const [showOrderModal, setShowOrderModal] = useState(false);
   const [showOrderViewModal, setShowOrderViewModal] = useState(false);
+  const [showOrderDeleteModal, setShowOrderDeleteModal] = useState(false);
   const [orderModalData, setOrderModalData] = useState<any>(null);
-  const [orderForm, setOrderForm] = useState({
-    order_number: '',
-    total_amount: '',
-    status: 'pending',
-  });
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatus, setOrderStatus] =
     useState<'all' | 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled'>('all');
@@ -564,22 +558,6 @@ export default function Dashboard() {
       });
     }
   }, [dashboardData]);
-
-  useEffect(() => {
-    if (orderModalMode === 'edit' && orderModalData) {
-      setOrderForm({
-        order_number: orderModalData.order_number || '',
-        total_amount: orderModalData.total_amount || '',
-        status: orderModalData.status || 'pending',
-      });
-    } else if (orderModalMode === 'add') {
-      setOrderForm({ order_number: '', total_amount: '', status: 'pending' });
-    }
-  }, [orderModalMode, orderModalData, showOrderModal]);
-
-  // useEffect(() => {
-  //   setCurrentUser(team.find((member) => member.isMe) || team[0]);
-  // }, [team]);
 
   // Sync profile data from dashboardData
   useEffect(() => {
@@ -826,30 +804,6 @@ export default function Dashboard() {
       });
     }
     setProductOpLoading(false);
-  };
-
-  const handleAddOrder = async (payload: {
-    order_number: string;
-    total_amount: number;
-    status: string;
-  }) => {
-    try {
-      setOrderOpLoading(true);
-      await createOrderMutation({
-        order_number: payload.order_number,
-        total_amount: payload.total_amount,
-        status: payload.status,
-      });
-      setOrderToast({ type: 'success', message: t('dashboard.success.order_added', 'Commande ajoutée') });
-      return { success: true };
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : t('dashboard.errors.add_order');
-      setOrderToast({ type: 'error', message });
-      return { success: false, error: message };
-    } finally {
-      setOrderOpLoading(false);
-    }
   };
 
   const handleUpdateOrderStatus = async (payload: {

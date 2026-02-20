@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import Modal from './Modal';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
 
@@ -80,6 +81,14 @@ export default function LocationPicker({ value, onChange, errors }: LocationPick
   const [mapCenter, setMapCenter] = useState({ lat: 9.0820, lng: 8.6753 }); // Default to Nigeria center
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isMapLoading, setIsMapLoading] = useState(false);
+
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalConfig, setModalConfig] = useState({
+    title: '',
+    message: '',
+    icon: 'warning' as 'success' | 'info' | 'warning'
+  });
 
   // Initialize Mapbox when modal opens
   useEffect(() => {
@@ -243,7 +252,12 @@ export default function LocationPicker({ value, onChange, errors }: LocationPick
 
   const openMapPicker = () => {
     if (!value.country || !value.state) {
-      alert(t('location.select_country_state_first'));
+      setModalConfig({
+        title: t('common.error'),
+        message: t('location.select_country_state_first'),
+        icon: 'warning'
+      });
+      setModalOpen(true);
       return;
     }
     setShowMap(true);
@@ -491,6 +505,15 @@ export default function LocationPicker({ value, onChange, errors }: LocationPick
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        buttonText={t('common.ok')}
+        icon={modalConfig.icon}
+      />
     </div>
   );
 }

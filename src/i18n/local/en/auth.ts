@@ -105,6 +105,9 @@ export const auth = {
   "supplier_setup.create_profile": "Create profile",
   "supplier_setup.creating_profile": "Creating profile...",
   "supplier_setup.approval_needed": "Thank you for registering! Your supplier profile has been submitted and is awaiting admin approval. You will receive an email notification once approved.",
+  "supplier_setup.approval_modal.title": "Request Sent!",
+  "supplier_setup.approval_modal.message": "Your supplier profile has been successfully created and is being reviewed by our team. You will receive an email notification as soon as it is approved.",
+  "supplier_setup.approval_modal.button": "Back to Home",
   "supplier_setup.home": "Back to home",
   "supplier_setup.errors.business_name_required": "Business name is required",
   "supplier_setup.errors.category_required": "Category is required",
@@ -118,6 +121,9 @@ export const auth = {
   // General
   "loading": "Loading...",
   "redirecting": "Redirecting...",
+  "common.error": "Error",
+  "common.ok": "OK",
+  "common.success": "Success",
 
   // Validation messages
   "validation.required": "This field is required",

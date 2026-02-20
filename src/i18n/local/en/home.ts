@@ -27,6 +27,8 @@ export const home = {
   "featured.view_profile": "View Profile",
   "featured.no_businesses": "No featured businesses",
   "featured.no_businesses_desc": "There are currently no featured businesses. Check back later!",
+  "featured.no_suppliers": "No featured suppliers",
+  "featured.no_suppliers_desc": "There are currently no featured suppliers. Check back later!",
 
   // How it works
   "how.title": "How It Works",

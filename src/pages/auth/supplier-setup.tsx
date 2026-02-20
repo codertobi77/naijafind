@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import ImageUpload from '../../components/base/ImageUpload';
 import ImageGalleryUpload from '../../components/base/ImageGalleryUpload';
 import LocationPicker from '../../components/base/LocationPicker';
+import Modal from '../../components/base/Modal';
 
 export default function SupplierSetup() {
   const { t } = useTranslation();
@@ -44,6 +45,7 @@ export default function SupplierSetup() {
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
 
   // Pré-remplir avec les données de l'utilisateur
   useEffect(() => {
@@ -120,8 +122,7 @@ export default function SupplierSetup() {
       });
 
       // Show a message that admin approval is needed
-      alert(t('supplier_setup.approval_needed'));
-      navigate('/');
+      setShowApprovalModal(true);
     } catch (error: any) {
       // Handle the case where a supplier profile already exists
       if (error.message && error.message.includes("existe déjà")) {
@@ -473,6 +474,19 @@ export default function SupplierSetup() {
           </Link>
         </div>
       </div>
+
+      {/* Modal de confirmation d'approbation */}
+      <Modal
+        isOpen={showApprovalModal}
+        onClose={() => {
+          setShowApprovalModal(false);
+          navigate('/');
+        }}
+        title={t('supplier_setup.approval_modal.title')}
+        message={t('supplier_setup.approval_modal.message')}
+        buttonText={t('supplier_setup.approval_modal.button')}
+        icon="success"
+      />
     </div>
   );
 }

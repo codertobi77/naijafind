@@ -105,6 +105,9 @@ export const auth = {
   "supplier_setup.create_profile": "Créer le profil",
   "supplier_setup.creating_profile": "Création du profil...",
   "supplier_setup.approval_needed": "Merci pour votre inscription ! Votre profil de fournisseur a été soumis et est en attente d'approbation par l'administrateur. Vous recevrez une notification par email une fois approuvé.",
+  "supplier_setup.approval_modal.title": "Demande envoyée !",
+  "supplier_setup.approval_modal.message": "Votre profil fournisseur a été créé avec succès et est en cours de validation par notre équipe. Vous recevrez une notification par email dès qu'il sera approuvé.",
+  "supplier_setup.approval_modal.button": "Retour à l'accueil",
   "supplier_setup.home": "Retour à l'accueil",
   "supplier_setup.errors.business_name_required": "Le nom de l'entreprise est requis",
   "supplier_setup.errors.category_required": "La catégorie est requise",
@@ -118,6 +121,9 @@ export const auth = {
   // General
   "loading": "Chargement...",
   "redirecting": "Redirection...",
+  "common.error": "Erreur",
+  "common.ok": "OK",
+  "common.success": "Succès",
 
   // Validation messages
   "validation.required": "Ce champ est requis",

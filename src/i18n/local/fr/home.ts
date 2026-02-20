@@ -27,6 +27,8 @@ export const home = {
   "featured.view_profile": "Voir le profil",
   "featured.no_businesses": "Aucune entreprise en vedette",
   "featured.no_businesses_desc": "Il n'y a actuellement aucune entreprise en vedette. Revenez plus tard !",
+  "featured.no_suppliers": "Aucun fournisseur en vedette",
+  "featured.no_suppliers_desc": "Il n'y a actuellement aucun fournisseur en vedette. Revenez plus tard !",
 
   // How it works
   "how.title": "Comment ça marche",

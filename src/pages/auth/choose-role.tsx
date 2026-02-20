@@ -5,6 +5,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useTranslation } from 'react-i18next';
 import LanguageSelector from '../../components/base/LanguageSelector';
+import Modal from '../../components/base/Modal';
 
 export default function ChooseRole() {
   const { t } = useTranslation();
@@ -13,6 +14,8 @@ export default function ChooseRole() {
   const navigate = useNavigate();
   const [selectedRole, setSelectedRole] = useState<'user' | 'supplier' | 'admin' | null>(null);
   const [loading, setLoading] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalConfig, setModalConfig] = useState({ title: '', message: '', icon: 'warning' as 'success' | 'info' | 'warning' });
   const ensureUser = useMutation(api.users.ensureUser);
   const meData = useQuery(api.users.me, {});
 
@@ -47,7 +50,12 @@ export default function ChooseRole() {
 
     // Check that the user can choose the admin role
     if (role === 'admin' && meData?.user?.is_admin !== true && meData?.user?.user_type !== 'admin') {
-      alert(t('choose_role.admin_not_authorized'));
+      setModalConfig({
+        title: t('common.error'),
+        message: t('choose_role.admin_not_authorized'),
+        icon: 'warning'
+      });
+      setModalOpen(true);
       return;
     }
 
@@ -81,7 +89,12 @@ export default function ChooseRole() {
         navigate('/');
       }
     } catch (error: any) {
-      alert(error.message || t('choose_role.error'));
+      setModalConfig({
+        title: t('common.error'),
+        message: error.message || t('choose_role.error'),
+        icon: 'warning'
+      });
+      setModalOpen(true);
       setLoading(false);
     }
   };
@@ -292,14 +305,23 @@ export default function ChooseRole() {
               <p className="text-sm text-gray-700 font-medium mb-1">{t('choose_role.need_help')}</p>
               <p className="text-xs text-gray-600">
                 {t('choose_role.help_description', { 
-                  buyer: t('choose_role.buyer').toLowerCase(), 
-                  supplier: t('choose_role.supplier').toLowerCase() 
+                  buyer: `${t('choose_role.buyer')}`.toLowerCase(), 
+                  supplier: `${t('choose_role.supplier')}`.toLowerCase() 
                 })}
               </p>
             </div>
           </div>
         </div>
       </div>
+
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        buttonText={t('common.ok')}
+        icon={modalConfig.icon}
+      />
     </div>
   );
 }
