@@ -5,11 +5,18 @@ import AutoImport from 'unplugin-auto-import/vite'
 
 const base = process.env.BASE_PATH || '/'
 const isPreview = process.env.IS_PREVIEW  ? true : false;
+
+// Expose explicitement les variables Cloudinary pour le build
+const cloudinaryCloudName = process.env.VITE_CLOUDINARY_CLOUD_NAME || '';
+const cloudinaryUploadPreset = process.env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
+
 // https://vite.dev/config/
 export default defineConfig({
   define: {
    __BASE_PATH__: JSON.stringify(base),
-   __IS_PREVIEW__: JSON.stringify(isPreview)
+   __IS_PREVIEW__: JSON.stringify(isPreview),
+   'import.meta.env.VITE_CLOUDINARY_CLOUD_NAME': JSON.stringify(cloudinaryCloudName),
+   'import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET': JSON.stringify(cloudinaryUploadPreset),
   },
   plugins: [react(),
     AutoImport({
