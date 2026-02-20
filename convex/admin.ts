@@ -93,6 +93,18 @@ export const approveSupplier = mutation({
       updated_at: now,
     });
     
+    // Send notification to supplier
+    await ctx.db.insert('notifications', {
+      userId: supplier.userId,
+      type: 'approval',
+      title: 'Félicitations ! Votre profil est approuvé',
+      message: `Votre entreprise "${supplier.business_name}" a été validée par notre équipe. Vous pouvez maintenant recevoir des commandes.`,
+      data: { supplierId: args.supplierId, type: 'supplier_approved' },
+      read: false,
+      actionUrl: '/dashboard',
+      createdAt: now,
+    });
+    
     return { success: true };
   }
 });
@@ -149,6 +161,7 @@ export const setSupplierFeatured = mutation({
 export const rejectSupplier = mutation({
   args: {
     supplierId: v.id("suppliers"),
+    reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Check if user is admin
@@ -165,6 +178,18 @@ export const rejectSupplier = mutation({
     await ctx.db.patch(args.supplierId, {
       approved: false,
       updated_at: now,
+    });
+    
+    // Send notification to supplier
+    await ctx.db.insert('notifications', {
+      userId: supplier.userId,
+      type: 'system',
+      title: 'Mise à jour de votre inscription',
+      message: `Votre demande pour "${supplier.business_name}" n'a pas pu être approuvée${args.reason ? `: ${args.reason}` : '. Contactez-nous pour plus d\'informations.'}`,
+      data: { supplierId: args.supplierId, type: 'supplier_rejected', reason: args.reason },
+      read: false,
+      actionUrl: '/contact',
+      createdAt: now,
     });
     
     return { success: true };

@@ -73,6 +73,18 @@ async function ensureUserHelper(ctx: any, args: any) {
     created_at: now,
   });
   
+  // Send welcome notification for new users
+  await ctx.db.insert('notifications', {
+    userId: id,
+    type: 'system',
+    title: 'Bienvenue sur Olufinja !',
+    message: `Bonjour ${args.firstName || ''}, votre compte a été créé avec succès. Complétez votre profil pour commencer.`,
+    data: { type: 'welcome', isNewAccount: true },
+    read: false,
+    actionUrl: '/dashboard?tab=profile',
+    createdAt: now,
+  });
+  
   // Return the created user data
   const newUser = await ctx.db.get(id);
   return { user: newUser, supplier: null };

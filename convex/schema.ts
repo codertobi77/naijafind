@@ -189,4 +189,18 @@ export default defineSchema({
   })
     .index("email", ["email"])
     .index("status", ["status"]),
+  // Notifications system for users and suppliers
+  notifications: defineTable({
+    userId: v.string(), // Recipient user ID
+    type: v.string(), // 'order', 'review', 'message', 'system', 'verification', 'approval'
+    title: v.string(),
+    message: v.string(),
+    data: v.optional(v.record(v.string(), v.any())), // Additional data (orderId, reviewId, etc.)
+    read: v.boolean(),
+    actionUrl: v.optional(v.string()), // Optional link to navigate to
+    createdAt: v.string(),
+  })
+    .index("userId", ["userId"])
+    .index("userId_read", ["userId", "read"])
+    .index("createdAt", ["createdAt"]),
 });

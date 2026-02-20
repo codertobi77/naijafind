@@ -25,6 +25,9 @@ import ComingSoon from '../../components/base/ComingSoon';
 import DashboardTour from '../../components/base/DashboardTour';
 import useCurrency from '../../hooks/useCurrency';
 import VerificationStatus from '../../components/base/VerificationStatus';
+import { useToast } from '../../hooks/useToast';
+import { useNotifications } from '../../hooks/useNotifications';
+import { ToastContainer, NotificationDropdown } from '../../components/base';
 
 type DashboardTab =
   | 'overview'
@@ -38,8 +41,6 @@ type DashboardTab =
   | 'settings'
   | 'team'
   | 'galerie';
-
-type Toast = { type: 'success' | 'error'; message: string } | null;
 
 interface DashboardData {
   profile: any;
@@ -317,6 +318,9 @@ export default function Dashboard() {
   const deleteReviewMutation = useMutation(api.reviews.deleteReview);
   const updateSupplierProfileMutation = useMutation(api.suppliers.updateSupplierProfile);
 
+  // Toast notification system
+  const { toasts, showToast, removeToast } = useToast();
+
   const loading = dashboardData === undefined;
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -348,7 +352,6 @@ export default function Dashboard() {
     images: [] as string[],
   });
   const [productOpLoading, setProductOpLoading] = useState(false);
-  const [productToast, setProductToast] = useState<Toast>(null);
 
   const [showOrderViewModal, setShowOrderViewModal] = useState(false);
   const [showOrderDeleteModal, setShowOrderDeleteModal] = useState(false);
@@ -357,7 +360,6 @@ export default function Dashboard() {
   const [orderStatus, setOrderStatus] =
     useState<'all' | 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled'>('all');
   const [orderOpLoading, setOrderOpLoading] = useState(false);
-  const [orderToast, setOrderToast] = useState<Toast>(null);
 
   const [showReviewRespondModal, setShowReviewRespondModal] = useState(false);
   const [showReviewDeleteModal, setShowReviewDeleteModal] = useState(false);
@@ -365,37 +367,20 @@ export default function Dashboard() {
     useState<'respond' | 'delete'>('respond');
   const [reviewModalData, setReviewModalData] = useState<any>(null);
   const [reviewOpLoading, setReviewOpLoading] = useState(false);
-  const [reviewToast, setReviewToast] = useState<Toast>(null);
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentPlanChoice, setPaymentPlanChoice] = useState('basic');
 
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'order',
-      message: 'Nouvelle commande reçue #0001',
-      read: false,
-      created_at: Date.now(),
-    },
-    {
-      id: 2,
-      type: 'review',
-      message: 'Nouvel avis client ajouté',
-      read: false,
-      created_at: Date.now() - 1_000_000,
-    },
-    {
-      id: 3,
-      type: 'info',
-      message: 'Votre profil a été validé.',
-      read: true,
-      created_at: Date.now() - 86_400_000,
-    },
-  ]);
-  const [notifOpen, setNotifOpen] = useState(false);
-  const notifRef = useRef<HTMLButtonElement>(null);
+  // Notifications system with Convex
+  const {
+    notifications,
+    unreadCount,
+    loading: notificationsLoading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+  } = useNotifications(50);
 
   // Team management state (not fully implemented)
   const [team, setTeam] = useState([
@@ -428,7 +413,6 @@ export default function Dashboard() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showTour, setShowTour] = useState(false);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
   const currentPlan = (dashboardData?.profile as any)?.subscription_plan || 'free';
   const planConfig =
     SUBSCRIPTION_PLANS[currentPlan as keyof typeof SUBSCRIPTION_PLANS];
@@ -480,14 +464,6 @@ export default function Dashboard() {
         return t('dashboard.upgrade.default');
     }
   }, [pendingUpgradeFeature, t]);
-
-  const handleMarkRead = (id: number) =>
-    setNotifications((list) =>
-      list.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
-
-  const handleDeleteNotif = (id: number) =>
-    setNotifications((list) => list.filter((n) => n.id !== id));
 
   useEffect(() => {
     if (!showProductModal) return;
@@ -750,7 +726,6 @@ export default function Dashboard() {
   const submitProductForm = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setProductOpLoading(true);
-    setProductToast(null);
 
     const payload = {
       name: productForm.name.trim(),
@@ -770,20 +745,15 @@ export default function Dashboard() {
     }
 
     if (result.success) {
-      setProductToast({
-        type: 'success',
-        message:
-          productModalMode === 'add'
-            ? 'Produit ajouté avec succès'
-            : 'Produit mis à jour',
-      });
+      showToast('success',
+        productModalMode === 'add'
+          ? 'Produit ajouté avec succès'
+          : 'Produit mis à jour'
+      );
       setShowProductModal(false);
       setProductModalData(null);
     } else {
-      setProductToast({
-        type: 'error',
-        message: result.error || "Erreur lors de l'opération",
-      });
+      showToast('error', result.error || "Erreur lors de l'opération");
     }
 
     setProductOpLoading(false);
@@ -794,14 +764,11 @@ export default function Dashboard() {
     setProductOpLoading(true);
     const result = await handleDeleteProduct(productModalData.id);
     if (result.success) {
-      setProductToast({ type: 'success', message: 'Produit supprimé' });
+      showToast('success', 'Produit supprimé');
       setShowProductDeleteModal(false);
       setProductModalData(null);
     } else {
-      setProductToast({
-        type: 'error',
-        message: result.error || 'Erreur lors de la suppression',
-      });
+      showToast('error', result.error || 'Erreur lors de la suppression');
     }
     setProductOpLoading(false);
   };
@@ -818,12 +785,12 @@ export default function Dashboard() {
         status: payload.status,
         payment_status: payload.payment_status,
       });
-      setOrderToast({ type: 'success', message: t('dashboard.success.order_updated', 'Statut de commande mis à jour') });
+      showToast('success', t('dashboard.success.order_updated', 'Statut de commande mis à jour'));
       return { success: true };
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : t('dashboard.errors.update_order');
-      setOrderToast({ type: 'error', message });
+      showToast('error', message);
       return { success: false, error: message };
     } finally {
       setOrderOpLoading(false);
@@ -834,12 +801,12 @@ export default function Dashboard() {
     try {
       setOrderOpLoading(true);
       await deleteOrderMutation({ id: orderId as Id<"orders"> });
-      setOrderToast({ type: 'success', message: t('dashboard.success.order_deleted', 'Commande supprimée') });
+      showToast('success', t('dashboard.success.order_deleted', 'Commande supprimée'));
       return { success: true };
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : t('dashboard.errors.delete_order');
-      setOrderToast({ type: 'error', message });
+      showToast('error', message);
       return { success: false, error: message };
     } finally {
       setOrderOpLoading(false);
@@ -858,12 +825,12 @@ export default function Dashboard() {
         status: payload.status,
         response: payload.response,
       });
-      setReviewToast({ type: 'success', message: t('dashboard.success.review_updated', 'Avis mis à jour') });
+      showToast('success', t('dashboard.success.review_updated', 'Avis mis à jour'));
       return { success: true };
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : t('dashboard.errors.update_review');
-      setReviewToast({ type: 'error', message });
+      showToast('error', message);
       return { success: false, error: message };
     } finally {
       setReviewOpLoading(false);
@@ -874,12 +841,12 @@ export default function Dashboard() {
     try {
       setReviewOpLoading(true);
       await deleteReviewMutation({ id: reviewId as Id<"reviews"> });
-      setReviewToast({ type: 'success', message: t('dashboard.success.review_deleted', 'Avis supprimé') });
+      showToast('success', t('dashboard.success.review_deleted', 'Avis supprimé'));
       return { success: true };
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : t('dashboard.errors.delete_review');
-      setReviewToast({ type: 'error', message });
+      showToast('error', message);
       return { success: false, error: message };
     } finally {
       setReviewOpLoading(false);
@@ -954,7 +921,6 @@ export default function Dashboard() {
             products={products}
             planConfig={planConfig}
             totalProducts={totalProducts}
-            productToast={productToast}
             onAdd={() => {
               setProductModalMode('add');
               setProductModalData(null);
@@ -994,7 +960,6 @@ export default function Dashboard() {
               setOrderModalData(order);
               setShowOrderDeleteModal(true);
             }}
-            orderToast={orderToast}
           />
         );
       case 'reviews':
@@ -1011,7 +976,6 @@ export default function Dashboard() {
               setReviewModalData(review);
               setShowReviewDeleteModal(true);
             }}
-            reviewToast={reviewToast}
           />
         );
       case 'verification':
@@ -1076,11 +1040,10 @@ export default function Dashboard() {
           businessName={dashboardData?.profile?.business_name || 'Utilisateur'}
           notifications={notifications}
           unreadCount={unreadCount}
-          notifOpen={notifOpen}
-          notifRef={notifRef as any}
-          onToggleNotifications={() => setNotifOpen((open) => !open)}
-          onMarkRead={handleMarkRead}
-          onDelete={handleDeleteNotif}
+          notificationsLoading={notificationsLoading}
+          onMarkRead={markAsRead}
+          onMarkAllRead={markAllAsRead}
+          onDelete={deleteNotification}
           onLogout={handleLogout}
           onStartTour={() => setShowTour(true)}
         />
@@ -1215,23 +1178,8 @@ export default function Dashboard() {
         onSubmit={handleInvite}
       />
 
-      {productToast && (
-        <ToastInline
-          toast={productToast}
-          onDismiss={() => setProductToast(null)}
-        />
-      )}
-
-      {orderToast && (
-        <ToastInline toast={orderToast} onDismiss={() => setOrderToast(null)} />
-      )}
-
-      {reviewToast && (
-        <ToastInline
-          toast={reviewToast}
-          onDismiss={() => setReviewToast(null)}
-        />
-      )}
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
       
       <DashboardTour 
         isOpen={showTour}
@@ -1339,10 +1287,9 @@ function DashboardHeader({
   businessName,
   notifications,
   unreadCount,
-  notifOpen,
-  notifRef,
-  onToggleNotifications,
+  notificationsLoading,
   onMarkRead,
+  onMarkAllRead,
   onDelete,
   onLogout,
   onStartTour,
@@ -1353,19 +1300,12 @@ function DashboardHeader({
   currentPlan: string;
   planLabel: string;
   businessName: string;
-  notifications: Array<{
-    id: number;
-    type: string;
-    message: string;
-    read: boolean;
-    created_at: number;
-  }>;
+  notifications: any[];
   unreadCount: number;
-  notifOpen: boolean;
-  notifRef: React.RefObject<HTMLButtonElement>;
-  onToggleNotifications: () => void;
-  onMarkRead: (id: number) => void;
-  onDelete: (id: number) => void;
+  notificationsLoading: boolean;
+  onMarkRead: (id: any) => void;
+  onMarkAllRead: () => void;
+  onDelete: (id: any) => void;
   onLogout: () => void;
   onStartTour: () => void;
 }) {
@@ -1415,77 +1355,14 @@ function DashboardHeader({
             <i className="ri-information-line text-xl" />
           </button>
 
-          <div className="relative">
-            <button
-              ref={notifRef}
-              onClick={onToggleNotifications}
-              className="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 notification-button"
-              aria-label="Notifications"
-            >
-              <i className="ri-notification-line text-xl" />
-              {unreadCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-xs text-white">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-
-            {notifOpen && (
-              <div className="absolute right-0 mt-2 w-80 max-w-xs overflow-hidden rounded-lg border bg-white shadow-lg">
-                <div className="flex items-center justify-between border-b bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700">
-                  <span>Notifications</span>
-                  <button
-                    className="text-gray-400 hover:text-gray-700"
-                    onClick={onToggleNotifications}
-                  >
-                    <i className="ri-close-line text-lg" />
-                  </button>
-                </div>
-
-                <div className="max-h-80 overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <p className="px-4 py-6 text-center text-sm text-gray-500">
-                      Aucune notification
-                    </p>
-                  ) : (
-                    notifications.map((notification) => (
-                      <div
-                        key={notification.id}
-                        className={`flex items-start justify-between space-x-3 border-b px-4 py-3 text-sm last:border-0 ${
-                          notification.read ? 'bg-white' : 'bg-yellow-50'
-                        }`}
-                      >
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-800">
-                            {notification.message}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            {new Date(notification.created_at).toLocaleString('fr-FR')}
-                          </p>
-                        </div>
-                        <div className="flex flex-col space-y-2 text-xs">
-                          {!notification.read && (
-                            <button
-                              className="text-green-600 hover:text-green-700"
-                              onClick={() => onMarkRead(notification.id)}
-                            >
-                              Marquer lu
-                            </button>
-                          )}
-                          <button
-                            className="text-red-500 hover:text-red-700"
-                            onClick={() => onDelete(notification.id)}
-                          >
-                            Supprimer
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+          <NotificationDropdown
+            notifications={notifications}
+            unreadCount={unreadCount}
+            loading={notificationsLoading}
+            onMarkRead={onMarkRead}
+            onMarkAllRead={onMarkAllRead}
+            onDelete={onDelete}
+          />
 
           <div className="hidden items-center space-x-2 rounded-lg px-3 py-1 text-sm text-gray-700 hover:bg-gray-100 sm:flex">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-white">

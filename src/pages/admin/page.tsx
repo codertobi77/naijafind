@@ -8,13 +8,15 @@ import { useTranslation } from 'react-i18next';
 import useCurrency from '../../hooks/useCurrency';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { Doc } from '../../../convex/_generated/dataModel';
+import { useToast } from '../../hooks/useToast';
+import { useNotifications } from '../../hooks/useNotifications';
+import { ToastContainer, NotificationDropdown } from '../../components/base';
 
 // Define proper TypeScript interfaces based on Convex data model
 type Supplier = Doc<"suppliers">;
 type Category = Doc<"categories">;
 
-// Add Toast type definition
-type Toast = { type: 'success' | 'error'; message: string } | null;
+// Types
 
 // Add ConfirmationModal component
 function ConfirmationModal({
@@ -84,38 +86,6 @@ function ConfirmationModal({
   );
 }
 
-// Add Toast component
-function Toast({
-  toast,
-  onDismiss,
-  t
-}: {
-  toast: Toast;
-  onDismiss: () => void;
-  t: (key: string) => string;
-}) {
-  if (!toast) return null;
-
-  return (
-    <div className="fixed bottom-6 right-6 z-50">
-      <div
-        className={`flex items-center space-x-3 rounded-lg border px-4 py-3 text-sm shadow-lg ${
-          toast.type === 'success'
-            ? 'border-green-200 bg-green-50 text-green-700'
-            : 'border-red-200 bg-red-50 text-red-700'
-        }`}
-      >
-        <span>{toast.message}</span>
-        <button
-          onClick={onDismiss}
-          className="text-xs font-medium uppercase tracking-wide"
-        >
-          {t('admin.close')}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export default function AdminPage(){
   const { t } = useTranslation();
@@ -154,9 +124,11 @@ const totalRevenue = allProducts ? allProducts.reduce((acc, p) => acc + Number(p
   const { data: featuredSuppliers, refetch: refetchFeaturedSuppliers } = useConvexQuery(api.admin.getFeaturedSuppliers, {}, { staleTime: 2 * 60 * 1000 });
 const { data: allOrders, refetch: refetchAllOrders } = useConvexQuery(api.orders.getAllOrders, {}, { staleTime: 1 * 60 * 1000 });
 const updateOrderStatusMutation = useMutation(api.orders.updateOrderStatus);
-const deleteOrderMutation = useMutation(api.orders.deleteOrder);
+  const deleteOrderMutation = useMutation(api.orders.deleteOrder);
+  const sendAdminNotification = useMutation(api.notifications.sendAdminNotification);
+  const sendBulkNotification = useMutation(api.notifications.sendBulkNotification);
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'orders'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'orders' | 'notifications'>('overview');
   // Suppression de l’état fournisseurs simulé (on utilise allSuppliers de Convex)
 
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -171,7 +143,17 @@ const deleteOrderMutation = useMutation(api.orders.deleteOrder);
   });
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [notificationForm, setNotificationForm] = useState({
+    title: '',
+    message: '',
+    type: 'system' as 'system' | 'order' | 'review' | 'message' | 'verification' | 'approval',
+    userId: '',
+    actionUrl: '',
+    sendToAll: false,
+  });
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [sendingNotification, setSendingNotification] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
   // Vérifier l'accès admin
@@ -1024,6 +1006,213 @@ const deleteOrderMutation = useMutation(api.orders.deleteOrder);
             </div>
           </div>
         );
+      case 'notifications':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg border p-6">
+              <h3 className="text-lg font-semibold mb-4">Envoyer une notification</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Titre *
+                  </label>
+                  <input
+                    type="text"
+                    value={notificationForm.title}
+                    onChange={(e) => setNotificationForm({...notificationForm, title: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Titre de la notification"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Message *
+                  </label>
+                  <textarea
+                    value={notificationForm.message}
+                    onChange={(e) => setNotificationForm({...notificationForm, message: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    rows={4}
+                    placeholder="Message de la notification"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Type
+                  </label>
+                  <select
+                    value={notificationForm.type}
+                    onChange={(e) => setNotificationForm({...notificationForm, type: e.target.value as any})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="system">Système</option>
+                    <option value="order">Commande</option>
+                    <option value="review">Avis</option>
+                    <option value="message">Message</option>
+                    <option value="verification">Vérification</option>
+                    <option value="approval">Approbation</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Lien d'action (optionnel)
+                  </label>
+                  <input
+                    type="text"
+                    value={notificationForm.actionUrl}
+                    onChange={(e) => setNotificationForm({...notificationForm, actionUrl: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="/dashboard ou https://..."
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="sendToAll"
+                    checked={notificationForm.sendToAll}
+                    onChange={(e) => setNotificationForm({...notificationForm, sendToAll: e.target.checked})}
+                    className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  />
+                  <label htmlFor="sendToAll" className="text-sm text-gray-700">
+                    Envoyer à tous les utilisateurs
+                  </label>
+                </div>
+
+                {!notificationForm.sendToAll && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      ID Utilisateur *
+                    </label>
+                    <input
+                      type="text"
+                      value={notificationForm.userId}
+                      onChange={(e) => setNotificationForm({...notificationForm, userId: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="ID de l'utilisateur"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Trouvez l'ID dans la liste des fournisseurs ou utilisateurs
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-4">
+                  <button
+                    onClick={async () => {
+                      if (!notificationForm.title.trim() || !notificationForm.message.trim()) {
+                        showToast('error', 'Le titre et le message sont requis');
+                        return;
+                      }
+                      if (!notificationForm.sendToAll && !notificationForm.userId.trim()) {
+                        showToast('error', 'Veuillez sélectionner un utilisateur ou choisir "Envoyer à tous"');
+                        return;
+                      }
+                      
+                      setSendingNotification(true);
+                      try {
+                        if (notificationForm.sendToAll) {
+                          // Get all user IDs from suppliers
+                          const userIds = allSuppliers?.map((s: any) => s.userId) || [];
+                          if (userIds.length === 0) {
+                            showToast('error', 'Aucun utilisateur trouvé');
+                            return;
+                          }
+                          await sendBulkNotification({
+                            userIds,
+                            title: notificationForm.title,
+                            message: notificationForm.message,
+                            type: notificationForm.type,
+                            actionUrl: notificationForm.actionUrl || undefined,
+                          });
+                          showToast('success', `Notification envoyée à ${userIds.length} utilisateurs`);
+                        } else {
+                          await sendAdminNotification({
+                            userId: notificationForm.userId,
+                            title: notificationForm.title,
+                            message: notificationForm.message,
+                            type: notificationForm.type,
+                            actionUrl: notificationForm.actionUrl || undefined,
+                          });
+                          showToast('success', 'Notification envoyée avec succès');
+                        }
+                        // Reset form
+                        setNotificationForm({
+                          title: '',
+                          message: '',
+                          type: 'system',
+                          userId: '',
+                          actionUrl: '',
+                          sendToAll: false,
+                        });
+                      } catch (error: any) {
+                        console.error('Error sending notification:', error);
+                        showToast('error', error.message || 'Erreur lors de l\'envoi');
+                      } finally {
+                        setSendingNotification(false);
+                      }
+                    }}
+                    disabled={sendingNotification}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {sendingNotification ? (
+                      <span className="flex items-center gap-2">
+                        <i className="ri-loader-4-line animate-spin" />
+                        Envoi...
+                      </span>
+                    ) : (
+                      'Envoyer la notification'
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setNotificationForm({
+                        title: '',
+                        message: '',
+                        type: 'system',
+                        userId: '',
+                        actionUrl: '',
+                        sendToAll: false,
+                      });
+                    }}
+                    className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Réinitialiser
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <StatCard
+                label="Fournisseurs"
+                value={allSuppliers?.length || 0}
+                icon="ri-store-line"
+                iconColor="text-blue-600"
+                iconBg="bg-blue-100"
+              />
+              <StatCard
+                label="Notifications envoyées"
+                value={unreadCount}
+                icon="ri-notification-3-line"
+                iconColor="text-yellow-600"
+                iconBg="bg-yellow-100"
+              />
+              <StatCard
+                label="Non lues (vous)"
+                value={unreadCount}
+                icon="ri-mail-unread-line"
+                iconColor="text-red-600"
+                iconBg="bg-red-100"
+              />
+            </div>
+          </div>
+        );
       default:
         return null;
     }
@@ -1100,20 +1289,25 @@ const deleteOrderMutation = useMutation(api.orders.deleteOrder);
   const [confirmMessage, setConfirmMessage] = useState('');
   const [isDangerAction, setIsDangerAction] = useState(false);
   
-  // Add state for toast
-  const [toast, setToast] = useState<Toast>(null);
+  // Toast notification system
+  const { toasts, showToast, removeToast } = useToast();
   
-  // Add loading states for supplier actions
+  // Notifications system with Convex
+  const {
+    notifications,
+    unreadCount,
+    loading: notificationsLoading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+  } = useNotifications(50);
+
+  // Loading states for supplier actions
   const [isApproving, setIsApproving] = useState<Id<"suppliers"> | null>(null);
   const [isRejecting, setIsRejecting] = useState<Id<"suppliers"> | null>(null);
   const [isDeleting, setIsDeleting] = useState<Id<"suppliers"> | null>(null);
   const [isSettingFeatured, setIsSettingFeatured] = useState<Id<"suppliers"> | null>(null);
 
-  // Add helper functions for toast
-  const showToast = (type: 'success' | 'error', message: string) => {
-    setToast({ type, message });
-    setTimeout(() => setToast(null), 5000);
-  };
 
   // Add helper functions for confirmation modal
   const showConfirm = (
@@ -2003,6 +2197,17 @@ const deleteOrderMutation = useMutation(api.orders.deleteOrder);
                 <i className="ri-star-line text-lg" />
                 <span className="font-medium">{t('admin.featured_businesses')}</span>
               </button>
+              <button
+                onClick={() => setActiveTab('notifications')}
+                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                  activeTab === 'notifications'
+                    ? 'bg-green-600 text-white shadow'
+                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
+                }`}
+              >
+                <i className="ri-notification-3-line text-lg" />
+                <span className="font-medium">Notifications</span>
+              </button>
             </div>
           </nav>
 
@@ -2034,9 +2239,18 @@ const deleteOrderMutation = useMutation(api.orders.deleteOrder);
                 {activeTab === 'featured' && t('admin.featured_businesses')}
                 {activeTab === 'products' && t('admin.products')}
                 {activeTab === 'orders' && t('admin.orders')}
+                {activeTab === 'notifications' && 'Envoyer une notification'}
               </h1>
             </div>
             <div className="flex items-center space-x-3 sm:space-x-6">
+              <NotificationDropdown
+                notifications={notifications}
+                unreadCount={unreadCount}
+                loading={notificationsLoading}
+                onMarkRead={markAsRead}
+                onMarkAllRead={markAllAsRead}
+                onDelete={deleteNotification}
+              />
               <div className="hidden items-center space-x-2 rounded-lg px-3 py-1 text-sm text-gray-700 hover:bg-gray-100 sm:flex">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-white">
                   <i className="ri-user-line text-sm" />
@@ -2082,8 +2296,8 @@ const deleteOrderMutation = useMutation(api.orders.deleteOrder);
         suppliers={allSuppliers || []}
       />
 
-      {/* Add Toast */}
-      <Toast toast={toast} onDismiss={() => setToast(null)} t={t} />
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

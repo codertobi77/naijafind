@@ -6,6 +6,8 @@ import { useConvexQuerySkippable, useConvexQuery } from '../../hooks/useConvexQu
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import { useToast } from '../../hooks/useToast';
+import { ToastContainer } from '../../components/base';
 
 interface Supplier {
   id: string;
@@ -50,9 +52,9 @@ export default function SupplierDetail() {
     comment: '',
   });
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
-  const [reviewSubmitStatus, setReviewSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   
-  // Fetch supplier data from Convex with caching
+  // Toast notification system
+  const { toasts, showToast, removeToast } = useToast();
   const { data: supplierData, isLoading: supplierLoading, refetch: refetchSupplierData } = useConvexQuerySkippable(
     supplierId ? api.suppliers.getSupplierDetails : 'skip',
     supplierId ? { id: supplierId } : undefined,
@@ -74,7 +76,9 @@ export default function SupplierDetail() {
   const [activeTab, setActiveTab] = useState('overview');
   const [showContactForm, setShowContactForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  
+  // Toast notification system
+  const { toasts, showToast, removeToast } = useToast();
   
   // Extract data from Convex response
   const supplier = supplierData?.supplier as any; // Type assertion for Convex supplier data
@@ -174,15 +178,15 @@ export default function SupplierDetail() {
       });
 
       if (response.ok) {
-        setSubmitStatus('success');
+        showToast('success', t('supplier.contact_success'));
         setShowContactForm(false);
         (e.target as HTMLFormElement).reset();
       } else {
-        setSubmitStatus('error');
+        showToast('error', t('supplier.contact_error'));
       }
     } catch (error) {
       console.error('Erreur d\'envoi du formulaire:', error);
-      setSubmitStatus('error');
+      showToast('error', t('supplier.contact_error'));
     } finally {
       setIsSubmitting(false);
     }
@@ -191,7 +195,6 @@ export default function SupplierDetail() {
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setReviewSubmitting(true);
-    setReviewSubmitStatus('idle');
 
     try {
       await createReviewMutation({
@@ -200,7 +203,7 @@ export default function SupplierDetail() {
         comment: reviewForm.comment,
       });
 
-      setReviewSubmitStatus('success');
+      showToast('success', t('supplier.review_success'));
       setShowReviewForm(false);
       setReviewForm({ rating: 0, comment: '' });
       
@@ -210,7 +213,7 @@ export default function SupplierDetail() {
       }, 500); // Small delay to ensure the backend has processed the review
     } catch (error: any) {
       console.error('Erreur d\'envoi de l\'avis:', error);
-      setReviewSubmitStatus('error');
+      showToast('error', t('supplier.review_error'));
     } finally {
       setReviewSubmitting(false);
     }
@@ -273,20 +276,7 @@ export default function SupplierDetail() {
           </ol>
         </nav>
 
-        {/* Status Messages */}
-        {submitStatus === 'success' && (
-          <div className="mb-4 sm:mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
-            <i className="ri-check-line mr-2"></i>
-            {t('supplier.contact_success')}
-          </div>
-        )}
-
-        {submitStatus === 'error' && (
-          <div className="mb-4 sm:mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-            <i className="ri-error-warning-line mr-2"></i>
-            {t('supplier.contact_error')}
-          </div>
-        )}
+        {/* Status Messages - REMOVED: Now using Toast notifications */}
 
         {/* En-tête du fournisseur */}
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 lg:p-8 mb-4 sm:mb-8">
@@ -552,20 +542,6 @@ export default function SupplierDetail() {
                   </SignedOut>
                 </div>
                 
-                {reviewSubmitStatus === 'success' && (
-                  <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
-                    <i className="ri-check-line mr-2"></i>
-                    {t('supplier.review_success')}
-                  </div>
-                )}
-                
-                {reviewSubmitStatus === 'error' && (
-                  <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-                    <i className="ri-error-warning-line mr-2"></i>
-                    {t('supplier.review_error')}
-                  </div>
-                )}
-
                 {transformedReviews.length > 0 ? (
                   <div className="space-y-4 sm:space-y-6">
                     {transformedReviews.map((review) => (
@@ -1143,6 +1119,9 @@ export default function SupplierDetail() {
           </div>
         </div>
       )}
+
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }
