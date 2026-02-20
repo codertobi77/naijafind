@@ -1,4 +1,4 @@
-import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
+import { useQuery, type UseQueryOptions, useMutation, type UseMutationOptions } from '@tanstack/react-query';
 import { useConvex } from 'convex/react';
 import type { FunctionReference } from 'convex/server';
 import { getFunctionName } from 'convex/server';
@@ -59,6 +59,27 @@ export function useConvexQuerySkippable<Query extends FunctionReference<'query'>
       return result as Query['_returnType'];
     },
     enabled: query !== 'skip' && args !== undefined,
+    ...options,
+  });
+}
+
+/**
+ * Custom hook that wraps Convex mutations with React Query
+ * Provides loading states and error handling for mutations
+ */
+export function useConvexMutation<Mutation extends FunctionReference<'mutation'>>(
+  mutation: Mutation,
+  options?: Omit<UseMutationOptions<Mutation['_returnType'], Error, Mutation['_args']>, 'mutationKey' | 'mutationFn'>
+) {
+  const convex = useConvex();
+  const functionName = getFunctionName(mutation);
+
+  return useMutation({
+    mutationKey: [functionName],
+    mutationFn: async (args: Mutation['_args']) => {
+      const result = await convex.mutation(mutation, args);
+      return result as Mutation['_returnType'];
+    },
     ...options,
   });
 }

@@ -178,4 +178,15 @@ export default defineSchema({
   })
     .index("identifier_action", ["identifier", "action"])
     .index("timestamp", ["timestamp"]),
+  // Newsletter subscriptions
+  newsletter_subscriptions: defineTable({
+    email: v.string(),
+    name: v.optional(v.string()),
+    sector: v.optional(v.string()),
+    status: v.string(), // 'active' | 'unsubscribed' | 'bounced'
+    subscribedAt: v.string(),
+    unsubscribedAt: v.optional(v.string()),
+  })
+    .index("email", ["email"])
+    .index("status", ["status"]),
 });

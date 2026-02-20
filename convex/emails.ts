@@ -347,3 +347,219 @@ function generateVerificationToken(): string {
   }
   return token;
 }
+
+/**
+ * Newsletter subscription
+ * Subscribe an email to the newsletter
+ */
+export const subscribeToNewsletter = mutation({
+  args: {
+    email: v.string(),
+    name: v.optional(v.string()),
+    sector: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Normalize email
+    const normalizedEmail = args.email.toLowerCase().trim();
+    
+    // Check if email already exists
+    const existing = await ctx.db
+      .query("newsletter_subscriptions")
+      .filter((q) => q.eq(q.field("email"), normalizedEmail))
+      .first();
+    
+    if (existing) {
+      if (existing.status === "active") {
+        return { success: true, message: "Email already subscribed", alreadySubscribed: true };
+      }
+      // Reactivate if previously unsubscribed
+      await ctx.db.patch(existing._id, {
+        status: "active",
+        name: args.name || existing.name,
+        sector: args.sector || existing.sector,
+        subscribedAt: new Date().toISOString(),
+        unsubscribedAt: undefined,
+      });
+      
+      // Send welcome back email
+      try {
+        await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
+          to: normalizedEmail,
+          subject: "Welcome back to Olufinja newsletter!",
+          html: `
+            <h2>Welcome back!</h2>
+            <p>Hi ${args.name || "there"},</p>
+            <p>You've successfully resubscribed to the Olufinja newsletter. We're excited to have you back!</p>
+            <p>You'll now receive:</p>
+            <ul>
+              <li>Exclusive supplier offers and deals</li>
+              <li>New supplier announcements</li>
+              <li>Industry insights and trends</li>
+              <li>Tips for finding the best suppliers in Nigeria</li>
+            </ul>
+            <p>Best regards,<br>The Olufinja Team</p>
+          `,
+        });
+      } catch (emailError) {
+        console.error("Failed to send welcome back email:", emailError);
+      }
+      
+      return { success: true, message: "Successfully resubscribed", alreadySubscribed: false };
+    }
+    
+    // Create new subscription
+    const subscriptionId = await ctx.db.insert("newsletter_subscriptions", {
+      email: normalizedEmail,
+      name: args.name,
+      sector: args.sector,
+      status: "active",
+      subscribedAt: new Date().toISOString(),
+    });
+    
+    // Send welcome email
+    try {
+      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
+        to: normalizedEmail,
+        subject: "Welcome to Olufinja newsletter!",
+        html: `
+          <h2>Welcome to Olufinja!</h2>
+          <p>Hi ${args.name || "there"},</p>
+          <p>Thank you for subscribing to our newsletter. You're now part of a community that stays informed about the best suppliers and businesses in Nigeria.</p>
+          <p>Here's what you can expect:</p>
+          <ul>
+            <li>Exclusive offers from verified suppliers</li>
+            <li>New supplier spotlights</li>
+            <li>Industry news and updates</li>
+            <li>Tips for business growth</li>
+          </ul>
+          <p><a href="https://Olufinja.com/search" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Start Exploring</a></p>
+          <p>Best regards,<br>The Olufinja Team</p>
+        `,
+      });
+    } catch (emailError) {
+      console.error("Failed to send welcome email:", emailError);
+    }
+    
+    console.log("Newsletter subscription created:", subscriptionId);
+    return { success: true, id: subscriptionId, message: "Successfully subscribed", alreadySubscribed: false };
+  },
+});
+
+/**
+ * Unsubscribe from newsletter
+ */
+export const unsubscribeFromNewsletter = mutation({
+  args: {
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.email.toLowerCase().trim();
+    
+    const subscription = await ctx.db
+      .query("newsletter_subscriptions")
+      .filter((q) => q.eq(q.field("email"), normalizedEmail))
+      .first();
+    
+    if (!subscription) {
+      return { success: false, message: "Email not found" };
+    }
+    
+    await ctx.db.patch(subscription._id, {
+      status: "unsubscribed",
+      unsubscribedAt: new Date().toISOString(),
+    });
+    
+    return { success: true, message: "Successfully unsubscribed" };
+  },
+});
+
+/**
+ * Send newsletter to all active subscribers
+ * Admin only function
+ */
+export const sendNewsletter = mutation({
+  args: {
+    subject: v.string(),
+    html: v.string(),
+    text: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    
+    // Check if user is admin
+    const user = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("email"), identity.email))
+      .first();
+    
+    if (!user || !user.is_admin) {
+      throw new Error("Access denied. Admin only.");
+    }
+    
+    // Get all active subscribers
+    const subscribers = await ctx.db
+      .query("newsletter_subscriptions")
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+    
+    if (subscribers.length === 0) {
+      return { success: true, sent: 0, message: "No active subscribers" };
+    }
+    
+    // Schedule emails for each subscriber (batch processing)
+    let scheduledCount = 0;
+    for (const subscriber of subscribers) {
+      try {
+        await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
+          to: subscriber.email,
+          subject: args.subject,
+          html: args.html,
+        });
+        scheduledCount++;
+      } catch (error) {
+        console.error(`Failed to schedule email for ${subscriber.email}:`, error);
+      }
+    }
+    
+    console.log(`Newsletter scheduled for ${scheduledCount} subscribers`);
+    return { 
+      success: true, 
+      sent: scheduledCount, 
+      total: subscribers.length,
+      message: `Newsletter scheduled for ${scheduledCount} subscribers` 
+    };
+  },
+});
+
+/**
+ * Get newsletter subscribers (admin only)
+ */
+export const getNewsletterSubscribers = mutation({
+  args: {
+    status: v.optional(v.string()), // 'active' | 'unsubscribed' | 'all'
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    
+    // Check if user is admin
+    const user = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("email"), identity.email))
+      .first();
+    
+    if (!user || !user.is_admin) {
+      throw new Error("Access denied. Admin only.");
+    }
+    
+    let query = ctx.db.query("newsletter_subscriptions");
+    
+    if (args.status && args.status !== "all") {
+      query = query.filter((q) => q.eq(q.field("status"), args.status));
+    }
+    
+    const subscribers = await query.collect();
+    return { success: true, subscribers, count: subscribers.length };
+  },
+});

@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import LanguageSelector from '../../components/base/LanguageSelector';
 import { useConvexAuth } from 'convex/react';
-import { useConvexQuery } from '../../hooks/useConvexQuery';
+import { useConvexQuery, useConvexMutation } from '../../hooks/useConvexQuery';
 import { api } from '../../../convex/_generated/api';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
 import type { Doc } from '../../../convex/_generated/dataModel';
@@ -34,6 +34,9 @@ export default function Home() {
     {},
     { staleTime: 15 * 60 * 1000 } // Cache categories for 15 minutes
   );
+
+  // Newsletter subscription mutation
+  const { mutate: subscribeToNewsletter, isLoading: isSubscribing } = useConvexMutation(api.emails.subscribeToNewsletter);
   
   // State for displaying messages from navigation
   const [message, setMessage] = useState<string | null>(null);
@@ -540,21 +543,37 @@ export default function Home() {
               <form className="space-y-4" data-readdy-form id="newsletter-subscription" onSubmit={async (e) => {
                 e.preventDefault();
                 const formData = new FormData(e.target as HTMLFormElement);
+                const name = formData.get('name') as string;
+                const email = formData.get('email') as string;
+                const sector = formData.get('sector') as string;
+
                 try {
-                  const response = await fetch('https://readdy.ai/api/form/d3i6i9b2p8nb8r4n7e7g', {
-                    method: 'POST',
-                    body: formData
+                  const result = await subscribeToNewsletter({
+                    email,
+                    name: name || undefined,
+                    sector: sector || undefined,
                   });
-                  if (response.ok) {
+
+                  if (result?.success) {
                     setModalConfig({
                       title: 'Inscription réussie !',
-                      message: 'Merci de vous être abonné à notre newsletter.',
+                      message: result.alreadySubscribed
+                        ? 'Vous êtes déjà inscrit à notre newsletter.'
+                        : 'Merci de vous être abonné à notre newsletter. Un email de confirmation vous a été envoyé.',
                       icon: 'success'
                     });
                     setModalOpen(true);
                     (e.target as HTMLFormElement).reset();
+                  } else {
+                    setModalConfig({
+                      title: 'Erreur',
+                      message: result?.message || 'Erreur lors de l\'inscription. Veuillez réessayer.',
+                      icon: 'warning'
+                    });
+                    setModalOpen(true);
                   }
                 } catch (error) {
+                  console.error('Newsletter subscription error:', error);
                   setModalConfig({
                     title: 'Erreur',
                     message: 'Erreur lors de l\'inscription. Veuillez réessayer.',
@@ -607,10 +626,11 @@ export default function Home() {
                 </div>
                 <button
                   type="submit"
-                  className="w-full bg-green-600 text-white py-2 sm:py-3 px-4 sm:px-6 rounded-lg hover:bg-green-700 transition-colors font-medium whitespace-nowrap text-sm sm:text-base"
+                  disabled={isSubscribing}
+                  className="w-full bg-green-600 text-white py-2 sm:py-3 px-4 sm:px-6 rounded-lg hover:bg-green-700 transition-colors font-medium whitespace-nowrap text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <i className="ri-mail-line mr-2"></i>
-                  S'abonner à la newsletter
+                  {isSubscribing ? 'Inscription en cours...' : "S'abonner à la newsletter"}
                 </button>
               </form>
             </div>
