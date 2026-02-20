@@ -603,9 +603,6 @@ export default function Search() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   
-  // Using React Query for caching
-  const { data: meData } = useConvexQuery(api.users.me, {}, { staleTime: 2 * 60 * 1000 });
-  
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
@@ -617,7 +614,7 @@ export default function Search() {
     rating: '',
     verified: false
   });
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [showFiltersMobile, setShowFiltersMobile] = useState(false);
   const [sortBy, setSortBy] = useState('relevance');
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 20;
@@ -811,17 +808,17 @@ export default function Search() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8" id="resultSection">
         <div className="flex flex-col lg:flex-row gap-6 sm:gap-8">
-          {/* Filters */}
-          <div className="lg:w-1/4">
-            <div className="bg-white rounded-2xl shadow-soft p-6 sticky top-24 border border-gray-100">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold text-lg flex items-center">
+          {/* Filters - Desktop: Always visible, Mobile: Collapsible */}
+          <div className={`lg:w-1/4 ${showFiltersMobile ? 'block' : 'hidden lg:block'}`}>
+            <div className="bg-white rounded-2xl shadow-soft p-4 sm:p-6 lg:sticky lg:top-24 border border-gray-100">
+              <div className="flex items-center justify-between mb-4 lg:mb-6">
+                <h3 className="font-bold text-base sm:text-lg flex items-center">
                   <i className="ri-filter-3-line mr-2 text-green-600"></i>
                   {t('search.filters')}
                 </h3>
                 <button
                   onClick={() => setFilters({category: '', location: '', query: '', distance: '50', rating: '', verified: false})}
-                  className="text-sm text-green-600 hover:text-green-700 font-medium"
+                  className="text-xs sm:text-sm text-green-600 hover:text-green-700 font-medium"
                 >
                   {t('filter.clear')}
                 </button>
@@ -993,6 +990,20 @@ export default function Search() {
 
           {/* Results */}
           <div className="lg:w-3/4">
+            {/* Mobile Filter Toggle */}
+            <div className="lg:hidden mb-4">
+              <button
+                onClick={() => setShowFiltersMobile(!showFiltersMobile)}
+                className="w-full bg-white rounded-xl shadow-soft border border-gray-100 p-3 flex items-center justify-between"
+              >
+                <span className="font-medium text-gray-700 flex items-center">
+                  <i className="ri-filter-3-line mr-2 text-green-600"></i>
+                  {showFiltersMobile ? 'Masquer les filtres' : 'Afficher les filtres'}
+                </span>
+                <i className={`ri-arrow-${showFiltersMobile ? 'up' : 'down'}-line text-gray-400`}></i>
+              </button>
+            </div>
+
             {/* Results header */}
             <div className="bg-white rounded-2xl shadow-soft p-6 mb-6 border border-gray-100">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

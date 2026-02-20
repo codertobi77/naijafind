@@ -4,7 +4,6 @@ import { useAuth, useUser } from '@clerk/clerk-react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useTranslation } from 'react-i18next';
-import LanguageSelector from '../../components/base/LanguageSelector';
 import Modal from '../../components/base/Modal';
 
 export default function ChooseRole() {

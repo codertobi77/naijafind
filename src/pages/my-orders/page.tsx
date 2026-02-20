@@ -4,8 +4,7 @@ import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { api } from '../../../convex/_generated/api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useTranslation } from 'react-i18next';
-import LanguageSelector from '../../components/base/LanguageSelector';
-import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import { Header } from '../../components/base';
 
 export default function MyOrders() {
   const { t } = useTranslation();
@@ -44,53 +43,7 @@ export default function MyOrders() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16 md:h-20">
-            <div className="flex items-center group">
-              <Link to="/" className="flex items-center space-x-2">
-                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
-                  <i className="ri-compass-3-fill text-white text-xl"></i>
-                </div>
-                <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent" style={{ fontFamily: "Pacifico, serif" }}>
-                  Olufinja
-                </span>
-              </Link>
-            </div>
-            <nav className="hidden md:flex space-x-1">
-              <Link to="/" className="px-4 py-2 rounded-lg text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium transition-all">{t('nav.home')}</Link>
-              <Link to="/search" className="px-4 py-2 rounded-lg text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium transition-all">{t('nav.search')}</Link>
-              <Link to="/categories" className="px-4 py-2 rounded-lg text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium transition-all">{t('nav.categories')}</Link>
-              <Link to="/about" className="px-4 py-2 rounded-lg text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium transition-all">{t('nav.about')}</Link>
-            </nav>
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <LanguageSelector />
-              <SignedOut>
-                <Link to="/auth/login" className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 sm:px-6 py-2.5 rounded-xl hover:shadow-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-medium whitespace-nowrap text-sm sm:text-base transform hover:-translate-y-0.5">
-                  {t('nav.login')}
-                </Link>
-              </SignedOut>
-              <SignedIn>
-                <Link 
-                  to="/my-orders"
-                  className="text-green-600 bg-green-50 font-medium px-3 py-2 rounded-lg transition-colors hidden sm:block"
-                >
-                  Mes commandes
-                </Link>
-                <UserButton 
-                  afterSignOutUrl="/"
-                  appearance={{
-                    elements: {
-                      avatarBox: "w-10 h-10"
-                    }
-                  }}
-                />
-              </SignedIn>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

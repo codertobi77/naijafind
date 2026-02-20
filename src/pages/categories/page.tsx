@@ -5,7 +5,6 @@ import { Header } from '../../components/base';
 import { useConvexAuth } from 'convex/react';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { api } from '../../../convex/_generated/api';
-import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
 
 // Default category image URL for fallback
 const DEFAULT_CATEGORY_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23f3f4f6'/%3E%3Cg transform='translate(200,150)'%3E%3Cpath d='M-60-80h120v160h-120zM-40-100h80v20h-80zM-30-90h20v-20h-20z' fill='%239ca3af'/%3E%3Cpath d='M-40-40h80v20h-80zM-40-10h80v20h-80zM-40 20h60v20h-60z' fill='%23d1d5db'/%3E%3C/g%3E%3C/svg%3E";

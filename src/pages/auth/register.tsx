@@ -4,7 +4,6 @@ import { SignUp, useAuth, SignedIn, SignedOut } from '@clerk/clerk-react';
 import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useTranslation } from 'react-i18next';
-import LanguageSelector from '../../components/base/LanguageSelector';
 
 export default function Register() {
 	const { t } = useTranslation();
