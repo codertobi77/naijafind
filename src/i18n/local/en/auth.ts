@@ -117,6 +117,9 @@ export const auth = {
   "supplier_setup.errors.email_not_available": "Email not available",
   "supplier_setup.errors.profile_creation_error": "Error creating supplier profile",
   "supplier_setup.errors.profile_exists": "A supplier profile already exists for this user",
+  "supplier_setup.business_type": "Business type",
+  "supplier_setup.products": "Products",
+  "supplier_setup.services": "Services",
 
   // General
   "loading": "Loading...",

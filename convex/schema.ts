@@ -39,6 +39,7 @@ export default defineSchema({
     social_links: v.optional(v.record(v.string(), v.string())),
     latitude: v.optional(v.float64()),
     longitude: v.optional(v.float64()),
+    business_type: v.optional(v.string()), // 'products' or 'services'
     created_at: v.string(),
     updated_at: v.string(),
   })

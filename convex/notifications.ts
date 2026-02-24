@@ -225,6 +225,43 @@ export const createMessageNotification = mutation({
   },
 });
 
+// Create a contact request notification when a customer wants to contact a supplier
+export const createContactRequest = mutation({
+  args: {
+    supplierUserId: v.string(),
+    customerName: v.string(),
+    customerEmail: v.optional(v.string()),
+    customerPhone: v.optional(v.string()),
+    message: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const currentUserId = await getAuthUserId(ctx);
+    if (!currentUserId) {
+      throw new Error('Not authenticated');
+    }
+
+    // Create notification for supplier
+    const notificationId = await ctx.db.insert('notifications', {
+      userId: args.supplierUserId,
+      type: 'contact_request',
+      title: 'Nouvelle demande de contact',
+      message: `${args.customerName} souhaite vous contacter${args.message ? `: "${args.message.substring(0, 100)}${args.message.length > 100 ? '...' : ''}"` : ''}`,
+      data: {
+        customerUserId: currentUserId,
+        customerName: args.customerName,
+        customerEmail: args.customerEmail,
+        customerPhone: args.customerPhone,
+        message: args.message,
+      },
+      read: false,
+      actionUrl: '/dashboard?tab=notifications',
+      createdAt: new Date().toISOString(),
+    });
+
+    return notificationId;
+  },
+});
+
 // Admin: Send custom notification to any user
 export const sendAdminNotification = mutation({
   args: {

@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useConvexAuth, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useConvexQuerySkippable, useConvexQuery } from '../../hooks/useConvexQuery';
+import { useQuery } from 'convex/react';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
@@ -28,7 +29,9 @@ interface Supplier {
   verified: boolean;
   image_url: string;
   image_gallery: string[];
+  business_type: string;
   created_at: string;
+  userId?: string; // For internal messaging
 }
 
 interface Review {
@@ -64,6 +67,15 @@ export default function SupplierDetail() {
   
   // Review mutation
   const createReviewMutation = useMutation(api.reviews.createReview);
+  const createContactRequestMutation = useMutation(api.notifications.createContactRequest);
+  
+  // Fetch products for the supplier
+  const productsQueryResult = useConvexQuerySkippable(
+    supplierId ? api.products.listProductsBySupplier : 'skip',
+    supplierId ? { supplierId } : undefined
+  );
+  const productsData = productsQueryResult.data || [];
+  const productsLoading = productsQueryResult.isLoading || false;
   
   // Fetch similar suppliers based on category
   const [supplierCategory, setSupplierCategory] = useState<string | null>(null);
@@ -75,7 +87,15 @@ export default function SupplierDetail() {
 
   const [activeTab, setActiveTab] = useState('overview');
   const [showContactForm, setShowContactForm] = useState(false);
+  const [showInternalMessageForm, setShowInternalMessageForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSendingInternalMessage, setIsSendingInternalMessage] = useState(false);
+  const [internalMessageForm, setInternalMessageForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    message: '',
+  });
   
   // Extract data from Convex response
   const supplier = supplierData?.supplier as any; // Type assertion for Convex supplier data
@@ -150,7 +170,9 @@ export default function SupplierDetail() {
     verified: supplier.verified || false,
     image_url: supplier.image || `${supplier.business_name || 'business'} ${supplier.category || ''} Nigeria professional storefront`,
     image_gallery: supplier.imageGallery || [],
+    business_type: supplier.business_type || 'products', // Default to products
     created_at: supplier.created_at || new Date().toISOString(),
+    userId: supplier.userId, // For internal messaging
   } : null;
   
   const transformedReviews: Review[] = reviews.map((r: any) => ({
@@ -213,6 +235,36 @@ export default function SupplierDetail() {
       showToast('error', t('supplier.review_error'));
     } finally {
       setReviewSubmitting(false);
+    }
+  };
+
+  const handleInternalMessageSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!transformedSupplier?.userId) {
+      showToast('error', t('supplier.contact_error'));
+      return;
+    }
+
+    setIsSendingInternalMessage(true);
+
+    try {
+      await createContactRequestMutation({
+        supplierUserId: transformedSupplier.userId,
+        customerName: internalMessageForm.name,
+        customerEmail: internalMessageForm.email || undefined,
+        customerPhone: internalMessageForm.phone || undefined,
+        message: internalMessageForm.message,
+      });
+
+      showToast('success', t('supplier.message_sent_success'));
+      setShowInternalMessageForm(false);
+      setInternalMessageForm({ name: '', email: '', phone: '', message: '' });
+    } catch (error: any) {
+      console.error('Erreur d\'envoi du message:', error);
+      showToast('error', t('supplier.message_sent_error'));
+    } finally {
+      setIsSendingInternalMessage(false);
     }
   };
 
@@ -378,13 +430,7 @@ export default function SupplierDetail() {
               </div>
 
               <div className="flex flex-wrap gap-2 sm:gap-3">
-                <button
-                  onClick={() => setShowContactForm(true)}
-                  className="bg-green-600 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base"
-                >
-                  <i className="ri-mail-line mr-1 sm:mr-2"></i>
-                  {t('supplier.contact')}
-                </button>
+                {/* Three contact methods */}
                 <a
                   href={`tel:${transformedSupplier.phone}`}
                   className="bg-blue-600 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base"
@@ -392,13 +438,34 @@ export default function SupplierDetail() {
                   <i className="ri-phone-line mr-1 sm:mr-2"></i>
                   {t('supplier.call')}
                 </a>
-                <button
-                  onClick={() => (document.querySelector('#vapi-widget-floating-button') as HTMLElement)?.click?.()}
-                  className="bg-purple-600 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-purple-700 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base"
+                <a
+                  href={`https://wa.me/${transformedSupplier.phone?.replace(/\D/g, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-green-500 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-green-600 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base"
                 >
-                  <i className="ri-calendar-line mr-1 sm:mr-2"></i>
-                  <span className="hidden sm:inline">{t('supplier.schedule')}</span>
-                </button>
+                  <i className="ri-whatsapp-line mr-1 sm:mr-2"></i>
+                  WhatsApp
+                </a>
+                <SignedIn>
+                  <button
+                    onClick={() => setShowInternalMessageForm(true)}
+                    className="bg-purple-600 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-purple-700 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base"
+                  >
+                    <i className="ri-mail-send-line mr-1 sm:mr-2"></i>
+                    {t('supplier.internal_message')}
+                  </button>
+                </SignedIn>
+                <SignedOut>
+                  <Link
+                    to="/auth/login"
+                    className="bg-purple-600 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-purple-700 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base"
+                  >
+                    <i className="ri-mail-send-line mr-1 sm:mr-2"></i>
+                    {t('supplier.internal_message')}
+                  </Link>
+                </SignedOut>
+                
                 {transformedSupplier.website && (
                   <a
                     href={transformedSupplier.website.startsWith('http') ? transformedSupplier.website : `https://${transformedSupplier.website}`}
@@ -411,12 +478,18 @@ export default function SupplierDetail() {
                     <span className="sm:hidden">{t('supplier.website')}</span>
                   </a>
                 )}
-                <button className="border border-gray-300 text-gray-700 px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base">
+                <button 
+                  title={t('supplier.feature_not_available')}
+                  className="border border-gray-300 text-gray-700 px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base cursor-not-allowed opacity-60"
+                >
                   <i className="ri-share-line mr-1 sm:mr-2"></i>
                   <span className="hidden sm:inline">{t('supplier.share')}</span>
                   <span className="sm:hidden">{t('supplier.share')}</span>
                 </button>
-                <button className="border border-gray-300 text-gray-700 px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base">
+                <button 
+                  title={t('supplier.feature_not_available')}
+                  className="border border-gray-300 text-gray-700 px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base cursor-not-allowed opacity-60"
+                >
                   <i className="ri-heart-line mr-1 sm:mr-2"></i>
                   <span className="hidden sm:inline">{t('supplier.favorite')}</span>
                   <span className="sm:hidden">{t('supplier.favorite')}</span>
@@ -435,7 +508,11 @@ export default function SupplierDetail() {
                 { id: 'reviews', label: `${t('supplier.reviews')} (${transformedReviews.length})`, icon: 'ri-star-line' },
                 { id: 'location', label: t('supplier.location'), icon: 'ri-map-pin-line' },
                 { id: 'contact', label: t('supplier.contact'), icon: 'ri-phone-line' },
-                { id: 'gallery', label: t('supplier.gallery'), icon: 'ri-image-line' },
+                {
+                  id: transformedSupplier?.business_type === 'services' ? 'gallery' : 'products',
+                  label: transformedSupplier?.business_type === 'services' ? t('supplier.gallery') : t('supplier.products'),
+                  icon: transformedSupplier?.business_type === 'services' ? 'ri-image-line' : 'ri-product-hunt-line'
+                }
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -454,6 +531,7 @@ export default function SupplierDetail() {
                     {tab.id === 'location' && t('supplier.location')}
                     {tab.id === 'contact' && t('supplier.contact')}
                     {tab.id === 'gallery' && t('supplier.gallery')}
+                    {tab.id === 'products' && t('supplier.products')}
                   </span>
                 </button>
               ))}
@@ -840,6 +918,57 @@ export default function SupplierDetail() {
                 )}
               </div>
             )}
+            
+            {activeTab === 'products' && (
+              <div>
+                <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">{t('supplier.products')}</h3>
+                {productsLoading ? (
+                  <div className="flex justify-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+                  </div>
+                ) : productsData && productsData.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {productsData.map((product: any) => (
+                      <div key={product._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-start gap-4">
+                          {product.images && product.images.length > 0 ? (
+                            <img 
+                              src={product.images[0]}
+                              alt={product.name}
+                              className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = `https://readdy.ai/api/search-image?query=${encodeURIComponent(product.name)}&width=80&height=80&seq=product-${product._id}&orientation=squarish`;
+                                target.onerror = null;
+                              }}
+                            />
+                          ) : (
+                            <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <i className="ri-image-line text-gray-500"></i>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-gray-900 truncate">{product.name}</h4>
+                            <p className="text-sm text-gray-600 mt-1 line-clamp-2">{product.description}</p>
+                            <div className="mt-2 flex items-center justify-between">
+                              <span className="font-bold text-green-600">{product.price?.toFixed(2)} {t('currency.symbol')}</span>
+                              <span className={`px-2 py-1 rounded-full text-xs ${product.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                {product.status === 'active' ? t('status.active') : t('status.inactive')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <i className="ri-product-hunt-line text-4xl text-gray-400 mb-4"></i>
+                    <p className="text-gray-600">{t('supplier.no_products')}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1108,6 +1237,110 @@ export default function SupplierDetail() {
                     <>
                       <i className="ri-send-plane-line mr-2"></i>
                       {t('supplier.send')}
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de message interne */}
+      {showInternalMessageForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
+              <h3 className="text-base sm:text-lg lg:text-xl font-semibold">{t('supplier.internal_message')} {transformedSupplier?.name}</h3>
+              <button
+                onClick={() => setShowInternalMessageForm(false)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <i className="ri-close-line text-lg sm:text-xl"></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleInternalMessageSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  {t('supplier.your_name')} *
+                </label>
+                <input
+                  type="text"
+                  value={internalMessageForm.name}
+                  onChange={(e) => setInternalMessageForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
+                  placeholder={t('supplier.placeholder_name')}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  {t('supplier.email')}
+                </label>
+                <input
+                  type="email"
+                  value={internalMessageForm.email}
+                  onChange={(e) => setInternalMessageForm(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
+                  placeholder={t('supplier.placeholder_email')}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  {t('supplier.phone_number')}
+                </label>
+                <input
+                  type="tel"
+                  value={internalMessageForm.phone}
+                  onChange={(e) => setInternalMessageForm(prev => ({ ...prev, phone: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
+                  placeholder={t('supplier.placeholder_phone')}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                  {t('supplier.message')} *
+                </label>
+                <textarea
+                  rows={4}
+                  value={internalMessageForm.message}
+                  onChange={(e) => setInternalMessageForm(prev => ({ ...prev, message: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs sm:text-sm"
+                  placeholder={t('supplier.placeholder_message')}
+                  maxLength={500}
+                  required
+                ></textarea>
+                <p className="text-xs text-gray-500 mt-1">
+                  {internalMessageForm.message.length}/500 {t('supplier.characters')}
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowInternalMessageForm(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-xs sm:text-sm"
+                >
+                  {t('supplier.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSendingInternalMessage || !internalMessageForm.name.trim() || !internalMessageForm.message.trim()}
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors whitespace-nowrap disabled:opacity-50 text-xs sm:text-sm"
+                >
+                  {isSendingInternalMessage ? (
+                    <>
+                      <i className="ri-loader-4-line animate-spin mr-2"></i>
+                      {t('supplier.sending')}
+                    </>
+                  ) : (
+                    <>
+                      <i className="ri-send-plane-line mr-2"></i>
+                      {t('supplier.send_message')}
                     </>
                   )}
                 </button>

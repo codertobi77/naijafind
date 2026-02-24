@@ -130,6 +130,7 @@ export const signUpSupplier = mutation({
     website: v.optional(v.string()),
     image: v.optional(v.string()),
     imageGallery: v.optional(v.array(v.string())),
+    business_type: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -184,6 +185,7 @@ export const signUpSupplier = mutation({
       website: args.website,
       image: args.image,
       imageGallery: args.imageGallery,
+      business_type: args.business_type,
       business_hours: defaultBusinessHours,
       rating: 0,
       reviews_count: 0n,

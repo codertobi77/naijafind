@@ -170,7 +170,7 @@ function CategoriesCarousel({ categories, t }: CategoriesCarouselProps) {
         <SectionTitle
           title={t('categories.title')}
           subtitle={t('categories.subtitle')}
-          align="center"
+          centered
         />
 
         <div className="relative">
@@ -269,7 +269,7 @@ function FeaturedSuppliersSection({ featuredSuppliers, featuredSuppliersData, t 
         <SectionTitle
           title={t('featured.title')}
           subtitle={t('featured.subtitle')}
-          align="center"
+          centered
         />
 
         {featuredSuppliersData === undefined ? (
@@ -367,8 +367,10 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
   return (
     <HeroSection
       backgroundImage="https://readdy.ai/api/search-image?query=Modern%20Nigerian%20marketplace%20with%20vendors%20selling%20colorful%20products%2C%20bustling%20commercial%20district%20in%20Lagos%20with%20traditional%20and%20modern%20buildings%2C%20vibrant%20street%20scene%20with%20people%20shopping%2C%20warm%20golden%20lighting%2C%20professional%20photography%20style%2C%20clean%20organized%20market%20stalls&width=1200&height=600&seq=hero-nigeria&orientation=landscape"
-      overlay="from-black/60 via-black/50 to-black/40"
-      badge={{ icon: '', text: 'Trusted by 25,000+ Nigerian businesses', showPulse: true }}
+      backgroundGradient="from-black/60 via-black/50 to-black/40"
+      showBadge={true}
+      badgeText="Trusted by 25,000+ Nigerian businesses"
+      badgeIcon=""
       title={t('hero.title')}
       subtitle={t('hero.subtitle')}
     >
@@ -438,7 +440,7 @@ export default function Home() {
     {},
     { staleTime: 10 * 60 * 1000 }
   );
-  const { data: categories } = useConvexQuery(
+  const { data: categories }: { data: Array<{ _id: string; name: string }> | undefined } = useConvexQuery(
     api.categories.getAllCategories,
     {},
     { staleTime: 15 * 60 * 1000 }

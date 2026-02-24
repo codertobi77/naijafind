@@ -19,10 +19,25 @@ export const supplier = {
   "supplier.visit_website": "Visit website",
   "supplier.share": "Share",
   "supplier.favorite": "Favorite",
+  "supplier.review_success": "Your review has been submitted successfully!",
+  "supplier.review_error": "There was an error submitting your review. Please try again.",
+  "supplier.login_to_review": "Log in to leave a review",
+  "supplier.no_photos": "No photos available",
+  "supplier.leave_review_for": "Leave a review for",
+  "supplier.rating": "Rating",
+  "supplier.star": "star",
+  "supplier.stars": "stars",
+  "supplier.comment": "Comment",
+  "supplier.placeholder_comment": "Write your comment here...",
+  "supplier.no_products": "No products available",
+  "supplier.characters": "characters",
+  "supplier.submitting": "Submitting...",
+  "supplier.submit_review": "Submit Review",
   "supplier.overview": "Overview",
   "supplier.reviews": "Reviews",
   "supplier.location": "Location",
   "supplier.gallery": "Gallery",
+  "supplier.products": "Products",
   "supplier.about": "About",
   "supplier.important_info": "Important information",
   "supplier.verified_by_olufinja": "Verified by Olufinja",
@@ -67,7 +82,11 @@ export const supplier = {
   "supplier.max_characters": "Maximum 500 characters",
   "supplier.cancel": "Cancel",
   "supplier.send": "Send",
-  "supplier.sending": "Sending..."
+  "supplier.sending": "Sending...",
+  "supplier.feature_not_available": "This feature is not yet available",
+  "supplier.internal_message": "Internal Message",
+  "supplier.message_sent_success": "Your message has been sent successfully! The supplier will contact you soon.",
+  "supplier.message_sent_error": "An error occurred while sending your message. Please try again."
 };
 
 export default supplier;

@@ -19,10 +19,25 @@ export const supplier = {
   "supplier.visit_website": "Visiter le site",
   "supplier.share": "Partager",
   "supplier.favorite": "Favoris",
+  "supplier.review_success": "Votre avis a été soumis avec succès !",
+  "supplier.review_error": "Une erreur s'est produite lors de la soumission de votre avis. Veuillez réessayer.",
+  "supplier.login_to_review": "Connectez-vous pour laisser un avis",
+  "supplier.no_photos": "Aucune photo disponible",
+  "supplier.leave_review_for": "Laisser un avis pour",
+  "supplier.rating": "Note",
+  "supplier.star": "étoile",
+  "supplier.stars": "étoiles",
+  "supplier.comment": "Commentaire",
+  "supplier.placeholder_comment": "Écrivez votre commentaire ici...",
+  "supplier.no_products": "Aucun produit disponible",
+  "supplier.characters": "caractères",
+  "supplier.submitting": "Envoi...",
+  "supplier.submit_review": "Soumettre l'avis",
   "supplier.overview": "Aperçu",
   "supplier.reviews": "Avis",
   "supplier.location": "Localisation",
   "supplier.gallery": "Galerie",
+  "supplier.products": "Produits",
   "supplier.about": "À propos",
   "supplier.important_info": "Informations importantes",
   "supplier.verified_by_olufinja": "Entreprise vérifiée par Olufinja",
@@ -67,7 +82,11 @@ export const supplier = {
   "supplier.max_characters": "Maximum 500 caractères",
   "supplier.cancel": "Annuler",
   "supplier.send": "Envoyer",
-  "supplier.sending": "Envoi..."
+  "supplier.sending": "Envoi...",
+  "supplier.feature_not_available": "Cette fonctionnalité n'est pas encore disponible",
+  "supplier.internal_message": "Message interne",
+  "supplier.message_sent_success": "Votre message a été envoyé avec succès ! Le fournisseur vous contactera bientôt.",
+  "supplier.message_sent_error": "Une erreur s'est produite lors de l'envoi de votre message. Veuillez réessayer."
 };
 
 export default supplier;

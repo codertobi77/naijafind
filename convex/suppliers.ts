@@ -78,9 +78,23 @@ export const searchSuppliers = query({
 
     if (args.q && args.q.trim()) {
       const q = args.q.toLowerCase();
+      
+      // Get all products to search through
+      const allProducts = await ctx.db.query("products").collect();
+      
+      // Find suppliers that have matching products
+      const supplierIdsWithMatchingProducts = new Set<string>();
+      allProducts.forEach(product => {
+        if (product.name?.toLowerCase().includes(q) || 
+            product.description?.toLowerCase().includes(q)) {
+          supplierIdsWithMatchingProducts.add(product.supplierId);
+        }
+      });
+      
       all = all.filter(s =>
         (s.business_name?.toLowerCase().includes(q)) ||
-        (s.description?.toLowerCase().includes(q))
+        (s.description?.toLowerCase().includes(q)) ||
+        supplierIdsWithMatchingProducts.has(s._id as unknown as string)
       );
     }
 
@@ -174,6 +188,7 @@ export const updateSupplierProfile = mutation({
     imageGallery: v.optional(v.array(v.string())),
     business_hours: v.optional(v.record(v.string(), v.string())),
     social_links: v.optional(v.record(v.string(), v.string())),
+    business_type: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -220,6 +235,7 @@ export const updateSupplierProfile = mutation({
       imageGallery: args.imageGallery,
       business_hours: businessHoursToSave,
       social_links: args.social_links,
+      business_type: args.business_type,
       updated_at: new Date().toISOString(),
     });
 

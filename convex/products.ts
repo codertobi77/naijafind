@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 
 export const listProducts = query({
   args: {},
@@ -128,5 +129,22 @@ export const deleteProduct = mutation({
 
     await ctx.db.delete(id);
     return { success: true };
+  }
+});
+
+export const listProductsBySupplier = query({
+  args: { supplierId: v.string() },
+  handler: async (ctx, args) => {
+    // Get supplier by ID to verify existence
+    const supplier = await ctx.db.get(args.supplierId as Id<"suppliers">);
+    if (!supplier) throw new Error("Supplier not found");
+    
+    // Get products for this supplier
+    const products = await ctx.db
+      .query("products")
+      .filter(q => q.eq(q.field("supplierId"), args.supplierId))
+      .collect();
+
+    return products;
   }
 });

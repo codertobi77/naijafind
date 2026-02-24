@@ -58,10 +58,10 @@ interface DashboardData {
   reviews?: any[];
 }
 
-function getSidebarTabs(category: string | undefined): Array<{ id: DashboardTab; label: string; icon: string }> {
-  // À adapter selon les vraies catégories "vendeur de produits" vs "prestataire de services"
-  const isProductVendor = category === 'Vente de produits';
-  const isServiceProvider = category === 'Services';
+function getSidebarTabs(businessType: string | undefined): Array<{ id: DashboardTab; label: string; icon: string }> {
+  // Use the business type to determine if vendor sells products or offers services
+  const isProductVendor = businessType === 'products';
+  const isServiceProvider = businessType === 'services';
 
   const baseTabs: Array<{ id: DashboardTab; label: string; icon: string }> = [
     { id: 'overview', label: 'Aperçu', icon: 'ri-dashboard-line' },
@@ -243,6 +243,141 @@ const DAY_NAMES: Record<
   saturday: 'Samedi',
   sunday: 'Dimanche',
 };
+
+function GallerySection({
+  profileData,
+  onChangeField,
+  onSave,
+  saving,
+  planConfig,
+}: {
+  profileData: typeof DEFAULT_PROFILE;
+  onChangeField: (field: string, value: unknown) => void;
+  onSave: () => void;
+  saving: boolean;
+  planConfig: (typeof SUBSCRIPTION_PLANS)[keyof typeof SUBSCRIPTION_PLANS];
+}) {
+  const [imageUrl, setImageUrl] = useState('');
+  const [editMode, setEditMode] = useState(false);
+  const gallery = profileData.imageGallery || [];
+  const maxPhotos = planConfig.maxPhotos === -1 ? Infinity : planConfig.maxPhotos;
+  const canAddMore = gallery.length < maxPhotos;
+
+  const handleAddImage = () => {
+    if (!imageUrl.trim() || !canAddMore) return;
+    const newGallery = [...gallery, imageUrl.trim()];
+    onChangeField('imageGallery', newGallery);
+    setImageUrl('');
+  };
+
+  const handleRemoveImage = (index: number) => {
+    const newGallery = gallery.filter((_, i) => i !== index);
+    onChangeField('imageGallery', newGallery);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900">Gestion de la galerie</h2>
+          <p className="text-sm text-gray-600">Gérez vos photos pour présenter vos services aux clients.</p>
+        </div>
+        {!editMode ? (
+          <button
+            onClick={() => setEditMode(true)}
+            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+          >
+            Modifier
+          </button>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setEditMode(false)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={onSave}
+              disabled={saving}
+              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              {saving ? 'Enregistrement...' : 'Enregistrer'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {planConfig.maxPhotos !== -1 && (
+        <p className="text-sm text-gray-600">
+          Photos: {gallery.length} / {planConfig.maxPhotos} (limite abonnement {planConfig.name})
+        </p>
+      )}
+
+      {editMode && canAddMore && (
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Ajouter une image URL</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://example.com/image.jpg"
+              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+            />
+            <button
+              onClick={handleAddImage}
+              disabled={!imageUrl.trim() || !canAddMore}
+              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              <i className="ri-add-line mr-1" />
+              Ajouter
+            </button>
+          </div>
+        </div>
+      )}
+
+      {gallery.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
+          <i className="ri-image-line text-4xl text-gray-400 mb-3" />
+          <p className="text-gray-600 mb-2">Aucune photo dans votre galerie</p>
+          {!editMode && (
+            <button
+              onClick={() => setEditMode(true)}
+              className="text-green-600 hover:text-green-700 text-sm font-medium"
+            >
+              Ajouter des photos
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {gallery.map((url, index) => (
+            <div key={index} className="relative group aspect-square">
+              <img
+                src={url}
+                alt={`Gallery ${index + 1}`}
+                className="h-full w-full rounded-lg object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = `https://readdy.ai/api/search-image?query=placeholder&width=200&height=200&seq=placeholder-${index}`;
+                }}
+              />
+              {editMode && (
+                <button
+                  onClick={() => handleRemoveImage(index)}
+                  className="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-600"
+                >
+                  <i className="ri-close-line text-sm" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Interactive dashboard tour implementation with fixed prop handling
 export default function Dashboard() {
@@ -549,6 +684,8 @@ export default function Dashboard() {
         website: profileData.website,
         business_hours: profileData.business_hours as any,
         social_links: profileData.social_links as any,
+        image: profileData.image,
+        imageGallery: profileData.imageGallery,
       });
       setSaveStatus('success');
       setEditMode(false);
@@ -908,6 +1045,16 @@ export default function Dashboard() {
         );
       case 'subscription':
         return <SubscriptionSection />;
+      case 'galerie':
+        return (
+          <GallerySection
+            profileData={profileData}
+            onChangeField={handleInputChange}
+            onSave={handleSaveProfile}
+            saving={saving}
+            planConfig={planConfig}
+          />
+        );
       case 'settings':
         return <ComingSoon feature="settings" />;
       case 'team':
@@ -922,7 +1069,7 @@ export default function Dashboard() {
       <DashboardSidebar
         businessName={dashboardData?.profile?.business_name || 'Mon entreprise'}
         planName={planConfig.name}
-        tabs={getSidebarTabs(dashboardData?.profile?.category).map((tab) => ({
+        tabs={getSidebarTabs(dashboardData?.profile?.business_type).map((tab) => ({
           ...tab,
           premium:
             tab.id === 'analytics' ? !planConfig.canAccessAnalytics : false,
@@ -1208,7 +1355,8 @@ function DashboardHeader({
           <h1 className="text-xl font-bold text-gray-900">
             {activeTab === 'overview' && 'Aperçu'}
             {activeTab === 'profile' && 'Profil entreprise'}
-            {activeTab === 'products' && 'Produits'}
+            {activeTab === 'galerie' && 'Galerie'}
+            {activeTab === 'settings' && 'Paramètres'}
             {activeTab === 'reviews' && 'Avis'}
             {activeTab === 'verification' && 'Vérification'}
             {activeTab === 'analytics' && 'Analytics'}
@@ -2733,4 +2881,5 @@ function ToastInline({
     </div>
   );
 }
+
 

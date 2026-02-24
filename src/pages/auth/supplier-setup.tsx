@@ -32,6 +32,7 @@ export default function SupplierSetup() {
     website: '',
     image: '',
     imageGallery: [] as string[],
+    business_type: 'products', // Default to products
     business_hours: {
       monday: { open: '08:00', close: '18:00', closed: false },
       tuesday: { open: '08:00', close: '18:00', closed: false },
@@ -117,6 +118,7 @@ export default function SupplierSetup() {
         website: formData.website || undefined,
         image: formData.image || undefined,
         imageGallery: formData.imageGallery.length > 0 ? formData.imageGallery : undefined,
+        business_type: formData.business_type,
         firstName: user.firstName || undefined,
         lastName: user.lastName || undefined,
       });
@@ -215,6 +217,33 @@ export default function SupplierSetup() {
                       {errors.business_name}
                     </p>
                   )}
+                </div>
+
+                {/* Type d'activité */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('supplier_setup.business_type')} *
+                  </label>
+                  <div className="flex space-x-4">
+                    <label className="inline-flex items-center">
+                      <input
+                        type="radio"
+                        className="form-radio h-4 w-4 text-green-600"
+                        checked={formData.business_type === 'products'}
+                        onChange={() => setFormData({...formData, business_type: 'products'})}
+                      />
+                      <span className="ml-2 text-gray-700">{t('supplier_setup.products')}</span>
+                    </label>
+                    <label className="inline-flex items-center">
+                      <input
+                        type="radio"
+                        className="form-radio h-4 w-4 text-green-600"
+                        checked={formData.business_type === 'services'}
+                        onChange={() => setFormData({...formData, business_type: 'services'})}
+                      />
+                      <span className="ml-2 text-gray-700">{t('supplier_setup.services')}</span>
+                    </label>
+                  </div>
                 </div>
 
                 {/* Catégorie */}
