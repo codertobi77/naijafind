@@ -163,94 +163,138 @@ function NewsletterSection({ title, subtitle, benefits, subscribeToNewsletter, i
 // Categories Carousel Component - REMOVED (no longer used)
 // function CategoriesCarousel({ categories, t }: CategoriesCarouselProps) { ... }
 
-// Featured Suppliers Section Component
-interface FeaturedSuppliersSectionProps {
-  featuredSuppliers: Supplier[];
-  featuredSuppliersData: unknown;
+// Premium Suppliers Section Component with auto-scroll
+interface PremiumSuppliersSectionProps {
+  premiumSuppliers: Supplier[];
+  premiumSuppliersData: unknown;
   t: (key: string) => string;
 }
 
-function FeaturedSuppliersSection({ featuredSuppliers, featuredSuppliersData, t }: FeaturedSuppliersSectionProps) {
+function PremiumSuppliersSection({ premiumSuppliers, premiumSuppliersData, t }: PremiumSuppliersSectionProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    if (!scrollRef.current || premiumSuppliers.length <= 4) return;
+
+    const scrollContainer = scrollRef.current;
+    let scrollAmount = 0;
+    const scrollStep = 0.5;
+    const maxScroll = scrollContainer.scrollWidth - scrollContainer.clientWidth;
+
+    const interval = setInterval(() => {
+      if (!isPaused && maxScroll > 0) {
+        scrollAmount += scrollStep;
+        if (scrollAmount >= maxScroll) {
+          scrollAmount = 0;
+        }
+        scrollContainer.scrollLeft = scrollAmount;
+      }
+    }, 30);
+
+    return () => clearInterval(interval);
+  }, [premiumSuppliers.length, isPaused]);
+
+  // Duplicate suppliers for infinite scroll effect
+  const displaySuppliers = premiumSuppliers.length > 4 
+    ? [...premiumSuppliers, ...premiumSuppliers] 
+    : premiumSuppliers;
+
   return (
     <Section background="white">
       <Container>
         <SectionTitle
-          title={t('featured.title')}
-          subtitle={t('featured.subtitle')}
+          title={t('premium.title')}
+          subtitle={t('premium.subtitle')}
           centered
         />
 
-        {featuredSuppliersData === undefined ? (
+        {premiumSuppliersData === undefined ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
           </div>
-        ) : featuredSuppliers.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {featuredSuppliers.map((supplier: Supplier) => (
-              <div key={supplier._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group">
-                <div className="relative h-48 overflow-hidden">
-                  {supplier.image ? (
-                    <img
-                      src={supplier.image}
-                      alt={supplier.business_name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = `https://readdy.ai/api/search-image?query=${encodeURIComponent(supplier.business_name + ' ' + supplier.category + ' business Nigeria')}&width=400&height=300&seq=featured-${supplier._id}&orientation=landscape`;
-                        target.onerror = null;
-                      }}
-                    />
-                  ) : (
-                    <img
-                      src={`https://readdy.ai/api/search-image?query=${encodeURIComponent(supplier.business_name + ' ' + supplier.category + ' business Nigeria')}&width=400&height=300&seq=featured-${supplier._id}&orientation=landscape`}
-                      alt={supplier.business_name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                  )}
-                  {supplier.verified && (
-                    <div className="absolute top-4 right-4 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center">
-                      <i className="ri-shield-star-line mr-1"></i>
-                      {t('status.verified')}
-                    </div>
-                  )}
-                </div>
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-lg font-bold text-gray-900 group-hover:text-green-600 transition-colors">
-                      {supplier.business_name}
-                    </h3>
-                    <div className="flex items-center bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-semibold">
-                      <i className="ri-star-fill mr-1 text-yellow-500"></i>
-                      {supplier.rating?.toFixed(1) || '0.0'}
-                    </div>
+        ) : premiumSuppliers.length > 0 ? (
+          <div className="relative">
+            {/* Gradient overlays for scroll indication */}
+            <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none"></div>
+            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
+            
+            <div 
+              ref={scrollRef}
+              className="flex gap-6 overflow-x-auto scrollbar-hide pb-4"
+              style={{ scrollBehavior: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              onMouseEnter={() => setIsPaused(true)}
+              onMouseLeave={() => setIsPaused(false)}
+            >
+              {displaySuppliers.map((supplier: Supplier, index: number) => (
+                <div 
+                  key={`${supplier._id}-${index}`} 
+                  className="flex-shrink-0 w-80 bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group"
+                >
+                  <div className="relative h-48 overflow-hidden">
+                    {supplier.image ? (
+                      <img
+                        src={supplier.image}
+                        alt={supplier.business_name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = `https://readdy.ai/api/search-image?query=${encodeURIComponent(supplier.business_name + ' ' + supplier.category + ' business Nigeria')}&width=400&height=300&seq=premium-${supplier._id}&orientation=landscape`;
+                          target.onerror = null;
+                        }}
+                      />
+                    ) : (
+                      <img
+                        src={`https://readdy.ai/api/search-image?query=${encodeURIComponent(supplier.business_name + ' ' + supplier.category + ' business Nigeria')}&width=400&height=300&seq=premium-${supplier._id}&orientation=landscape`}
+                        alt={supplier.business_name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    )}
+                    {supplier.verified && (
+                      <div className="absolute top-4 right-4 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center">
+                        <i className="ri-shield-star-line mr-1"></i>
+                        {t('status.verified')}
+                      </div>
+                    )}
                   </div>
-                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                    {supplier.description || t('msg.no_description')}
-                  </p>
-                  <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
-                    <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                      {supplier.category}
-                    </span>
-                    <span>
-                      <i className="ri-map-pin-line mr-1"></i>
-                      {supplier.city}, {supplier.state}
-                    </span>
+                  <div className="p-6">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="text-lg font-bold text-gray-900 group-hover:text-green-600 transition-colors truncate">
+                        {supplier.business_name}
+                      </h3>
+                      <div className="flex items-center bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0">
+                        <i className="ri-star-fill mr-1 text-yellow-500"></i>
+                        {supplier.rating?.toFixed(1) || '0.0'}
+                      </div>
+                    </div>
+                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                      {supplier.description || t('msg.no_description')}
+                    </p>
+                    <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
+                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full truncate max-w-[100px]">
+                        {supplier.category}
+                      </span>
+                      <span className="flex items-center flex-shrink-0">
+                        <i className="ri-map-pin-line mr-1"></i>
+                        {supplier.city}, {supplier.state}
+                      </span>
+                    </div>
+                    <Link
+                      to={`/supplier/${supplier._id}`}
+                      className="block w-full text-center bg-gradient-to-r from-green-600 to-emerald-600 text-white py-2.5 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                    >
+                      {t('btn.view')}
+                    </Link>
                   </div>
-                  <Link
-                    to={`/supplier/${supplier._id}`}
-                    className="block w-full text-center bg-gradient-to-r from-green-600 to-emerald-600 text-white py-2.5 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
-                  >
-                    {t('btn.view')}
-                  </Link>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         ) : (
           <div className="text-center py-16">
             <i className="ri-store-2-line text-5xl text-gray-300 mb-4"></i>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('featured.no_suppliers')}</h3>
-            <p className="text-gray-600">{t('featured.no_suppliers_desc')}</p>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('premium.no_suppliers')}</h3>
+            <p className="text-gray-600">{t('premium.no_suppliers_desc')}</p>
           </div>
         )}
       </Container>
@@ -265,7 +309,7 @@ interface SearchHeroProps {
   searchLocation: string;
   category: string;
   categories: Array<{ _id: string; name: string }> | undefined;
-  featuredSuppliers: Supplier[];
+  featuredSuppliers: any[];
   setSearchQuery: (value: string) => void;
   setSearchLocation: (value: string) => void;
   setCategory: (value: string) => void;
@@ -573,10 +617,10 @@ export default function Home() {
         </Container>
       </Section>
 
-      {/* Featured Suppliers Section */}
-      <FeaturedSuppliersSection
-        featuredSuppliers={featuredSuppliers}
-        featuredSuppliersData={featuredSuppliersData}
+      {/* Premium Suppliers Section */}
+      <PremiumSuppliersSection
+        premiumSuppliers={featuredSuppliers}
+        premiumSuppliersData={featuredSuppliersData}
         t={t}
       />
 

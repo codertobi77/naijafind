@@ -20,15 +20,15 @@ export const home = {
   "categories.subtitle": "Explore our top business categories",
   "categories.view_all": "View All Categories",
 
-  // Featured section
-  "featured.title": "Featured Businesses",
-  "featured.subtitle": "Discover top recommended businesses",
-  "featured.verified": "Verified",
-  "featured.view_profile": "View Profile",
-  "featured.no_businesses": "No featured businesses",
-  "featured.no_businesses_desc": "There are currently no featured businesses. Check back later!",
-  "featured.no_suppliers": "No featured suppliers",
-  "featured.no_suppliers_desc": "There are currently no featured suppliers. Check back later!",
+  // Premium section
+  "premium.title": "Premium Suppliers",
+  "premium.subtitle": "Discover our premium verified suppliers",
+  "premium.verified": "Verified",
+  "premium.view_profile": "View Profile",
+  "premium.no_businesses": "No premium suppliers",
+  "premium.no_businesses_desc": "There are currently no premium suppliers. Check back later!",
+  "premium.no_suppliers": "No premium suppliers",
+  "premium.no_suppliers_desc": "There are currently no premium suppliers. Check back later!",
 
   // How it works
   "how.title": "How It Works",

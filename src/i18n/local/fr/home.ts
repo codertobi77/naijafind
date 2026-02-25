@@ -20,15 +20,15 @@ export const home = {
   "categories.subtitle": "Explorez nos principales catégories d'entreprises",
   "categories.view_all": "Voir toutes les catégories",
 
-  // Featured section
-  "featured.title": "Entreprises en vedette",
-  "featured.subtitle": "Découvrez les meilleures entreprises recommandées",
-  "featured.verified": "Vérifié",
-  "featured.view_profile": "Voir le profil",
-  "featured.no_businesses": "Aucune entreprise en vedette",
-  "featured.no_businesses_desc": "Il n'y a actuellement aucune entreprise en vedette. Revenez plus tard !",
-  "featured.no_suppliers": "Aucun fournisseur en vedette",
-  "featured.no_suppliers_desc": "Il n'y a actuellement aucun fournisseur en vedette. Revenez plus tard !",
+  // Premium section
+  "premium.title": "Fournisseurs Premium",
+  "premium.subtitle": "Découvrez nos fournisseurs premium vérifiés",
+  "premium.verified": "Vérifié",
+  "premium.view_profile": "Voir le profil",
+  "premium.no_businesses": "Aucun fournisseur premium",
+  "premium.no_businesses_desc": "Il n'y a actuellement aucun fournisseur premium. Revenez plus tard !",
+  "premium.no_suppliers": "Aucun fournisseur premium",
+  "premium.no_suppliers_desc": "Il n'y a actuellement aucun fournisseur premium. Revenez plus tard !",
 
   // How it works
   "how.title": "Comment ça marche",

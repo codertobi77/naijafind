@@ -416,7 +416,7 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
                                       );
                                     }).catch((error: any) => {
                                       console.error('Error updating featured status:', error);
-                                      showToast('error', error.message || t('admin.error_set_featured'));
+                                      showToast('error', error.message || t('admin.error_set_premium'));
                                     }).finally(() => {
                                       setIsSettingFeatured(null);
                                     });
@@ -785,15 +785,15 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">
-                {t('admin.featured_businesses')}
+                {t('admin.premium_suppliers')}
               </h2>
               <p className="mt-1 text-gray-600">
-                {t('admin.featured_businesses_description')}
+                {t('admin.premium_suppliers_description')}
               </p>
             </div>
 
             <div className="bg-white rounded-lg border p-6">
-              <h3 className="font-semibold mb-4">{t('admin.all_featured_businesses')}</h3>
+              <h3 className="font-semibold mb-4">{t('admin.all_premium_suppliers')}</h3>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead>
@@ -801,7 +801,7 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
                       <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.name')}</th>
                       <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.email')}</th>
                       <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.category')}</th>
-                      <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.featured_status')}</th>
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.premium_status')}</th>
                       <th className="text-left px-2 py-3 font-semibold text-gray-600">{t('admin.actions')}</th>
                     </tr>
                   </thead>
@@ -833,12 +833,12 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
                                       refetchFeaturedSuppliers();
                                     }).catch((error: any) => {
                                       console.error('Error removing featured status:', error);
-                                      showToast('error', error.message || t('admin.error_remove_featured'));
+                                      showToast('error', error.message || t('admin.error_remove_premium'));
                                     });
                                   }}
                                   className="text-xs px-3 py-1 rounded bg-yellow-600 text-white hover:bg-yellow-700 transition-colors"
                                 >
-                                  {t('admin.remove_featured')}
+                                  {t('admin.remove_premium')}
                                 </button>
                               ) : (
                                 <button 
@@ -848,12 +848,12 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
                                       refetchFeaturedSuppliers();
                                     }).catch((error: any) => {
                                       console.error('Error setting featured status:', error);
-                                      showToast('error', error.message || t('admin.error_set_featured'));
+                                      showToast('error', error.message || t('admin.error_set_premium'));
                                     });
                                   }}
                                   className="text-xs px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700 transition-colors"
                                 >
-                                  {t('admin.set_featured')}
+                                  {t('admin.set_premium')}
                                 </button>
                               )}
                             </div>
@@ -863,7 +863,7 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
                     ) : (
                       <tr>
                         <td colSpan={5} className="text-center text-gray-400 p-4">
-                          {t('admin.no_featured_businesses')}
+                          {t('admin.no_premium_suppliers')}
                         </td>
                       </tr>
                     )}
