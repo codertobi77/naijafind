@@ -2114,7 +2114,7 @@ function ProductModal({
   onChange,
 }: {
   open: boolean;
-  mode: 'add' | 'edit' | 'delete';
+  mode: 'add' | 'edit';
   form: { 
     name: string; 
     price: string; 

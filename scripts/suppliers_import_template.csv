@@ -1,0 +1,19 @@
+# Template d'Import Bulk - Suppliers & Users
+# Ce fichier CSV contient tous les champs nécessaires pour créer des fournisseurs avec leurs utilisateurs associés
+# 
+# INSTRUCTIONS:
+# 1. Remplissez les lignes avec vos données
+# 2. Les champs marqués (O) sont obligatoires
+# 3. Les champs marqués (F) sont fortement recommandés
+# 4. Pour les valeurs booléennes, utilisez: true/false
+# 5. Pour les tableaux (imageGallery, social_links), utilisez le format: ["url1","url2"]
+# 6. Les horaires d'ouverture doivent être au format JSON: {"monday":"08:00-18:00",...}
+# 7. Sauvegardez en UTF-8 avant import
+#
+user_email(O),user_firstName,user_lastName,user_phone,supplier_business_name(O),supplier_email(O),supplier_phone,supplier_category(O),supplier_description,supplier_address,supplier_city(O),supplier_state(O),supplier_country,supplier_website,supplier_business_type,supplier_verified,supplier_approved,supplier_featured,supplier_image,supplier_imageGallery,supplier_business_hours,supplier_social_links,supplier_latitude,supplier_longitude
+
+# EXEMPLE 1: Fournisseur minimal (champs obligatoires seulement)
+john@example.com,John,Doe,+2348012345678,ABC Business Ltd,contact@abcbusiness.com,,Electronics,,123 Main St,Lagos,Lagos,Nigeria,,products,false,true,false,,,,,,,
+
+# EXEMPLE 2: Fournisseur complet avec toutes les options
+jane@example.com,Jane,Smith,+2348098765432,XYZ Services,info@xyzservices.com,+2348011122233,Services,Services professionnels de consulting,456 Business Ave,Abuja,FCT,Nigeria,https://xyzservices.com,services,true,true,true,https://example.com/logo.jpg,"[""https://example.com/img1.jpg"",""https://example.com/img2.jpg""]","{""monday"":""08:00-18:00"",""tuesday"":""08:00-18:00"",""wednesday"":""08:00-18:00"",""thursday"":""08:00-18:00"",""friday"":""08:00-18:00"",""saturday"":""09:00-17:00"",""sunday"":""closed""}","{""facebook"":""https://facebook.com/xyz"",""instagram"":""https://instagram.com/xyz"",""linkedin"":""https://linkedin.com/company/xyz""}",9.0765,7.3986

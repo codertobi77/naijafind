@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import useCurrency from '../../hooks/useCurrency';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { Doc } from '../../../convex/_generated/dataModel';
-import { useToast } from '../../hooks/useToast';
+import { SupplierBulkImport } from '../../components/admin';
 import { useNotifications } from '../../hooks/useNotifications';
 import { ToastContainer, NotificationDropdown } from '../../components/base';
 
@@ -123,7 +123,7 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
   const sendAdminNotification = useMutation(api.notifications.sendAdminNotification);
   const sendBulkNotification = useMutation(api.notifications.sendBulkNotification);
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications' | 'import'>('overview');
   // Suppression de l’état fournisseurs simulé (on utilise allSuppliers de Convex)
 
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -1204,6 +1204,8 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
             </div>
           </div>
         );
+      case 'import':
+        return <SupplierBulkImport />;
       default:
         return null;
     }
@@ -1902,6 +1904,17 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
                 <i className="ri-notification-3-line text-lg" />
                 <span className="font-medium">Notifications</span>
               </button>
+              <button
+                onClick={() => setActiveTab('import')}
+                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                  activeTab === 'import'
+                    ? 'bg-green-600 text-white shadow'
+                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
+                }`}
+              >
+                <i className="ri-upload-cloud-line text-lg" />
+                <span className="font-medium">Import Fournisseurs</span>
+              </button>
             </div>
           </nav>
 
@@ -1933,6 +1946,7 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
                 {activeTab === 'featured' && t('admin.featured_businesses')}
                 {activeTab === 'products' && t('admin.products')}
                 {activeTab === 'notifications' && 'Envoyer une notification'}
+                {activeTab === 'import' && 'Import Fournisseurs'}
               </h1>
             </div>
             <div className="flex items-center space-x-3 sm:space-x-6">
