@@ -197,101 +197,85 @@ function SearchInputWithSuggestions({
   // Debounce the input value
   const debouncedValue = useDebounce(value, 300);
 
-  // Fetch suggestions from API when debounced value changes
+  // Use Convex query hook for suggestions
+  const { data: searchResults, isLoading: isQueryLoading } = useConvexQuery(
+    api.searchSuggestions.searchSuggestionsWithQuery,
+    debouncedValue.trim() ? { query: debouncedValue, limit: 10 } : 'skip',
+    { staleTime: 30 * 1000 }
+  );
+
+  // Update suggestions when query results change
   useEffect(() => {
-    const fetchSuggestions = async () => {
-      // Don't search if value is empty
-      if (!debouncedValue.trim()) {
-        setHasSearched(false);
-        // Show recent searches when focused with empty value
-        if (recentSearches.length > 0) {
-          const recentItems: SuggestionItem[] = recentSearches.map((s) => ({
-            text: s,
-            type: type === 'location' ? 'location' : 'product',
-            icon: type === 'location' ? 'ri-map-pin-line' : 'ri-time-line',
-            subtext: 'Récent',
-          }));
-          setFilteredSuggestions(recentItems);
-        } else {
-          setFilteredSuggestions([]);
-        }
-        return;
-      }
-
-      setIsLoading(true);
-      setHasSearched(true);
-
-      try {
-        // Call the Convex query directly
-        const response = await fetch('/api/query', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            path: 'searchSuggestions.searchSuggestionsWithQuery',
-            args: {
-              query: debouncedValue,
-              limit: 10,
-            },
-          }),
-        });
-
-        if (!response.ok) throw new Error('Failed to fetch');
-        const result: SearchSuggestionsResult = await response.json();
-
-        // Categorize and build suggestions
-        const items: SuggestionItem[] = [];
-        
-        if (type === 'location') {
-          // For location input, use location results
-          result.locations.forEach((loc) => {
-            items.push({
-              text: loc,
-              type: 'location',
-              icon: 'ri-map-pin-line',
-            });
-          });
-        } else {
-          // For search input, categorize results
-          result.suggestions.forEach((s) => {
-            let itemType: 'product' | 'supplier' | 'category' = 'product';
-            let itemIcon = 'ri-search-line';
-            let subtext: string | undefined;
-
-            // Heuristics to determine type
-            const lower = s.toLowerCase();
-            if (lower.includes('ltd') || lower.includes('limited') || lower.includes('inc') || lower.includes('corp') || lower.includes('nigeria') || lower.includes('services') || lower.includes('enterprise')) {
-              itemType = 'supplier';
-              itemIcon = 'ri-building-4-line';
-              subtext = 'Fournisseur';
-            } else if (s.split(' ').length === 1 && s.length < 20) {
-              itemType = 'category';
-              itemIcon = 'ri-folder-3-line';
-              subtext = 'Catégorie';
-            }
-
-            items.push({
-              text: s,
-              type: itemType,
-              icon: itemIcon,
-              subtext,
-            });
-          });
-        }
-
-        setFilteredSuggestions(items);
-      } catch (error) {
-        console.error('Error fetching suggestions:', error);
-        // Fallback to empty state
+    if (!debouncedValue.trim()) {
+      setHasSearched(false);
+      setIsLoading(false);
+      // Show recent searches when focused with empty value
+      if (recentSearches.length > 0) {
+        const recentItems: SuggestionItem[] = recentSearches.map((s) => ({
+          text: s,
+          type: type === 'location' ? 'location' : 'product',
+          icon: type === 'location' ? 'ri-map-pin-line' : 'ri-time-line',
+          subtext: 'Récent',
+        }));
+        setFilteredSuggestions(recentItems);
+      } else {
         setFilteredSuggestions([]);
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-    if (showSuggestions) {
-      fetchSuggestions();
+      return;
     }
-  }, [debouncedValue, type, recentSearches, showSuggestions]);
+
+    setIsLoading(isQueryLoading);
+    setHasSearched(true);
+
+    if (!searchResults) {
+      if (!isQueryLoading) {
+        setFilteredSuggestions([]);
+      }
+      return;
+    }
+
+    // Categorize and build suggestions
+    const items: SuggestionItem[] = [];
+    
+    if (type === 'location') {
+      // For location input, use location results
+      searchResults.locations.forEach((loc) => {
+        items.push({
+          text: loc,
+          type: 'location',
+          icon: 'ri-map-pin-line',
+        });
+      });
+    } else {
+      // For search input, categorize results
+      searchResults.suggestions.forEach((s) => {
+        let itemType: 'product' | 'supplier' | 'category' = 'product';
+        let itemIcon = 'ri-search-line';
+        let subtext: string | undefined;
+
+        // Heuristics to determine type
+        const lower = s.toLowerCase();
+        if (lower.includes('ltd') || lower.includes('limited') || lower.includes('inc') || lower.includes('corp') || lower.includes('nigeria') || lower.includes('services') || lower.includes('enterprise')) {
+          itemType = 'supplier';
+          itemIcon = 'ri-building-4-line';
+          subtext = 'Fournisseur';
+        } else if (s.split(' ').length === 1 && s.length < 20) {
+          itemType = 'category';
+          itemIcon = 'ri-folder-3-line';
+          subtext = 'Catégorie';
+        }
+
+        items.push({
+          text: s,
+          type: itemType,
+          icon: itemIcon,
+          subtext,
+        });
+      });
+    }
+
+    setFilteredSuggestions(items);
+  }, [debouncedValue, type, recentSearches, searchResults, isQueryLoading]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
