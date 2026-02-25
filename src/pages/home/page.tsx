@@ -60,6 +60,77 @@ function useRecentSearches(key: string, maxItems: number = 5) {
 
   return { recentSearches, addRecentSearch, clearRecentSearches };
 }
+
+// Auto-scrollable Ad Banner Carousel Component
+interface AdBanner {
+  id: string;
+  image: string;
+  alt: string;
+  link?: string;
+}
+
+function AdBannerCarousel({ banners }: { banners: AdBanner[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer) return;
+
+    let animationId: number;
+    let scrollPosition = 0;
+
+    const animate = () => {
+      if (!isPaused) {
+        scrollPosition += 0.5; // Scroll speed
+        const maxScroll = scrollContainer.scrollWidth / 2;
+        
+        if (scrollPosition >= maxScroll) {
+          scrollPosition = 0;
+        }
+        
+        scrollContainer.scrollLeft = scrollPosition;
+      }
+      animationId = requestAnimationFrame(animate);
+    };
+
+    animationId = requestAnimationFrame(animate);
+
+    return () => cancelAnimationFrame(animationId);
+  }, [isPaused]);
+
+  // Duplicate banners for seamless loop
+  const duplicatedBanners = [...banners, ...banners];
+
+  return (
+    <div 
+      className="w-full bg-gray-100 py-4 overflow-hidden"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      <div
+        ref={scrollRef}
+        className="flex gap-4 px-4 overflow-x-hidden scroll-smooth"
+        style={{ scrollBehavior: 'auto' }}
+      >
+        {duplicatedBanners.map((banner, index) => (
+          <a
+            key={`${banner.id}-${index}`}
+            href={banner.link || '#'}
+            className="flex-shrink-0 w-[300px] sm:w-[350px] md:w-[400px] h-[150px] sm:h-[160px] md:h-[180px] rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 group"
+          >
+            <img
+              src={banner.image}
+              alt={banner.alt}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 type Supplier = Doc<"suppliers">;
 
 // Search Hero Component with Autocomplete
@@ -734,7 +805,7 @@ export default function Home() {
         onClearRecentLocations={onClearRecentLocations}
       />
 
-        {/* Stats Section */}
+      {/* Stats Section */}
       <Section background="white" padding="md">
         <Container>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
@@ -747,6 +818,36 @@ export default function Home() {
           </div>
         </Container>
       </Section>
+
+      {/* Ad Banner Carousel */}
+      <AdBannerCarousel 
+        banners={[
+          {
+            id: '1',
+            image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=180&fit=crop',
+            alt: 'NaijaFind Marketplace',
+            link: '/about'
+          },
+          {
+            id: '2',
+            image: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=400&h=180&fit=crop',
+            alt: 'Découvrez nos fournisseurs',
+            link: '/suppliers'
+          },
+          {
+            id: '3',
+            image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=180&fit=crop',
+            alt: 'Promotions spéciales',
+            link: '/deals'
+          },
+          {
+            id: '4',
+            image: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=400&h=180&fit=crop',
+            alt: 'Devenez fournisseur',
+            link: '/auth/register?type=supplier'
+          }
+        ]}
+      />
 
       {/* Premium Suppliers Section */}
       <Section background="white" padding="md">
