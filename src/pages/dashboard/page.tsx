@@ -507,7 +507,7 @@ export default function Dashboard() {
     {
       id: 1,
       name: 'Alice N.',
-      email: 'alice@olufinja.com',
+      email: 'alice@suji.com',
       role: 'admin',
       status: 'active',
       isMe: true,
@@ -522,7 +522,7 @@ export default function Dashboard() {
     {
       id: 3,
       name: 'Jean L.',
-      email: 'jean@olufinja.com',
+      email: 'jean@suji.com',
       role: 'editor',
       status: 'pending',
     },
@@ -1260,7 +1260,7 @@ function DashboardSidebar({
                 className="text-xl font-bold text-green-600"
                 style={{ fontFamily: 'Pacifico, serif' }}
               >
-                Olufinja
+                Suji
               </span>
             </Link>
           </div>

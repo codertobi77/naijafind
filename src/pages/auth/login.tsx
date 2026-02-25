@@ -54,7 +54,7 @@ export default function Login() {
       footerLinkTo="/auth/register"
       footerLinkLabel={t('login.register')}
       infoCard={{
-        title: t('login.new_to_olufinja'),
+        title: t('login.new_to_suji'),
         description: t('login.create_account_benefits'),
       }}
     >

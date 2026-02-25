@@ -69,7 +69,7 @@ function ContactMap() {
           .setPopup(
             new mapboxgl.Popup({ offset: 25 }).setHTML(
               `<div class="p-2">
-                <h3 class="font-semibold text-sm">Olufinja Office</h3>
+                <h3 class="font-semibold text-sm">Suji Office</h3>
                 <p class="text-xs text-gray-600">Victoria Island, Lagos</p>
               </div>`
             )
@@ -200,7 +200,7 @@ export default function Contact() {
     {
       icon: 'ri-mail-line',
       title: t('contact.email_title'),
-      content: 'contact@Olufinja.com',
+      content: 'contact@Suji.com',
     },
     {
       icon: 'ri-time-line',

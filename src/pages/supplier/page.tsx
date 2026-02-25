@@ -554,7 +554,7 @@ export default function SupplierDetail() {
                       <ul className="space-y-2 text-green-800 text-xs sm:text-sm">
                         <li className="flex items-center">
                           <i className="ri-check-line mr-2 text-green-600 flex-shrink-0"></i>
-                          {t('supplier.verified_by_olufinja')}
+                          {t('supplier.verified_by_suji')}
                         </li>
                         <li className="flex items-center">
                           <i className="ri-check-line mr-2 text-green-600 flex-shrink-0"></i>

@@ -38,7 +38,7 @@ export function Footer({ variant = 'dark', showLogo = true }: FooterProps) {
                   className="text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent"
                   style={{ fontFamily: 'Pacifico, serif' }}
                 >
-                  Olufinja
+                  Suji
                 </span>
               </Link>
               <p className={`${subTextClasses} text-sm sm:text-base`}>
@@ -122,7 +122,7 @@ export function Footer({ variant = 'dark', showLogo = true }: FooterProps) {
         </div>
         <div className={`${isDark ? 'border-t' : 'border-t'} ${borderClasses} mt-6 sm:mt-8 pt-6 sm:pt-8 text-center ${subTextClasses} text-sm sm:text-base`}>
           <p>
-            &copy; 2024 Olufinja. {t('footer.rights', 'Tous droits réservés')} |{' '}
+            &copy; 2024 Suji. {t('footer.rights', 'Tous droits réservés')} |{' '}
             <a
               href="https://readdy.ai/?origin=logo"
               className={`${linkClasses} transition-colors`}

@@ -33,7 +33,7 @@ export type ResourceType = 'image' | 'video' | 'raw' | 'auto';
  */
 export async function uploadFileToCloudinary(
   file: File,
-  folder: string = 'olufinja',
+  folder: string = 'suji',
   resourceType: ResourceType = 'auto',
   transformation?: string
 ): Promise<UploadResult> {
@@ -110,7 +110,7 @@ export async function uploadFileToCloudinary(
  */
 export async function uploadFilesToCloudinary(
   files: File[],
-  folder: string = 'olufinja',
+  folder: string = 'suji',
   resourceType: ResourceType = 'auto',
   transformation?: string
 ): Promise<UploadResult[]> {
@@ -125,7 +125,7 @@ export async function uploadFilesToCloudinary(
  */
 export async function uploadImageToCloudinary(
   file: File,
-  folder: string = 'olufinja',
+  folder: string = 'suji',
   transformation?: string
 ): Promise<UploadResult> {
   return uploadFileToCloudinary(file, folder, 'image', transformation);
@@ -136,7 +136,7 @@ export async function uploadImageToCloudinary(
  */
 export async function uploadImagesToCloudinary(
   files: File[],
-  folder: string = 'olufinja',
+  folder: string = 'suji',
   transformation?: string
 ): Promise<UploadResult[]> {
   return uploadFilesToCloudinary(files, folder, 'image', transformation);
@@ -150,7 +150,7 @@ export async function uploadImagesToCloudinary(
  */
 export async function uploadVideoToCloudinary(
   file: File,
-  folder: string = 'olufinja/videos',
+  folder: string = 'suji/videos',
   generateThumbnail: boolean = true
 ): Promise<UploadResult> {
   const result = await uploadFileToCloudinary(file, folder, 'video');
@@ -167,7 +167,7 @@ export async function uploadVideoToCloudinary(
  */
 export async function uploadDocumentToCloudinary(
   file: File,
-  folder: string = 'olufinja/documents'
+  folder: string = 'suji/documents'
 ): Promise<UploadResult> {
   return uploadFileToCloudinary(file, folder, 'raw');
 }
@@ -179,7 +179,7 @@ export async function uploadDocumentToCloudinary(
  */
 export async function uploadAudioToCloudinary(
   file: File,
-  folder: string = 'olufinja/audio'
+  folder: string = 'suji/audio'
 ): Promise<UploadResult> {
   void file; // Used via uploadFileToCloudinary
   return uploadFileToCloudinary(file, folder, 'video'); // Cloudinary uses 'video' for audio too

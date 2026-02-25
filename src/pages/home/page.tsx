@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
@@ -42,24 +42,24 @@ function NewsletterSection({ title, subtitle, benefits, subscribeToNewsletter, i
   ];
 
   return (
-    <Section background="gradient">
+    <Section background="green">
       <Container>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           <div className="text-white">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">{title}</h2>
-            <p className="text-lg text-green-100 mb-6">{subtitle}</p>
+            <h2 className="text-2xl sm:text-3xl font-bold mb-4">Restez informé des nouveautés</h2>
+            <p className="text-base sm:text-lg text-white/90 mb-6">Recevez les dernières actualités sur les fournisseurs, les nouvelles entreprises et les opportunités d'affaires au Nigeria.</p>
             <ul className="space-y-3">
               {benefits.map((benefit, index) => (
-                <li key={index} className="flex items-center">
-                  <i className="ri-checkbox-circle-fill text-xl mr-3"></i>
+                <li key={index} className="flex items-center text-white/90">
+                  <i className="ri-check-line text-lg mr-3"></i>
                   {benefit}
                 </li>
               ))}
             </ul>
           </div>
 
-          <div className="bg-white rounded-lg p-6 sm:p-8">
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Inscription à la newsletter</h3>
+          <div className="bg-white rounded-lg p-6 sm:p-8 shadow-lg">
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">Inscription à la newsletter</h3>
             <form className="space-y-4" onSubmit={async (e) => {
               e.preventDefault();
               const formData = new FormData(e.target as HTMLFormElement);
@@ -105,28 +105,43 @@ function NewsletterSection({ title, subtitle, benefits, subscribeToNewsletter, i
                 setIsSubscribing(false);
               }
             }}>
-              <FormInput
-                label="Nom complet"
-                name="name"
-                placeholder="Votre nom complet"
-                required
-              />
-              <FormInput
-                type="email"
-                label="Email"
-                name="email"
-                placeholder="votre@email.com"
-                required
-              />
-              <FormSelect
-                label="Secteur d'activité"
-                name="sector"
-                options={sectorOptions}
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Votre nom complet"
+                  required
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-green-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="votre@email.com"
+                  required
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-green-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Secteur d'activité</label>
+                <select
+                  name="sector"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-green-500 text-sm bg-white"
+                >
+                  {sectorOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <button
                 type="submit"
                 disabled={isSubscribing}
-                className="w-full bg-green-600 text-white py-2 sm:py-3 px-4 sm:px-6 rounded-lg hover:bg-green-700 transition-colors font-medium whitespace-nowrap text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 <i className="ri-mail-line mr-2"></i>
                 {isSubscribing ? 'Inscription en cours...' : "S'abonner à la newsletter"}
@@ -139,121 +154,14 @@ function NewsletterSection({ title, subtitle, benefits, subscribeToNewsletter, i
   );
 }
 
-// Categories Carousel Component
-interface CategoriesCarouselProps {
-  categories: Array<{ _id: string; name: string; description?: string; image?: string; icon?: string }> | undefined;
-  t: (key: string) => string;
-}
+// Categories Carousel Component - REMOVED (no longer used)
+// interface CategoriesCarouselProps {
+//   categories: Array<{ _id: string; name: string; description?: string; image?: string; icon?: string }> | undefined;
+//   t: (key: string) => string;
+// }
 
-function CategoriesCarousel({ categories, t }: CategoriesCarouselProps) {
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const carouselRef = useRef<HTMLDivElement>(null);
-  const categoriesPerSlide = 3;
-  const totalSlides = categories ? Math.ceil(categories.length / categoriesPerSlide) : 0;
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % totalSlides);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [totalSlides]);
-
-  const goToSlide = (index: number) => setCurrentSlide(index);
-  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % totalSlides);
-  const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + totalSlides) % totalSlides);
-
-  if (!categories || categories.length === 0) return null;
-
-  return (
-    <Section background="green">
-      <Container>
-        <SectionTitle
-          title={t('categories.title')}
-          subtitle={t('categories.subtitle')}
-          centered
-        />
-
-        <div className="relative">
-          <div className="overflow-hidden">
-            <div
-              ref={carouselRef}
-              className="flex transition-transform duration-500 ease-in-out"
-              style={{ transform: `translateX(-${currentSlide * 100}%)` }}
-            >
-              {Array.from({ length: totalSlides }).map((_, slideIndex) => (
-                <div key={slideIndex} className="flex-shrink-0 w-full">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {categories
-                      .slice(slideIndex * categoriesPerSlide, (slideIndex + 1) * categoriesPerSlide)
-                      .map((category) => (
-                        <Link
-                          key={category._id}
-                          to={`/search?category=${encodeURIComponent(category.name)}`}
-                          className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100"
-                        >
-                          <div className="relative h-32 w-full mb-4 rounded-lg overflow-hidden">
-                            <img
-                              src={category.image || DEFAULT_CATEGORY_IMAGE}
-                              alt={category.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = DEFAULT_CATEGORY_IMAGE;
-                                target.onerror = null;
-                              }}
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                            <div className="absolute bottom-2 left-2 w-12 h-12 bg-gradient-to-br from-white to-green-50 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg">
-                              <i className={`${category.icon || 'ri-folder-line'} text-2xl ${category.icon ? 'text-green-600' : 'text-gray-400'}`}></i>
-                            </div>
-                          </div>
-                          <h3 className="text-lg font-semibold text-gray-900 group-hover:text-green-600 transition-colors truncate">
-                            {category.name}
-                          </h3>
-                          <p className="text-gray-600 text-sm line-clamp-2 mt-1">
-                            {category.description || t('msg.no_description')}
-                          </p>
-                        </Link>
-                      ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {totalSlides > 1 && (
-            <>
-              <button
-                onClick={prevSlide}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all border border-gray-200 z-10"
-                aria-label="Previous slide"
-              >
-                <i className="ri-arrow-left-s-line text-xl text-gray-700"></i>
-              </button>
-              <button
-                onClick={nextSlide}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all border border-gray-200 z-10"
-                aria-label="Next slide"
-              >
-                <i className="ri-arrow-right-s-line text-xl text-gray-700"></i>
-              </button>
-              <div className="flex justify-center mt-8 space-x-2">
-                {Array.from({ length: totalSlides }).map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => goToSlide(index)}
-                    className={`w-3 h-3 rounded-full transition-all ${currentSlide === index ? 'bg-green-600 w-8' : 'bg-gray-300'}`}
-                    aria-label={`Go to slide ${index + 1}`}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </Container>
-    </Section>
-  );
-}
+// Categories Carousel Component - REMOVED (no longer used)
+// function CategoriesCarousel({ categories, t }: CategoriesCarouselProps) { ... }
 
 // Featured Suppliers Section Component
 interface FeaturedSuppliersSectionProps {
@@ -350,20 +258,146 @@ function FeaturedSuppliersSection({ featuredSuppliers, featuredSuppliersData, t 
   );
 }
 
-// Search Hero Component
+// Search Hero Component with Autocomplete
 interface SearchHeroProps {
   t: (key: string) => string;
   searchQuery: string;
   searchLocation: string;
   category: string;
   categories: Array<{ _id: string; name: string }> | undefined;
+  featuredSuppliers: Supplier[];
   setSearchQuery: (value: string) => void;
   setSearchLocation: (value: string) => void;
   setCategory: (value: string) => void;
   onSearch: () => void;
 }
 
-function SearchHero({ t, searchQuery, searchLocation, category, categories, setSearchQuery, setSearchLocation, setCategory, onSearch }: SearchHeroProps) {
+// Common search suggestions
+const COMMON_SEARCH_TERMS = [
+  'Agriculture',
+  'Textile',
+  'Électronique',
+  'Alimentation',
+  'Construction',
+  'Mécanique',
+  'Pharmaceutique',
+  'Cosmétique',
+  'Mobilier',
+  'Plastique',
+];
+
+// Nigerian states for location suggestions
+const NIGERIAN_STATES = [
+  'Lagos',
+  'Abuja',
+  'Kano',
+  'Ibadan',
+  'Port Harcourt',
+  'Benin City',
+  'Kaduna',
+  'Enugu',
+  'Aba',
+  'Onitsha',
+];
+
+function SearchInputWithSuggestions({
+  value,
+  onChange,
+  placeholder,
+  suggestions,
+  label,
+  icon,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  suggestions: string[];
+  label: string;
+  icon: string;
+}) {
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (value.trim()) {
+      const filtered = suggestions
+        .filter((s) => s.toLowerCase().includes(value.toLowerCase()))
+        .slice(0, 5);
+      setFilteredSuggestions(filtered);
+    } else {
+      setFilteredSuggestions(suggestions.slice(0, 5));
+    }
+  }, [value, suggestions]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange(e.target.value);
+    setShowSuggestions(true);
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    onChange(suggestion);
+    setShowSuggestions(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    }
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <label className="block text-sm font-semibold text-gray-700 mb-2">
+        <i className={`${icon} mr-1`}></i>{label}
+      </label>
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={handleInputChange}
+        onFocus={() => setShowSuggestions(true)}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-green-500"
+      />
+      {showSuggestions && filteredSuggestions.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+          {filteredSuggestions.map((suggestion, index) => (
+            <button
+              key={index}
+              onClick={() => handleSuggestionClick(suggestion)}
+              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 transition-colors first:rounded-t-lg last:rounded-b-lg"
+            >
+              <i className="ri-search-line mr-2 text-gray-400"></i>
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SearchHero({ t, searchQuery, searchLocation, category, categories, featuredSuppliers, setSearchQuery, setSearchLocation, setCategory, onSearch }: SearchHeroProps) {
+  // Generate search suggestions from categories and supplier names
+  const searchSuggestions = useMemo(() => {
+    const categoryNames = categories?.map((c) => c.name) || [];
+    const supplierNames = featuredSuppliers.map((s) => s.business_name);
+    return [...new Set([...categoryNames, ...supplierNames, ...COMMON_SEARCH_TERMS])];
+  }, [categories, featuredSuppliers]);
+
   return (
     <HeroSection
       backgroundImage="https://readdy.ai/api/search-image?query=Modern%20Nigerian%20marketplace%20with%20vendors%20selling%20colorful%20products%2C%20bustling%20commercial%20district%20in%20Lagos%20with%20traditional%20and%20modern%20buildings%2C%20vibrant%20street%20scene%20with%20people%20shopping%2C%20warm%20golden%20lighting%2C%20professional%20photography%20style%2C%20clean%20organized%20market%20stalls&width=1200&height=600&seq=hero-nigeria&orientation=landscape"
@@ -378,27 +412,23 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
       <div className="bg-white/95 backdrop-blur-md rounded-2xl p-6 sm:p-8 shadow-2xl border border-white/20">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <div className="sm:col-span-2 lg:col-span-1">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              <i className="ri-search-line mr-1"></i>{t('hero.search_placeholder')}
-            </label>
-            <FormInput
-              type="text"
+            <SearchInputWithSuggestions
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={setSearchQuery}
               placeholder={t('hero.search_placeholder')}
-              className="w-full"
+              suggestions={searchSuggestions}
+              label={t('hero.search_placeholder')}
+              icon="ri-search-line"
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              <i className="ri-map-pin-line mr-1"></i>{t('label.location')}
-            </label>
-            <FormInput
-              type="text"
+            <SearchInputWithSuggestions
               value={searchLocation}
-              onChange={(e) => setSearchLocation(e.target.value)}
+              onChange={setSearchLocation}
               placeholder={t('hero.location_placeholder')}
-              className="w-full"
+              suggestions={NIGERIAN_STATES}
+              label={t('label.location')}
+              icon="ri-map-pin-line"
             />
           </div>
           <div>
@@ -529,6 +559,7 @@ export default function Home() {
         searchLocation={searchLocation}
         category={category}
         categories={categories}
+        featuredSuppliers={featuredSuppliers}
         setSearchQuery={setSearchQuery}
         setSearchLocation={setSearchLocation}
         setCategory={setCategory}
@@ -541,9 +572,6 @@ export default function Home() {
           <StatsGrid stats={stats} columns={4} />
         </Container>
       </Section>
-
-      {/* Categories Carousel */}
-      <CategoriesCarousel categories={categories} t={t} />
 
       {/* Featured Suppliers Section */}
       <FeaturedSuppliersSection

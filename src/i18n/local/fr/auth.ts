@@ -12,7 +12,7 @@ export const auth = {
   "login.welcome": "Bienvenue ! 👋",
   "login.already_signed_in": "Vous êtes déjà connecté.",
   "login.home": "Retour à l'accueil",
-  "login.new_to_olufinja": "Nouveau sur Olufinja ?",
+  "login.new_to_suji": "Nouveau sur Suji ?",
   "login.create_account_benefits": "Créez un compte pour accéder à des milliers de fournisseurs nigérians vérifiés.",
 
   // Register page

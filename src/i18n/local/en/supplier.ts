@@ -40,7 +40,7 @@ export const supplier = {
   "supplier.products": "Products",
   "supplier.about": "About",
   "supplier.important_info": "Important information",
-  "supplier.verified_by_olufinja": "Verified by Olufinja",
+  "supplier.verified_by_suji": "Verified by Suji",
   "supplier.quick_response": "Quick response to requests",
   "supplier.quality_service": "Quality customer service",
   "supplier.avg_rating": "Average rating",

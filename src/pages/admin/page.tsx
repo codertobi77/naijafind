@@ -1829,7 +1829,7 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
                 className="text-xl font-bold text-green-600"
                 style={{ fontFamily: 'Pacifico, serif' }}
               >
-                Olufinja
+                Suji
               </span>
             </Link>
           </div>
