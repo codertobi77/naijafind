@@ -7,7 +7,7 @@ import { query } from "./_generated/server";
  */
 export const getSearchSuggestions = query({
   args: {
-    limit: v.optional(v.int64()),
+    limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const limit = Number(args.limit ?? 100);
@@ -72,7 +72,7 @@ export const getSearchSuggestions = query({
 export const searchSuggestionsWithQuery = query({
   args: {
     query: v.string(),
-    limit: v.optional(v.int64()),
+    limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const searchQuery = args.query.toLowerCase().trim();

@@ -18,6 +18,7 @@ import type * as notifications from "../notifications.js";
 import type * as products from "../products.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as reviews from "../reviews.js";
+import type * as searchSuggestions from "../searchSuggestions.js";
 import type * as sendEmail from "../sendEmail.js";
 import type * as suppliers from "../suppliers.js";
 import type * as users from "../users.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   products: typeof products;
   rateLimit: typeof rateLimit;
   reviews: typeof reviews;
+  searchSuggestions: typeof searchSuggestions;
   sendEmail: typeof sendEmail;
   suppliers: typeof suppliers;
   users: typeof users;

@@ -200,7 +200,7 @@ function SearchInputWithSuggestions({
   // Use Convex query hook for suggestions
   const { data: searchResults, isLoading: isQueryLoading } = useConvexQuery(
     api.searchSuggestions.searchSuggestionsWithQuery,
-    debouncedValue.trim() ? { query: debouncedValue, limit: 10 } : 'skip',
+    debouncedValue.trim() ? { query: debouncedValue, limit: 10 } : ('skip' as const),
     { staleTime: 30 * 1000 }
   );
 
