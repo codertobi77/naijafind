@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
@@ -21,40 +21,14 @@ interface SearchHeroProps {
   searchLocation: string;
   category: string;
   categories: Array<{ _id: string; name: string }> | undefined;
-  featuredSuppliers: any[];
+  searchSuggestions: string[];
+  locationSuggestions: string[];
   setSearchQuery: (value: string) => void;
   setSearchLocation: (value: string) => void;
   setCategory: (value: string) => void;
   onSearch: () => void;
 }
 
-// Common search suggestions
-const COMMON_SEARCH_TERMS = [
-  'Agriculture',
-  'Textile',
-  'Électronique',
-  'Alimentation',
-  'Construction',
-  'Mécanique',
-  'Pharmaceutique',
-  'Cosmétique',
-  'Mobilier',
-  'Plastique',
-];
-
-// Nigerian states for location suggestions
-const NIGERIAN_STATES = [
-  'Lagos',
-  'Abuja',
-  'Kano',
-  'Ibadan',
-  'Port Harcourt',
-  'Benin City',
-  'Kaduna',
-  'Enugu',
-  'Aba',
-  'Onitsha',
-];
 
 function SearchInputWithSuggestions({
   value,
@@ -146,14 +120,7 @@ function SearchInputWithSuggestions({
   );
 }
 
-function SearchHero({ t, searchQuery, searchLocation, category, categories, featuredSuppliers, setSearchQuery, setSearchLocation, setCategory, onSearch }: SearchHeroProps) {
-  // Generate search suggestions from categories and supplier names
-  const searchSuggestions = useMemo(() => {
-    const categoryNames = categories?.map((c) => c.name) || [];
-    const supplierNames = featuredSuppliers.map((s) => s.business_name);
-    return [...new Set([...categoryNames, ...supplierNames, ...COMMON_SEARCH_TERMS])];
-  }, [categories, featuredSuppliers]);
-
+function SearchHero({ t, searchQuery, searchLocation, category, categories, searchSuggestions, locationSuggestions, setSearchQuery, setSearchLocation, setCategory, onSearch }: SearchHeroProps) {
   return (
     <HeroSection
       backgroundImage="https://readdy.ai/api/search-image?query=Modern%20Nigerian%20marketplace%20with%20vendors%20selling%20colorful%20products%2C%20bustling%20commercial%20district%20in%20Lagos%20with%20traditional%20and%20modern%20buildings%2C%20vibrant%20street%20scene%20with%20people%20shopping%2C%20warm%20golden%20lighting%2C%20professional%20photography%20style%2C%20clean%20organized%20market%20stalls&width=1200&height=600&seq=hero-nigeria&orientation=landscape"
@@ -182,7 +149,7 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, feat
               value={searchLocation}
               onChange={setSearchLocation}
               placeholder={t('hero.location_placeholder')}
-              suggestions={NIGERIAN_STATES}
+              suggestions={locationSuggestions}
               label={t('label.location')}
               icon="ri-map-pin-line"
             />
@@ -226,10 +193,10 @@ export default function Home() {
     {},
     { staleTime: 10 * 60 * 1000 }
   );
-  const { data: categories } = useConvexQuery(
-    api.categories.getAllCategories,
+  const { data: searchSuggestionsData } = useConvexQuery(
+    api.searchSuggestions.getSearchSuggestions,
     {},
-    { staleTime: 15 * 60 * 1000 }
+    { staleTime: 5 * 60 * 1000 }
   );
 
   // Newsletter subscription mutation
@@ -261,6 +228,10 @@ export default function Home() {
 
   // Extract suppliers array from Convex response
   const featuredSuppliers: Supplier[] = featuredSuppliersData || [];
+
+  // Search suggestions from database (products, suppliers, categories, locations)
+  const searchTerms = searchSuggestionsData?.searchTerms || [];
+  const locationSuggestions = searchSuggestionsData?.locations || [];
 
   const handleAddBusinessClick = () => {
     if (!isLoading) {
@@ -315,7 +286,8 @@ export default function Home() {
         searchLocation={searchLocation}
         category={category}
         categories={categories}
-        featuredSuppliers={featuredSuppliers}
+        searchSuggestions={searchTerms}
+        locationSuggestions={locationSuggestions}
         setSearchQuery={setSearchQuery}
         setSearchLocation={setSearchLocation}
         setCategory={setCategory}
