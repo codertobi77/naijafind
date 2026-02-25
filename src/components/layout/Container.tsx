@@ -38,7 +38,7 @@ export function Container({
 interface SectionProps {
   children: ReactNode;
   className?: string;
-  background?: 'white' | 'gray' | 'green' | 'gradient' | 'dark' | 'none';
+  background?: 'white' | 'gray' | 'green' | 'green-dark' | 'gradient' | 'dark' | 'none';
   padding?: 'none' | 'sm' | 'md' | 'lg';
 }
 
@@ -52,6 +52,7 @@ export function Section({
     white: 'bg-white',
     gray: 'bg-gray-50',
     green: 'bg-green-50',
+    'green-dark': 'bg-green-600',
     gradient: 'bg-gradient-to-br from-gray-50 via-white to-green-50',
     dark: 'bg-gray-900',
     none: '',
