@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
@@ -11,7 +11,55 @@ import { HeroSection, Section, Container, Footer } from '../../components/layout
 import { CTASection } from '../../components/ui';
 import { FormSelect } from '../../components/forms';
 
-// Define proper TypeScript interface for Supplier based on Convex schema
+// Custom hook for debouncing
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+// Custom hook for recent searches
+function useRecentSearches(key: string, maxItems: number = 5) {
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      try {
+        setRecentSearches(JSON.parse(stored));
+      } catch {
+        setRecentSearches([]);
+      }
+    }
+  }, [key]);
+
+  const addRecentSearch = useCallback((search: string) => {
+    if (!search.trim()) return;
+    setRecentSearches((prev) => {
+      const filtered = prev.filter((s) => s.toLowerCase() !== search.toLowerCase());
+      const updated = [search, ...filtered].slice(0, maxItems);
+      localStorage.setItem(key, JSON.stringify(updated));
+      return updated;
+    });
+  }, [key, maxItems]);
+
+  const clearRecentSearches = useCallback(() => {
+    localStorage.removeItem(key);
+    setRecentSearches([]);
+  }, [key]);
+
+  return { recentSearches, addRecentSearch, clearRecentSearches };
+}
 type Supplier = Doc<"suppliers">;
 
 // Search Hero Component with Autocomplete
@@ -21,68 +69,182 @@ interface SearchHeroProps {
   searchLocation: string;
   category: string;
   categories: Array<{ _id: string; name: string }> | undefined;
-  searchSuggestions: string[];
-  locationSuggestions: string[];
   setSearchQuery: (value: string) => void;
   setSearchLocation: (value: string) => void;
   setCategory: (value: string) => void;
   onSearch: () => void;
+  recentSearches: string[];
+  recentLocations: string[];
+  onAddRecentSearch: (search: string) => void;
+  onAddRecentLocation: (location: string) => void;
+  onClearRecentSearches: () => void;
+  onClearRecentLocations: () => void;
 }
 
+
+interface SuggestionItem {
+  text: string;
+  type: 'product' | 'supplier' | 'category' | 'location';
+  icon: string;
+  subtext?: string;
+}
+
+interface SearchSuggestionsResult {
+  suggestions: string[];
+  locations: string[];
+}
 
 function SearchInputWithSuggestions({
   value,
   onChange,
   placeholder,
-  suggestions,
   label,
   icon,
+  type,
+  recentSearches,
+  onAddRecentSearch,
+  onClearRecentSearches,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
-  suggestions: string[];
   label: string;
   icon: string;
+  type: 'search' | 'location';
+  recentSearches: string[];
+  onAddRecentSearch?: (search: string) => void;
+  onClearRecentSearches?: () => void;
 }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
+  const [filteredSuggestions, setFilteredSuggestions] = useState<SuggestionItem[]>([]);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Debounce the input value
+  const debouncedValue = useDebounce(value, 300);
+
+  // Fetch suggestions from API when debounced value changes
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      // Don't search if value is empty
+      if (!debouncedValue.trim()) {
+        setHasSearched(false);
+        // Show recent searches when focused with empty value
+        if (recentSearches.length > 0) {
+          const recentItems: SuggestionItem[] = recentSearches.map((s) => ({
+            text: s,
+            type: type === 'location' ? 'location' : 'product',
+            icon: type === 'location' ? 'ri-map-pin-line' : 'ri-time-line',
+            subtext: 'Récent',
+          }));
+          setFilteredSuggestions(recentItems);
+        } else {
+          setFilteredSuggestions([]);
+        }
+        return;
+      }
+
+      setIsLoading(true);
+      setHasSearched(true);
+
+      try {
+        // Call the Convex query directly
+        const response = await fetch('/api/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            path: 'searchSuggestions.searchSuggestionsWithQuery',
+            args: {
+              query: debouncedValue,
+              limit: 10,
+            },
+          }),
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch');
+        const result: SearchSuggestionsResult = await response.json();
+
+        // Categorize and build suggestions
+        const items: SuggestionItem[] = [];
+        
+        if (type === 'location') {
+          // For location input, use location results
+          result.locations.forEach((loc) => {
+            items.push({
+              text: loc,
+              type: 'location',
+              icon: 'ri-map-pin-line',
+            });
+          });
+        } else {
+          // For search input, categorize results
+          result.suggestions.forEach((s) => {
+            let itemType: 'product' | 'supplier' | 'category' = 'product';
+            let itemIcon = 'ri-search-line';
+            let subtext: string | undefined;
+
+            // Heuristics to determine type
+            const lower = s.toLowerCase();
+            if (lower.includes('ltd') || lower.includes('limited') || lower.includes('inc') || lower.includes('corp') || lower.includes('nigeria') || lower.includes('services') || lower.includes('enterprise')) {
+              itemType = 'supplier';
+              itemIcon = 'ri-building-4-line';
+              subtext = 'Fournisseur';
+            } else if (s.split(' ').length === 1 && s.length < 20) {
+              itemType = 'category';
+              itemIcon = 'ri-folder-3-line';
+              subtext = 'Catégorie';
+            }
+
+            items.push({
+              text: s,
+              type: itemType,
+              icon: itemIcon,
+              subtext,
+            });
+          });
+        }
+
+        setFilteredSuggestions(items);
+      } catch (error) {
+        console.error('Error fetching suggestions:', error);
+        // Fallback to empty state
+        setFilteredSuggestions([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (showSuggestions) {
+      fetchSuggestions();
+    }
+  }, [debouncedValue, type, recentSearches, showSuggestions]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
+        setHighlightedIndex(-1);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    const trimmedValue = value.trim().toLowerCase();
-    if (trimmedValue) {
-      const filtered = suggestions
-        .filter((s) => s.toLowerCase().includes(trimmedValue))
-        .slice(0, 5);
-      setFilteredSuggestions(filtered);
-    } else {
-      setFilteredSuggestions(suggestions.slice(0, 5));
-    }
-  }, [value, suggestions]);
-
   const handleFocus = () => {
-    const trimmedValue = value.trim().toLowerCase();
-    if (trimmedValue) {
-      const filtered = suggestions
-        .filter((s) => s.toLowerCase().includes(trimmedValue))
-        .slice(0, 5);
-      setFilteredSuggestions(filtered);
-    } else {
-      setFilteredSuggestions(suggestions.slice(0, 5));
-    }
     setShowSuggestions(true);
+    // Show recent searches if value is empty
+    if (!value.trim() && recentSearches.length > 0) {
+      const recentItems: SuggestionItem[] = recentSearches.map((s) => ({
+        text: s,
+        type: type === 'location' ? 'location' : 'product',
+        icon: 'ri-time-line',
+        subtext: 'Récent',
+      }));
+      setFilteredSuggestions(recentItems);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,51 +252,290 @@ function SearchInputWithSuggestions({
     setShowSuggestions(true);
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
-    onChange(suggestion);
+  const handleSuggestionClick = (suggestion: SuggestionItem) => {
+    onChange(suggestion.text);
     setShowSuggestions(false);
+    setHighlightedIndex(-1);
+    onAddRecentSearch?.(suggestion.text);
+  };
+
+  const handleClear = () => {
+    onChange('');
+    inputRef.current?.focus();
+    setFilteredSuggestions([]);
+    setHasSearched(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Escape') {
-      setShowSuggestions(false);
+    if (!showSuggestions) {
+      if (e.key === 'Escape') {
+        setShowSuggestions(false);
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex((prev) =>
+          prev < filteredSuggestions.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : -1));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (highlightedIndex >= 0 && highlightedIndex < filteredSuggestions.length) {
+          handleSuggestionClick(filteredSuggestions[highlightedIndex]);
+        } else if (value.trim()) {
+          // Search with current value
+          setShowSuggestions(false);
+          onAddRecentSearch?.(value);
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        setHighlightedIndex(-1);
+        break;
     }
   };
+
+  // Highlight matching text
+  const highlightMatch = (text: string, query: string) => {
+    if (!query.trim()) return <span className="text-gray-700">{text}</span>;
+
+    const lowerText = text.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    const index = lowerText.indexOf(lowerQuery);
+
+    if (index === -1) return <span className="text-gray-700">{text}</span>;
+
+    const before = text.slice(0, index);
+    const match = text.slice(index, index + query.length);
+    const after = text.slice(index + query.length);
+
+    return (
+      <span className="text-gray-700">
+        {before}
+        <span className="font-semibold text-green-700">{match}</span>
+        {after}
+      </span>
+    );
+  };
+
+  // Group suggestions by type for display
+  const groupedSuggestions = filteredSuggestions.reduce((acc, item) => {
+    if (!acc[item.type]) acc[item.type] = [];
+    acc[item.type].push(item);
+    return acc;
+  }, {} as Record<string, SuggestionItem[]>);
+
+  const typeLabels: Record<string, string> = {
+    supplier: 'Fournisseurs',
+    product: 'Produits',
+    category: 'Catégories',
+    location: 'Lieux',
+  };
+
+  const typeOrder = type === 'location'
+    ? ['location']
+    : ['supplier', 'product', 'category'];
+
+  const showRecentSection = !value.trim() && recentSearches.length > 0 && !hasSearched;
+  const showEmptyState = hasSearched && !isLoading && filteredSuggestions.length === 0 && value.trim().length > 0;
 
   return (
     <div ref={containerRef} className="relative">
       <label className="block text-sm font-semibold text-gray-700 mb-2">
         <i className={`${icon} mr-1`}></i>{label}
       </label>
-      <input
-        ref={inputRef}
-        type="text"
-        value={value}
-        onChange={handleInputChange}
-        onFocus={handleFocus}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-green-500"
-      />
-      {showSuggestions && filteredSuggestions.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
-          {filteredSuggestions.map((suggestion, index) => (
-            <button
-              key={index}
-              onClick={() => handleSuggestionClick(suggestion)}
-              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 transition-colors first:rounded-t-lg last:rounded-b-lg"
-            >
-              <i className="ri-search-line mr-2 text-gray-400"></i>
-              {suggestion}
-            </button>
-          ))}
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          onChange={handleInputChange}
+          onFocus={handleFocus}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
+          aria-autocomplete="list"
+          aria-expanded={showSuggestions}
+          aria-activedescendant={highlightedIndex >= 0 ? `suggestion-${highlightedIndex}` : undefined}
+        />
+        {/* Clear button */}
+        {value && (
+          <button
+            onClick={handleClear}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            aria-label="Clear input"
+          >
+            <i className="ri-close-line text-gray-400 text-sm"></i>
+          </button>
+        )}
+      </div>
+
+      {showSuggestions && (
+        <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
+          {/* Loading state */}
+          {isLoading && (
+            <div className="px-4 py-6 flex items-center justify-center gap-2 text-gray-500">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+              <span className="text-sm">Recherche en cours...</span>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!isLoading && showEmptyState && (
+            <div className="px-4 py-6 text-center">
+              <i className="ri-search-line text-3xl text-gray-300 mb-2"></i>
+              <p className="text-sm text-gray-500">Aucun résultat pour &quot;{value}&quot;</p>
+              <p className="text-xs text-gray-400 mt-1">Essayez avec d&apos;autres termes</p>
+            </div>
+          )}
+
+          {/* Recent searches section */}
+          {!isLoading && showRecentSection && (
+            <>
+              <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Recherches récentes
+                </span>
+                <button
+                  onClick={onClearRecentSearches}
+                  className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  Effacer
+                </button>
+              </div>
+              <div className="max-h-60 overflow-y-auto">
+                {filteredSuggestions.map((suggestion, idx) => {
+                  const isHighlighted = idx === highlightedIndex;
+                  return (
+                    <button
+                      key={`recent-${idx}`}
+                      id={`suggestion-${idx}`}
+                      onClick={() => handleSuggestionClick(suggestion)}
+                      onMouseEnter={() => setHighlightedIndex(idx)}
+                      className={`w-full px-4 py-3 text-left flex items-center gap-3 transition-all duration-150 ${
+                        isHighlighted ? 'bg-green-50' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        isHighlighted ? 'bg-green-100' : 'bg-gray-100'
+                      }`}>
+                        <i className={`${suggestion.icon} ${isHighlighted ? 'text-green-600' : 'text-gray-500'}`}></i>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-gray-700">{suggestion.text}</div>
+                        {suggestion.subtext && (
+                          <div className="text-xs text-gray-400">{suggestion.subtext}</div>
+                        )}
+                      </div>
+                      {isHighlighted && (
+                        <i className="ri-corner-down-left-line text-green-600 text-sm"></i>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* Search results */}
+          {!isLoading && !showEmptyState && !showRecentSection && filteredSuggestions.length > 0 && (
+            <>
+              {/* Header with result count */}
+              <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  {filteredSuggestions.length} résultat{filteredSuggestions.length > 1 ? 's' : ''}
+                </span>
+              </div>
+
+              <div className="max-h-80 overflow-y-auto">
+                {typeOrder.map((typeKey) => {
+                  const items = groupedSuggestions[typeKey];
+                  if (!items || items.length === 0) return null;
+
+                  return (
+                    <div key={typeKey} className="border-b border-gray-50 last:border-0">
+                      {/* Category header */}
+                      <div className="px-4 py-1.5 bg-gray-50/50">
+                        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                          {typeLabels[typeKey]}
+                        </span>
+                      </div>
+
+                      {/* Suggestions in this category */}
+                      {items.map((suggestion, idx) => {
+                        const globalIndex = filteredSuggestions.findIndex((s) => s === suggestion);
+                        const isHighlighted = globalIndex === highlightedIndex;
+
+                        return (
+                          <button
+                            key={`${typeKey}-${idx}`}
+                            id={`suggestion-${globalIndex}`}
+                            onClick={() => handleSuggestionClick(suggestion)}
+                            onMouseEnter={() => setHighlightedIndex(globalIndex)}
+                            className={`w-full px-4 py-3 text-left flex items-center gap-3 transition-all duration-150 ${
+                              isHighlighted ? 'bg-green-50' : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                              isHighlighted ? 'bg-green-100' : 'bg-gray-100'
+                            }`}>
+                              <i className={`${suggestion.icon} ${isHighlighted ? 'text-green-600' : 'text-gray-500'}`}></i>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm truncate">
+                                {highlightMatch(suggestion.text, value)}
+                              </div>
+                              {suggestion.subtext && (
+                                <div className="text-xs text-gray-400">{suggestion.subtext}</div>
+                              )}
+                            </div>
+                            {isHighlighted && (
+                              <i className="ri-corner-down-left-line text-green-600 text-sm"></i>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* Footer with keyboard hints */}
+          {(filteredSuggestions.length > 0 || showRecentSection) && (
+            <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-white rounded border border-gray-200 font-sans">↓</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-white rounded border border-gray-200 font-sans">↑</kbd>
+                  <span>naviguer</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-white rounded border border-gray-200 font-sans">↵</kbd>
+                  <span>sélectionner</span>
+                </span>
+              </div>
+              <span className="flex items-center gap-1">
+                <kbd className="px-1.5 py-0.5 bg-white rounded border border-gray-200 font-sans">esc</kbd>
+                <span>fermer</span>
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function SearchHero({ t, searchQuery, searchLocation, category, categories, searchSuggestions, locationSuggestions, setSearchQuery, setSearchLocation, setCategory, onSearch }: SearchHeroProps) {
+function SearchHero({ t, searchQuery, searchLocation, category, categories, setSearchQuery, setSearchLocation, setCategory, onSearch, recentSearches, recentLocations, onAddRecentSearch, onAddRecentLocation, onClearRecentSearches, onClearRecentLocations }: SearchHeroProps) {
   return (
     <HeroSection
       backgroundImage="https://readdy.ai/api/search-image?query=Modern%20Nigerian%20marketplace%20with%20vendors%20selling%20colorful%20products%2C%20bustling%20commercial%20district%20in%20Lagos%20with%20traditional%20and%20modern%20buildings%2C%20vibrant%20street%20scene%20with%20people%20shopping%2C%20warm%20golden%20lighting%2C%20professional%20photography%20style%2C%20clean%20organized%20market%20stalls&width=1200&height=600&seq=hero-nigeria&orientation=landscape"
@@ -153,9 +554,12 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, sear
               value={searchQuery}
               onChange={setSearchQuery}
               placeholder={t('hero.search_placeholder')}
-              suggestions={searchSuggestions}
               label={t('hero.search_placeholder')}
               icon="ri-search-line"
+              type="search"
+              recentSearches={recentSearches}
+              onAddRecentSearch={onAddRecentSearch}
+              onClearRecentSearches={onClearRecentSearches}
             />
           </div>
           <div>
@@ -163,9 +567,12 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, sear
               value={searchLocation}
               onChange={setSearchLocation}
               placeholder={t('hero.location_placeholder')}
-              suggestions={locationSuggestions}
               label={t('label.location')}
               icon="ri-map-pin-line"
+              type="location"
+              recentSearches={recentLocations}
+              onAddRecentSearch={onAddRecentLocation}
+              onClearRecentSearches={onClearRecentLocations}
             />
           </div>
           <div>
@@ -245,6 +652,10 @@ export default function Home() {
   const [searchLocation, setSearchLocation] = useState('');
   const [category, setCategory] = useState('');
 
+  // Recent searches hooks
+  const { recentSearches, addRecentSearch: onAddRecentSearch, clearRecentSearches: onClearRecentSearches } = useRecentSearches('naijafind_recent_searches', 5);
+  const { recentSearches: recentLocations, addRecentSearch: onAddRecentLocation, clearRecentSearches: onClearRecentLocations } = useRecentSearches('naijafind_recent_locations', 5);
+
   // Extract suppliers array from Convex response
   const featuredSuppliers: Supplier[] = featuredSuppliersData || [];
 
@@ -268,8 +679,14 @@ export default function Home() {
 
   const handleSearch = () => {
     const params = new URLSearchParams();
-    if (searchQuery) params.set('q', searchQuery);
-    if (searchLocation) params.set('location', searchLocation);
+    if (searchQuery) {
+      params.set('q', searchQuery);
+      onAddRecentSearch(searchQuery);
+    }
+    if (searchLocation) {
+      params.set('location', searchLocation);
+      onAddRecentLocation(searchLocation);
+    }
     if (category) params.set('category', category);
     navigate(`/search?${params.toString()}`);
   };
@@ -305,12 +722,16 @@ export default function Home() {
         searchLocation={searchLocation}
         category={category}
         categories={categories}
-        searchSuggestions={searchTerms}
-        locationSuggestions={locationSuggestions}
         setSearchQuery={setSearchQuery}
         setSearchLocation={setSearchLocation}
         setCategory={setCategory}
         onSearch={handleSearch}
+        recentSearches={recentSearches}
+        recentLocations={recentLocations}
+        onAddRecentSearch={onAddRecentSearch}
+        onAddRecentLocation={onAddRecentLocation}
+        onClearRecentSearches={onClearRecentSearches}
+        onClearRecentLocations={onClearRecentLocations}
       />
 
         {/* Stats Section */}
