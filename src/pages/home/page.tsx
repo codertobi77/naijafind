@@ -193,6 +193,11 @@ export default function Home() {
     {},
     { staleTime: 10 * 60 * 1000 }
   );
+  const { data: categories } = useConvexQuery(
+    api.categories.getAllCategories,
+    {},
+    { staleTime: 15 * 60 * 1000 }
+  );
   const { data: searchSuggestionsData } = useConvexQuery(
     api.searchSuggestions.getSearchSuggestions,
     {},
