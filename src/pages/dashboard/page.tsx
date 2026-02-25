@@ -39,7 +39,8 @@ type DashboardTab =
   | 'verification'
   | 'settings'
   | 'team'
-  | 'galerie';
+  | 'galerie'
+  | 'messages';
 
 interface DashboardData {
   profile: any;
@@ -67,6 +68,7 @@ function getSidebarTabs(businessType: string | undefined): Array<{ id: Dashboard
     { id: 'overview', label: 'Aperçu', icon: 'ri-dashboard-line' },
     { id: 'profile', label: 'Profil', icon: 'ri-building-line' },
     { id: 'reviews', label: 'Avis', icon: 'ri-star-line' },
+    { id: 'messages', label: 'Messages', icon: 'ri-mail-line' },
     { id: 'verification', label: 'Vérification', icon: 'ri-shield-check-line' },
     { id: 'analytics', label: 'Analytics', icon: 'ri-bar-chart-line' },
     { id: 'subscription', label: 'Abonnement', icon: 'ri-vip-crown-line' },
@@ -1057,6 +1059,8 @@ export default function Dashboard() {
         );
       case 'settings':
         return <ComingSoon feature="settings" />;
+      case 'messages':
+        return <MessagesSection />;
       case 'team':
         return <TeamSection />;
       default:
@@ -1355,6 +1359,7 @@ function DashboardHeader({
           <h1 className="text-xl font-bold text-gray-900">
             {activeTab === 'overview' && 'Aperçu'}
             {activeTab === 'profile' && 'Profil entreprise'}
+            {activeTab === 'products' && 'Produits'}
             {activeTab === 'galerie' && 'Galerie'}
             {activeTab === 'settings' && 'Paramètres'}
             {activeTab === 'reviews' && 'Avis'}
@@ -1362,6 +1367,7 @@ function DashboardHeader({
             {activeTab === 'analytics' && 'Analytics'}
             {activeTab === 'subscription' && 'Abonnement'}
             {activeTab === 'team' && 'Équipe'}
+            {activeTab === 'messages' && 'Messages'}
           </h1>
         </div>
 
@@ -2091,6 +2097,11 @@ function SubscriptionSection() {
 function TeamSection() {
   // For now, show coming soon message as this feature is not fully implemented
   return <ComingSoon feature="team" />;
+}
+
+function MessagesSection() {
+  // For now, show coming soon message as this feature is not fully implemented
+  return <ComingSoon feature="messages" />;
 }
 
 function ProductModal({

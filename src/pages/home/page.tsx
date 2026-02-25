@@ -538,11 +538,7 @@ export default function Home() {
       {/* Stats Section */}
       <Section background="white" padding="md">
         <Container>
-          <StatsGrid columns={4}>
-            {stats.map((stat, index) => (
-              <StatCard key={index} {...stat} />
-            ))}
-          </StatsGrid>
+          <StatsGrid stats={stats} columns={4} />
         </Container>
       </Section>
 
