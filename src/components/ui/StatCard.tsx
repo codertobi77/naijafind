@@ -54,7 +54,7 @@ export function StatsGrid({ stats, columns = 4, className = '' }: StatsGridProps
 
   return (
     <div className={`grid ${gridClasses[columns]} gap-6 sm:gap-8 ${className}`}>
-      {stats.map((stat, index) => (
+      {stats?.map((stat, index) => (
         <StatCard key={index} {...stat} />
       ))}
     </div>
