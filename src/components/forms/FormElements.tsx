@@ -132,7 +132,7 @@ interface FormSelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 
 export const FormSelect = forwardRef<HTMLSelectElement, FormSelectProps>(
   (
-    { label, error, helperText, options, fullWidth = true, placeholder, className = '', ...props },
+    { label, error, helperText, options, fullWidth = true, placeholder, className = '', onChange, ...props },
     ref
   ) => {
     const baseClasses = `
@@ -143,6 +143,12 @@ export const FormSelect = forwardRef<HTMLSelectElement, FormSelectProps>(
       ${fullWidth ? 'w-full' : ''}
     `;
 
+    const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      if (onChange) {
+        onChange(e.target.value);
+      }
+    };
+
     return (
       <div className={`${fullWidth ? 'w-full' : ''} ${className}`}>
         {label && (
@@ -151,7 +157,7 @@ export const FormSelect = forwardRef<HTMLSelectElement, FormSelectProps>(
             {props.required && <span className="text-red-500 ml-1">*</span>}
           </label>
         )}
-        <select ref={ref} className={`${baseClasses} px-3 py-2 border pr-8`} {...props}>
+        <select ref={ref} className={`${baseClasses} px-3 py-2 border pr-8`} onChange={handleChange} {...props}>
           {placeholder && (
             <option value="" disabled>
               {placeholder}

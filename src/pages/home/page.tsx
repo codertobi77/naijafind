@@ -61,15 +61,29 @@ function SearchInputWithSuggestions({
   }, []);
 
   useEffect(() => {
-    if (value.trim()) {
+    const trimmedValue = value.trim().toLowerCase();
+    if (trimmedValue) {
       const filtered = suggestions
-        .filter((s) => s.toLowerCase().includes(value.toLowerCase()))
+        .filter((s) => s.toLowerCase().includes(trimmedValue))
         .slice(0, 5);
       setFilteredSuggestions(filtered);
     } else {
       setFilteredSuggestions(suggestions.slice(0, 5));
     }
   }, [value, suggestions]);
+
+  const handleFocus = () => {
+    const trimmedValue = value.trim().toLowerCase();
+    if (trimmedValue) {
+      const filtered = suggestions
+        .filter((s) => s.toLowerCase().includes(trimmedValue))
+        .slice(0, 5);
+      setFilteredSuggestions(filtered);
+    } else {
+      setFilteredSuggestions(suggestions.slice(0, 5));
+    }
+    setShowSuggestions(true);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e.target.value);
@@ -97,7 +111,7 @@ function SearchInputWithSuggestions({
         type="text"
         value={value}
         onChange={handleInputChange}
-        onFocus={() => setShowSuggestions(true)}
+        onFocus={handleFocus}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-green-500"
