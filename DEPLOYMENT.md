@@ -1,6 +1,43 @@
-# CI/CD Deployment Guide - Hostinger VPS
+# CI/CD Deployment Guide - Hostinger VPS (Docker)
 
-Ce guide explique comment configurer le déploiement automatique de NaijaFind sur un VPS Hostinger via GitHub Actions.
+Ce guide explique comment configurer le déploiement automatique de NaijaFind sur un VPS Hostinger via GitHub Actions avec Docker.
+
+## Architecture Docker
+
+```
+┌─────────────────┐
+│   GitHub Repo   │
+│  (Code source)  │
+└────────┬────────┘
+         │ Push/Merge
+         ▼
+┌──────────────────────────┐
+│      GitHub Actions      │
+│  (Build Docker Image)    │
+└────────┬─────────────────┘
+         │ SCP / SSH
+         ▼
+┌──────────────────────────┐
+│     Hostinger VPS        │
+│  ┌────────────────────┐  │
+│  │   Nginx (80/443)   │  │  ← Reverse Proxy + SSL
+│  │   (sur le host)    │  │
+│  └────────┬───────────┘  │
+│           │              │
+│  ┌────────▼──────────┐  │
+│  │  Docker Container │  │
+│  │  ┌─────────────┐    │  │
+│  │  │    Nginx    │    │  │  ← Sert l'app React
+│  │  │   (Port 80) │    │  │
+│  │  └──────┬──────┘    │  │
+│  │         │            │  │
+│  │  ┌──────▼──────┐    │  │
+│  │  │  dist/      │    │  │  ← App React buildée
+│  │  │ (React App) │    │  │
+│  │  └─────────────┘    │  │
+│  └─────────────────────┘  │
+└──────────────────────────┘
+```
 
 ## Configuration Requise
 
@@ -12,17 +49,22 @@ Connectez-vous à votre VPS et exécutez :
 # Mise à jour du système
 sudo apt update && sudo apt upgrade -y
 
-# Installation de Node.js 20
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
+# Installation de Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
 
-# Installation de PM2 globalement
-sudo npm install -g pm2
+# Ajouter l'utilisateur au groupe docker
+sudo usermod -aG docker $USER
+newgrp docker
 
-# Installation de serve pour servir les fichiers statiques
-sudo npm install -g serve
+# Installation de Docker Compose (plugin)
+sudo apt install -y docker-compose-plugin
 
-# Installation de Nginx
+# Vérification
+docker --version
+docker compose version
+
+# Installation de Nginx (sur le host pour reverse proxy)
 sudo apt install -y nginx
 
 # Installation de Certbot pour SSL
@@ -31,14 +73,11 @@ sudo apt install -y certbot python3-certbot-nginx
 # Création du répertoire de déploiement
 sudo mkdir -p /var/www/naijafind
 sudo chown $USER:$USER /var/www/naijafind
-
-# Création du répertoire de logs
-mkdir -p /var/www/naijafind/logs
 ```
 
 ### 2. Configuration SSH pour GitHub Actions
 
-Générez une clé SSH sur votre machine locale (si vous n'en avez pas déjà une) :
+Générez une clé SSH sur votre machine locale :
 
 ```bash
 ssh-keygen -t ed25519 -C "github-actions@naijafind.com" -f ~/.ssh/github_actions_naijafind
@@ -63,6 +102,7 @@ Allez dans **Settings > Secrets and variables > Actions** de votre repository Gi
 | `VPS_SSH_PRIVATE_KEY` | Clé SSH privée complète | Contenu de `~/.ssh/github_actions_naijafind` |
 | `VPS_SSH_PORT` | Port SSH (optionnel, défaut: 22) | `22` ou `2222` |
 | `VPS_DEPLOY_PATH` | Chemin de déploiement (optionnel) | `/var/www/naijafind` |
+| `APP_PORT` | Port externe du conteneur (optionnel, défaut: 3333) | `3333` |
 | `VITE_CONVEX_URL` | URL de l'API Convex | `https://your-app.convex.cloud` |
 | `VITE_CLERK_PUBLISHABLE_KEY` | Clé publique Clerk | `pk_test_...` |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Clé publique Stripe | `pk_test_...` |
@@ -78,57 +118,83 @@ Allez dans **Settings > Secrets and variables > Actions** de votre repository Gi
 | `VITE_FIREBASE_APP_ID` | App ID Firebase | `1:123456789:web:...` |
 | `VITE_CLOUDINARY_CLOUD_NAME` | Nom du cloud Cloudinary | `your-cloud` |
 
-### 4. Configuration Nginx
+### 4. Configuration Nginx (Reverse Proxy)
 
-Copiez la configuration Nginx sur le VPS :
+> **Alternative si le port 80 est occupé** : Vous pouvez skipper cette section et accéder directement à l'application via `http://votre-ip:3333`. Le conteneur Docker expose déjà le port 3333.
+
+Si vous souhaitez utiliser Nginx comme reverse proxy (nécessite le port 80 libre) :
+
+Créez la configuration Nginx pour rediriger vers le conteneur Docker :
 
 ```bash
-# Copier la configuration
-sudo cp /var/www/naijafind/nginx.conf /etc/nginx/sites-available/naijafind
+sudo nano /etc/nginx/sites-available/naijafind
+```
 
-# Créer le lien symbolique
+Contenu :
+
+```nginx
+server {
+    listen 80;
+    server_name naijafind.com www.naijafind.com;
+
+    location / {
+        proxy_pass http://localhost:3333;  # Port du conteneur Docker
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+Activez la configuration :
+
+```bash
 sudo ln -sf /etc/nginx/sites-available/naijafind /etc/nginx/sites-enabled/
-
-# Supprimer la configuration par défaut si nécessaire
 sudo rm -f /etc/nginx/sites-enabled/default
-
-# Tester la configuration
 sudo nginx -t
-
-# Redémarrer Nginx
 sudo systemctl restart nginx
 sudo systemctl enable nginx
 ```
 
-### 5. Configuration SSL (HTTPS)
+**Si le port 80 est occupé par Apache ou autre** et que vous ne pouvez pas l'arrêter :
+- N'utilisez pas Nginx
+- Accédez directement à l'application via `http://votre-ip:3333`
+- Ou configurez Apache pour faire un proxy vers le port 3333
 
-Obtenez un certificat SSL gratuit avec Certbot :
+### 5. Configuration SSL (HTTPS) - Optionnel
 
+> **Note** : Si vous n'utilisez pas Nginx, vous pouvez configurer SSL directement dans Apache (s'il est déjà installé) ou utiliser un reverse proxy externe (Cloudflare, etc.)
+
+Avec Nginx :
 ```bash
-# Installer le certificat
 sudo certbot --nginx -d naijafind.com -d www.naijafind.com
-
-# Renouvellement automatique
 sudo systemctl enable certbot.timer
 ```
 
-### 6. Configuration PM2
+## Fichiers de Configuration Docker
 
-PM2 est utilisé pour gérer l'application Node.js :
+### Dockerfile
 
-```bash
-cd /var/www/naijafind
+Le `Dockerfile` crée une image multi-stage :
+- Étape 1 : Build de l'application React avec Node.js
+- Étape 2 : Serveur Nginx pour servir les fichiers statiques
 
-# Démarrer l'application avec PM2
-pm2 start ecosystem.config.cjs --env production
+### docker-compose.yml
 
-# Sauvegarder la configuration PM2
-pm2 save
+Le fichier `docker-compose.yml` définit :
+- Le service `naijafind` avec l'image buildée
+- Le mapping du port (3000:80 par défaut)
+- Le healthcheck du conteneur
+- Le restart policy
 
-# Configurer le démarrage automatique
-pm2 startup systemd
-sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u $USER --hp $HOME
-```
+### nginx-docker.conf
+
+Configuration Nginx interne au conteneur pour servir l'application React (SPA avec support du routing).
 
 ## Déploiement
 
@@ -137,115 +203,140 @@ sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u $USER --hp $HOME
 Le déploiement se déclenche automatiquement :
 - Sur chaque push sur la branche `main` ou `master`
 - Sur chaque merge de Pull Request vers `main` ou `master`
+- Manuellement via **Actions > Deploy to Hostinger VPS (Docker) > Run workflow**
 
-### Déploiement Manuel
+### Processus de Déploiement
 
-Vous pouvez aussi déclencher manuellement depuis l'onglet **Actions** de GitHub.
+1. **GitHub Actions** build l'image Docker avec les variables d'environnement
+2. L'image est compressée et transférée via SCP sur le VPS
+3. L'image est chargée dans Docker sur le VPS
+4. Le conteneur est redémarré avec `docker compose up -d`
+5. Les anciennes images sont nettoyées
 
 ## Vérification du Déploiement
 
 ```bash
-# Vérifier le statut de l'application
-pm2 status
+# Sur le VPS
 
-# Voir les logs
-pm2 logs naijafind
+# Vérifier le statut du conteneur
+docker ps
+
+# Voir les logs du conteneur
+docker logs naijafind-app
+
+# Voir les logs en temps réel
+docker logs -f naijafind-app
+
+# Vérifier le statut Docker Compose
+cd /var/www/naijafind
+docker compose ps
 
 # Voir les logs Nginx
-sudo tail -f /var/log/nginx/naijafind-access.log
-sudo tail -f /var/log/nginx/naijafind-error.log
+sudo tail -f /var/log/nginx/access.log
+sudo tail -f /var/log/nginx/error.log
 ```
 
 ## Dépannage
 
-### Problème de permissions
+### Conteneur ne démarre pas
 
 ```bash
-# Corriger les permissions
-sudo chown -R $USER:$USER /var/www/naijafind
-sudo chmod -R 755 /var/www/naijafind
+# Vérifier les logs
+docker logs naijafind-app
+
+# Vérifier la configuration
+cd /var/www/naijafind
+docker compose config
+
+# Redémarrer manuellement
+docker compose down
+docker compose up -d
 ```
 
-### Redémarrage manuel
+### Problème de port déjà utilisé
 
 ```bash
-# Redémarrer l'application
-pm2 restart naijafind
+# Vérifier ce qui utilise le port
+sudo lsof -i :3000
 
-# Ou recharger la configuration
-pm2 reload ecosystem.config.cjs --env production
+# Changer le port dans docker-compose.yml
+# ou arrêter le processus qui utilise le port
 ```
 
-### Problèmes de build
+### Nettoyer les images Docker inutilisées
 
-Si le build échoue, vérifiez les logs GitHub Actions et assurez-vous que tous les secrets sont correctement configurés.
+```bash
+# Supprimer les images dangling
+docker image prune -f
 
-## Architecture du Déploiement
+# Supprimer les images non utilisées
+docker system prune -a -f
 
+# Voir l'espace utilisé par Docker
+docker system df
 ```
-┌─────────────────┐
-│   GitHub Repo   │
-│  (Code source)  │
-└────────┬────────┘
-         │ Push/Merge
-         ▼
-┌─────────────────┐
-│  GitHub Actions │
-│  (Build + Test) │
-└────────┬────────┘
-         │ SSH/RSYNC
-         ▼
-┌─────────────────┐
-│  Hostinger VPS  │
-│  ┌───────────┐  │
-│  │   Nginx   │  │  ← Reverse Proxy + SSL
-│  │  (80/443) │  │
-│  └─────┬─────┘  │
-│        │        │
-│  ┌─────▼─────┐  │
-│  │    PM2    │  │  ← Process Manager
-│  │  (Port    │  │
-│  │   3000)   │  │
-│  └─────┬─────┘  │
-│        │        │
-│  ┌─────▼─────┐  │
-│  │   dist/   │  │  ← Fichiers statiques
-│  │  (React   │  │
-│  │   App)    │  │
-│  └───────────┘  │
-└─────────────────┘
+
+### Rebuild manuel sur le VPS
+
+```bash
+cd /var/www/naijafind
+
+# Arrêter le conteneur
+docker compose down
+
+# Supprimer l'image
+docker rmi naijafind:latest
+
+# Charger l'image
+gunzip -c naijafind-image.tar.gz | docker load
+
+# Redémarrer
+docker compose up -d
 ```
 
 ## Commandes Utiles
 
 ```bash
-# Sur le VPS
-pm2 status                    # Statut des processus
-pm2 logs naijafind            # Logs de l'application
-pm2 monit                     # Monitoring en temps réel
-pm2 reload all               # Recharger toutes les apps
+# Docker
+docker ps                       # Lister les conteneurs actifs
+docker images                   # Lister les images
+docker logs naijafind-app       # Logs du conteneur
+docker exec -it naijafind-app sh # Shell dans le conteneur
+
+# Docker Compose
+cd /var/www/naijafind
+docker compose up -d            # Démarrer
+docker compose down             # Arrêter
+docker compose ps               # Statut
+docker compose logs             # Logs
+docker compose pull             # Mettre à jour les images
 
 # Nginx
-sudo nginx -t                # Tester la configuration
-sudo systemctl status nginx  # Statut de Nginx
-sudo systemctl reload nginx  # Recharger Nginx
+sudo nginx -t                   # Tester la config
+sudo systemctl reload nginx     # Recharger Nginx
 
 # SSL
-sudo certbot renew --dry-run # Tester le renouvellement
-sudo certbot certificates    # Lister les certificats
+sudo certbot renew --dry-run    # Tester le renouvellement
+sudo certbot certificates       # Voir les certificats
 ```
 
 ## Mises à Jour
 
-Pour mettre à jour le workflow ou la configuration :
+Pour mettre à jour la configuration :
 
-1. Modifiez les fichiers dans `.github/workflows/`, `ecosystem.config.cjs`, ou `nginx.conf`
+1. Modifiez les fichiers `Dockerfile`, `docker-compose.yml`, ou `nginx-docker.conf`
 2. Commit et push sur `main`
 3. Le workflow se déclenchera automatiquement
+
+Pour mettre à jour uniquement les variables d'environnement :
+1. Modifiez les secrets dans GitHub Settings
+2. Relancez manuellement le workflow depuis l'onglet Actions
 
 ## Support
 
 En cas de problème :
 1. Vérifiez les logs GitHub Actions (onglet **Actions**)
-2. Vérifiez les logs PM2 sur le VPS : `pm2 logs naijafind`
+2. Vérifiez les logs Docker sur le VPS : `docker logs naijafind-app`
 3. Vérifiez les logs Nginx : `sudo tail -f /var/log/nginx/error.log`
+4. Vérifiez que Docker est installé et fonctionne : `docker ps`
+

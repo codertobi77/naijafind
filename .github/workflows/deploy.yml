@@ -1,4 +1,4 @@
-name: Deploy to Hostinger VPS
+name: Deploy to Hostinger VPS (Docker)
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [main, master]
     types: [closed]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,23 +14,17 @@ concurrency:
 
 jobs:
   build-and-deploy:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true) || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build application
+      - name: Build Docker image
         env:
           VITE_CONVEX_URL: ${{ secrets.VITE_CONVEX_URL }}
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
@@ -45,7 +40,28 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
-        run: npm run build
+        run: |
+          docker build \
+            --build-arg VITE_CONVEX_URL="$VITE_CONVEX_URL" \
+            --build-arg VITE_CLERK_PUBLISHABLE_KEY="$VITE_CLERK_PUBLISHABLE_KEY" \
+            --build-arg VITE_STRIPE_PUBLISHABLE_KEY="$VITE_STRIPE_PUBLISHABLE_KEY" \
+            --build-arg VITE_GOOGLE_MAPS_API_KEY="$VITE_GOOGLE_MAPS_API_KEY" \
+            --build-arg VITE_MAPBOX_TOKEN="$VITE_MAPBOX_TOKEN" \
+            --build-arg VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
+            --build-arg VITE_SUPABASE_ANON_KEY="$VITE_SUPABASE_ANON_KEY" \
+            --build-arg VITE_FIREBASE_API_KEY="$VITE_FIREBASE_API_KEY" \
+            --build-arg VITE_FIREBASE_AUTH_DOMAIN="$VITE_FIREBASE_AUTH_DOMAIN" \
+            --build-arg VITE_FIREBASE_PROJECT_ID="$VITE_FIREBASE_PROJECT_ID" \
+            --build-arg VITE_FIREBASE_STORAGE_BUCKET="$VITE_FIREBASE_STORAGE_BUCKET" \
+            --build-arg VITE_FIREBASE_MESSAGING_SENDER_ID="$VITE_FIREBASE_MESSAGING_SENDER_ID" \
+            --build-arg VITE_FIREBASE_APP_ID="$VITE_FIREBASE_APP_ID" \
+            --build-arg VITE_CLOUDINARY_CLOUD_NAME="$VITE_CLOUDINARY_CLOUD_NAME" \
+            -t naijafind:latest .
+
+      - name: Save Docker image
+        run: |
+          docker save naijafind:latest | gzip > naijafind-image.tar.gz
+          ls -lh naijafind-image.tar.gz
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
@@ -53,9 +69,8 @@ jobs:
           ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
           log-public-key: false
 
-      - name: Verify secrets and add VPS to known hosts
+      - name: Verify secrets and configure SSH
         run: |
-          # Vérification des secrets requis
           if [ -z "${{ secrets.VPS_HOST }}" ]; then
             echo "❌ Erreur: VPS_HOST secret is not set"
             exit 1
@@ -66,17 +81,11 @@ jobs:
           fi
           
           echo "✓ Secrets verified"
-          echo "Configuring SSH for ${{ secrets.VPS_HOST }}..."
           
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           
-          # Ajouter le host avec gestion d'erreur
-          if ! ssh-keyscan -p ${{ secrets.VPS_SSH_PORT || '22' }} -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null; then
-            echo "⚠️ ssh-keyscan a échoué, tentative avec timeout..."
-            timeout 10 ssh-keyscan -p ${{ secrets.VPS_SSH_PORT || '22' }} -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
-          fi
-          
+          ssh-keyscan -p ${{ secrets.VPS_SSH_PORT || '22' }} -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
           chmod 644 ~/.ssh/known_hosts
           echo "✓ SSH configuration completed"
 
@@ -87,71 +96,67 @@ jobs:
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT || '22' }}
           DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH || '/var/www/naijafind' }}
         run: |
-          echo "Starting deployment to $VPS_HOST..."
+          echo "Deploying Docker image to $VPS_HOST..."
 
-          # Create deployment directory if it doesn't exist
-          ssh -p $VPS_SSH_PORT $VPS_USER@$VPS_HOST "sudo mkdir -p $DEPLOY_PATH && sudo chown $VPS_USER:$VPS_USER $DEPLOY_PATH"
+          # Create deployment directory
+          ssh -p $VPS_SSH_PORT $VPS_USER@$VPS_HOST "mkdir -p $DEPLOY_PATH"
 
-          # Sync built files to VPS
-          rsync -avz --delete \
-            -e "ssh -p $VPS_SSH_PORT" \
-            --exclude='node_modules' \
-            --exclude='.git' \
-            --exclude='.env' \
-            --exclude='scripts' \
-            --exclude='*.md' \
-            ./dist/ $VPS_USER@$VPS_HOST:$DEPLOY_PATH/dist/
+          # Copy Docker image to VPS
+          echo "Copying Docker image..."
+          scp -P $VPS_SSH_PORT naijafind-image.tar.gz $VPS_USER@$VPS_HOST:$DEPLOY_PATH/
 
-          # Copy package files for production dependencies
-          rsync -avz \
-            -e "ssh -p $VPS_SSH_PORT" \
-            ./package*.json $VPS_USER@$VPS_HOST:$DEPLOY_PATH/
+          # Copy docker-compose.yml
+          scp -P $VPS_SSH_PORT docker-compose.yml $VPS_USER@$VPS_HOST:$DEPLOY_PATH/
 
-          # Copy PM2 ecosystem file
-          rsync -avz \
-            -e "ssh -p $VPS_SSH_PORT" \
-            ./ecosystem.config.cjs $VPS_USER@$VPS_HOST:$DEPLOY_PATH/ || true
+          echo "✓ Files copied successfully"
 
-          echo "Files synced successfully"
-
-      - name: Post-deploy setup
+      - name: Start application on VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT || '22' }}
           DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH || '/var/www/naijafind' }}
+          APP_PORT: ${{ secrets.APP_PORT || '3000' }}
         run: |
-          echo "Running post-deploy setup..."
+          echo "Starting application on VPS..."
 
           ssh -p $VPS_SSH_PORT $VPS_USER@$VPS_HOST << EOF
             cd $DEPLOY_PATH
 
-            # Install production dependencies if needed
-            if [ -f package.json ]; then
-              npm ci --production --silent
-            fi
+            # Load the Docker image
+            echo "Loading Docker image..."
+            gunzip -c naijafind-image.tar.gz | docker load
 
-            # Restart PM2 process
-            if command -v pm2 &> /dev/null && [ -f ecosystem.config.cjs ]; then
-              echo "Restarting PM2..."
-              pm2 restart ecosystem.config.cjs --env production || pm2 start ecosystem.config.cjs --env production
-              pm2 save
-            elif command -v pm2 &> /dev/null; then
-              echo "Starting with PM2 (no ecosystem file)..."
-              pm2 restart naijafind || pm2 start ./dist --name naijafind -- --port 3000
-              pm2 save
+            # Stop and remove old container if exists
+            echo "Stopping old container..."
+            docker compose down 2>/dev/null || docker-compose down 2>/dev/null || true
+
+            # Remove old images to save space
+            docker image prune -f 2>/dev/null || true
+
+            # Start the application
+            echo "Starting application..."
+            export APP_PORT=$APP_PORT
+            docker compose up -d
+
+            # Verify container is running
+            sleep 5
+            if docker ps | grep -q naijafind-app; then
+              echo "✓ Container is running"
             else
-              echo "PM2 not found, please install PM2 on the server"
+              echo "❌ Container failed to start"
+              docker logs naijafind-app 2>&1 || true
               exit 1
             fi
 
-            echo "Deployment completed successfully!"
+            echo "✓ Deployment completed successfully!"
           EOF
 
       - name: Verify deployment
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          APP_PORT: ${{ secrets.APP_PORT || '3000' }}
         run: |
           echo "Verifying deployment..."
-          sleep 5
-          curl -sSf http://$VPS_HOST:3000 > /dev/null && echo "App is running on port 3000" || echo "Could not verify app status"
+          sleep 10
+          curl -sSf --max-time 30 http://$VPS_HOST:$APP_PORT > /dev/null && echo "✓ App is running on port $APP_PORT" || echo "⚠️ Could not verify app status"
