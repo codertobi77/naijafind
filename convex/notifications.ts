@@ -348,7 +348,7 @@ export const createAccountWelcomeNotification = mutation({
     await ctx.db.insert('notifications', {
       userId: args.userId,
       type: 'system',
-      title: 'Bienvenue sur Olufinja !',
+      title: 'Bienvenue sur Suji !',
       message: `Bonjour ${args.userName || ''}, votre compte a été créé avec succès. Complétez votre profil pour commencer.`,
       data: { type: 'welcome', isNewAccount: true },
       read: false,

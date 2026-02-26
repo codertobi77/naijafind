@@ -1,7 +1,9 @@
 {
-  "name": "react",
+  "name": "suji",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "author": "Orion D. Scales",
+  "company": "Olufona Group",
   "type": "module",
   "scripts": {
     "create-admin": "node scripts/create-admin.js",

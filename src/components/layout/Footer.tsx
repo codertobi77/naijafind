@@ -31,18 +31,10 @@ export function Footer({ variant = 'dark', showLogo = true }: FooterProps) {
                 to="/"
                 className="flex items-center space-x-3 mb-4 group"
               >
-                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <i className="ri-compass-3-fill text-white text-xl"></i>
-                </div>
-                <span
-                  className="text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent"
-                  style={{ fontFamily: 'Pacifico, serif' }}
-                >
-                  Suji
-                </span>
+                <img src="/Suji Logo.webp" alt="Suji Logo" className="h-10 w-auto" />
               </Link>
               <p className={`${subTextClasses} text-sm sm:text-base`}>
-                {t('footer.description', 'Le moteur de recherche géolocalisé de référence pour tous les fournisseurs du Nigeria.')}
+                {t('footer.description', "Le moteur de recherche géolocalisé de référence pour tous les fournisseurs du Nigeria.")}
               </p>
             </div>
           )}
@@ -122,12 +114,12 @@ export function Footer({ variant = 'dark', showLogo = true }: FooterProps) {
         </div>
         <div className={`${isDark ? 'border-t' : 'border-t'} ${borderClasses} mt-6 sm:mt-8 pt-6 sm:pt-8 text-center ${subTextClasses} text-sm sm:text-base`}>
           <p>
-            &copy; 2024 Suji. {t('footer.rights', 'Tous droits réservés')} |{' '}
+            &copy; 2026 Suji. All rights reserved. | Powered by{' '}
             <a
-              href="https://readdy.ai/?origin=logo"
+              href="https://olufona.com"
               className={`${linkClasses} transition-colors`}
             >
-              {t('footer.powered_by', 'Propulsé par Readdy AI')}
+              Olufona Group
             </a>
           </p>
         </div>

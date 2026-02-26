@@ -1,14 +1,14 @@
-# Olufinja Quick Start Guide
+# Suji Quick Start Guide
 
 ## 🚀 Get Started in 5 Minutes
 
-This quick start guide helps you get Olufinja up and running with all essential features.
+This quick start guide helps you get Suji up and running with all essential features.
 
 ---
 
 ## ✅ What's Already Working
 
-Your Olufinja application already has these features **fully functional**:
+Your Suji application already has these features **fully functional**:
 
 ### 1. ✅ **Cloudinary Image Upload**
 - Single image upload
@@ -60,7 +60,6 @@ Your Olufinja application already has these features **fully functional**:
 
 ### Step 1: Install Dependencies
 ```bash
-cd olufinja
 npm install
 ```
 
@@ -202,7 +201,7 @@ This creates default business categories.
 ## 📁 Project Structure
 
 ```
-olufinja/
+suji/
 ├── convex/              # Backend (Database + API)
 │   ├── schema.ts        # Database schema
 │   ├── users.ts         # User management
@@ -272,7 +271,7 @@ olufinja/
 
 ## 🎉 You're All Set!
 
-Your Olufinja application is now running with:
+Your Suji application is now running with:
 - ✅ User authentication
 - ✅ Supplier profiles
 - ✅ Search & discovery

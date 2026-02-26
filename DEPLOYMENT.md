@@ -1,6 +1,6 @@
 # CI/CD Deployment Guide - Hostinger VPS (Docker)
 
-Ce guide explique comment configurer le déploiement automatique de NaijaFind sur un VPS Hostinger via GitHub Actions avec Docker.
+Ce guide explique comment configurer le déploiement automatique de Suji sur un VPS Hostinger via GitHub Actions avec Docker.
 
 ## Architecture Docker
 
@@ -71,8 +71,8 @@ sudo apt install -y nginx
 sudo apt install -y certbot python3-certbot-nginx
 
 # Création du répertoire de déploiement
-sudo mkdir -p /var/www/naijafind
-sudo chown $USER:$USER /var/www/naijafind
+sudo mkdir -p /var/www/suji
+sudo chown $USER:$USER /var/www/suji
 ```
 
 ### 2. Configuration SSH pour GitHub Actions
@@ -80,13 +80,13 @@ sudo chown $USER:$USER /var/www/naijafind
 Générez une clé SSH sur votre machine locale :
 
 ```bash
-ssh-keygen -t ed25519 -C "github-actions@naijafind.com" -f ~/.ssh/github_actions_naijafind
+ssh-keygen -t ed25519 -C "github-actions@suji.com" -f ~/.ssh/github_actions_suji
 ```
 
 Copiez la clé publique sur le VPS :
 
 ```bash
-ssh-copy-id -i ~/.ssh/github_actions_naijafind.pub user@votre-vps-hostinger.com
+ssh-copy-id -i ~/.ssh/github_actions_suji.pub user@votre-vps-hostinger.com
 ```
 
 Ou ajoutez manuellement la clé publique au fichier `~/.ssh/authorized_keys` sur le VPS.
@@ -99,9 +99,9 @@ Allez dans **Settings > Secrets and variables > Actions** de votre repository Gi
 |--------|-------------|---------|
 | `VPS_HOST` | Adresse IP ou nom de domaine du VPS | `123.45.67.89` ou `votre-domaine.com` |
 | `VPS_USER` | Nom d'utilisateur SSH | `root` ou `ubuntu` |
-| `VPS_SSH_PRIVATE_KEY` | Clé SSH privée complète | Contenu de `~/.ssh/github_actions_naijafind` |
+| `VPS_SSH_PRIVATE_KEY` | Clé SSH privée complète | Contenu de `~/.ssh/github_actions_suji` |
 | `VPS_SSH_PORT` | Port SSH (optionnel, défaut: 22) | `22` ou `2222` |
-| `VPS_DEPLOY_PATH` | Chemin de déploiement (optionnel) | `/var/www/naijafind` |
+| `VPS_DEPLOY_PATH` | Chemin de déploiement (optionnel) | `/var/www/suji` |
 | `APP_PORT` | Port externe du conteneur (optionnel, défaut: 3333) | `3333` |
 | `VITE_CONVEX_URL` | URL de l'API Convex | `https://your-app.convex.cloud` |
 | `VITE_CLERK_PUBLISHABLE_KEY` | Clé publique Clerk | `pk_test_...` |
@@ -127,7 +127,7 @@ Si vous souhaitez utiliser Nginx comme reverse proxy (nécessite le port 80 libr
 Créez la configuration Nginx pour rediriger vers le conteneur Docker :
 
 ```bash
-sudo nano /etc/nginx/sites-available/naijafind
+sudo nano /etc/nginx/sites-available/suji
 ```
 
 Contenu :
@@ -135,7 +135,7 @@ Contenu :
 ```nginx
 server {
     listen 80;
-    server_name naijafind.com www.naijafind.com;
+    server_name suji.com www.suji.com;
 
     location / {
         proxy_pass http://localhost:3333;  # Port du conteneur Docker
@@ -154,7 +154,7 @@ server {
 Activez la configuration :
 
 ```bash
-sudo ln -sf /etc/nginx/sites-available/naijafind /etc/nginx/sites-enabled/
+sudo ln -sf /etc/nginx/sites-available/suji /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl restart nginx
@@ -172,7 +172,7 @@ sudo systemctl enable nginx
 
 Avec Nginx :
 ```bash
-sudo certbot --nginx -d naijafind.com -d www.naijafind.com
+sudo certbot --nginx -d suji.com -d www.suji.com
 sudo systemctl enable certbot.timer
 ```
 
@@ -187,7 +187,7 @@ Le `Dockerfile` crée une image multi-stage :
 ### docker-compose.yml
 
 Le fichier `docker-compose.yml` définit :
-- Le service `naijafind` avec l'image buildée
+- Le service `suji` avec l'image buildée
 - Le mapping du port (3000:80 par défaut)
 - Le healthcheck du conteneur
 - Le restart policy
@@ -222,13 +222,13 @@ Le déploiement se déclenche automatiquement :
 docker ps
 
 # Voir les logs du conteneur
-docker logs naijafind-app
+docker logs suji-app
 
 # Voir les logs en temps réel
-docker logs -f naijafind-app
+docker logs -f suji-app
 
 # Vérifier le statut Docker Compose
-cd /var/www/naijafind
+cd /var/www/suji
 docker compose ps
 
 # Voir les logs Nginx
@@ -242,10 +242,10 @@ sudo tail -f /var/log/nginx/error.log
 
 ```bash
 # Vérifier les logs
-docker logs naijafind-app
+docker logs suji-app
 
 # Vérifier la configuration
-cd /var/www/naijafind
+cd /var/www/suji
 docker compose config
 
 # Redémarrer manuellement
@@ -279,16 +279,16 @@ docker system df
 ### Rebuild manuel sur le VPS
 
 ```bash
-cd /var/www/naijafind
+cd /var/www/suji
 
 # Arrêter le conteneur
 docker compose down
 
 # Supprimer l'image
-docker rmi naijafind:latest
+docker rmi suji:latest
 
 # Charger l'image
-gunzip -c naijafind-image.tar.gz | docker load
+gunzip -c suji-image.tar.gz | docker load
 
 # Redémarrer
 docker compose up -d
@@ -300,11 +300,11 @@ docker compose up -d
 # Docker
 docker ps                       # Lister les conteneurs actifs
 docker images                   # Lister les images
-docker logs naijafind-app       # Logs du conteneur
-docker exec -it naijafind-app sh # Shell dans le conteneur
+docker logs suji-app       # Logs du conteneur
+docker exec -it suji-app sh # Shell dans le conteneur
 
 # Docker Compose
-cd /var/www/naijafind
+cd /var/www/suji
 docker compose up -d            # Démarrer
 docker compose down             # Arrêter
 docker compose ps               # Statut
@@ -336,7 +336,7 @@ Pour mettre à jour uniquement les variables d'environnement :
 
 En cas de problème :
 1. Vérifiez les logs GitHub Actions (onglet **Actions**)
-2. Vérifiez les logs Docker sur le VPS : `docker logs naijafind-app`
+2. Vérifiez les logs Docker sur le VPS : `docker logs suji-app`
 3. Vérifiez les logs Nginx : `sudo tail -f /var/log/nginx/error.log`
 4. Vérifiez que Docker est installé et fonctionne : `docker ps`
 

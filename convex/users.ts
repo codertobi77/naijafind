@@ -77,7 +77,7 @@ async function ensureUserHelper(ctx: any, args: any) {
   await ctx.db.insert('notifications', {
     userId: id,
     type: 'system',
-    title: 'Bienvenue sur Olufinja !',
+    title: 'Bienvenue sur Suji !',
     message: `Bonjour ${args.firstName || ''}, votre compte a été créé avec succès. Complétez votre profil pour commencer.`,
     data: { type: 'welcome', isNewAccount: true },
     read: false,

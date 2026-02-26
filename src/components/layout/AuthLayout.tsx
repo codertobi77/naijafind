@@ -53,7 +53,7 @@ export function AuthLayout({
                 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent group-hover:from-green-700 group-hover:to-emerald-700 transition-all duration-300"
                 style={{ fontFamily: 'Pacifico, serif' }}
               >
-                Olufinja
+                Suji
               </span>
             </div>
             <div className="h-1 w-24 bg-gradient-to-r from-green-600 to-emerald-600 mx-auto rounded-full group-hover:w-32 transition-all duration-300 shadow-lg"></div>

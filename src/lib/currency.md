@@ -1,6 +1,6 @@
 # Currency Localization System
 
-This document explains how the currency localization system works in the Olufinja application.
+This document explains how the currency localization system works in the Suji application.
 
 ## Overview
 

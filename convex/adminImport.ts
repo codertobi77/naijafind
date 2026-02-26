@@ -164,7 +164,7 @@ export const importSupplier = internalMutation({
     await ctx.db.insert('notifications', {
       userId: userId,
       type: 'system',
-      title: 'Bienvenue sur NaijaFind !',
+      title: 'Bienvenue sur Suji !',
       message: `Votre entreprise "${args.supplier_business_name}" a été créée avec succès. Complétez votre profil pour commencer à recevoir des clients.`,
       data: { supplierId, type: 'supplier_created' },
       read: false,

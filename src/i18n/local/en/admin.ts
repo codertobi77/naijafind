@@ -1,5 +1,5 @@
 export const admin = {
-  "admin.title": "Olufinja Admin",
+  "admin.title": "Suji Admin",
   "admin.checking_permissions": "Checking permissions...",
   "admin.suppliers": "Suppliers",
   "admin.users": "Users",

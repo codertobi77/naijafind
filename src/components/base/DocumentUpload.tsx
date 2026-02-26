@@ -42,7 +42,7 @@ export default function DocumentUpload({
       // Upload the file to Cloudinary using document upload
       const result = await uploadDocumentToCloudinary(
         file, 
-        `Olufinja/verification/${documentType}`
+        `Suji/verification/${documentType}`
       );
       
       if (result.success) {

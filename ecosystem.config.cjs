@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'naijafind',
+      name: 'suji',
       script: 'serve',
       args: '-s dist -l 3000',
       instances: 1,

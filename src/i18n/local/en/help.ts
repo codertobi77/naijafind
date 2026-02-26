@@ -1,5 +1,5 @@
 export const help = {
-  "help.title": "Olufinja Help Center",
+  "help.title": "Suji Help Center",
   "help.subtitle": "Find answers, guides and get the help you need",
   "help.search_placeholder": "Search in help...",
   "help.quick_actions": "Quick actions",

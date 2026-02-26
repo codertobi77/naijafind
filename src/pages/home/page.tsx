@@ -708,8 +708,8 @@ export default function Home() {
   const [category, setCategory] = useState('');
 
   // Recent searches hooks
-  const { recentSearches, addRecentSearch: onAddRecentSearch, clearRecentSearches: onClearRecentSearches } = useRecentSearches('naijafind_recent_searches', 5);
-  const { recentSearches: recentLocations, addRecentSearch: onAddRecentLocation, clearRecentSearches: onClearRecentLocations } = useRecentSearches('naijafind_recent_locations', 5);
+  const { recentSearches, addRecentSearch: onAddRecentSearch, clearRecentSearches: onClearRecentSearches } = useRecentSearches('Suji_recent_searches', 5);
+  const { recentSearches: recentLocations, addRecentSearch: onAddRecentLocation, clearRecentSearches: onClearRecentLocations } = useRecentSearches('Suji_recent_locations', 5);
 
   // Extract suppliers array from Convex response
   const featuredSuppliers: Supplier[] = featuredSuppliersData || [];
@@ -809,7 +809,7 @@ export default function Home() {
           {
             id: '1',
             image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=180&fit=crop',
-            alt: 'NaijaFind Marketplace',
+            alt: 'Suji Marketplace',
             link: '/about'
           },
           {

@@ -84,7 +84,7 @@ export const supplier = {
   "supplier.send": "Envoyer",
   "supplier.sending": "Envoi...",
   "supplier.feature_not_available": "Cette fonctionnalité n'est pas encore disponible",
-  "supplier.internal_message": "Message interne",
+  "supplier.internal_message": "Message",
   "supplier.message_sent_success": "Votre message a été envoyé avec succès ! Le fournisseur vous contactera bientôt.",
   "supplier.message_sent_error": "Une erreur s'est produite lors de l'envoi de votre message. Veuillez réessayer."
 };

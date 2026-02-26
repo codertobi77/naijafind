@@ -1,6 +1,6 @@
-# Initialisation des Catégories dans Olufinja
+# Initialisation des Catégories dans Suji
 
-Ce script permet d'initialiser les catégories dans la base de données Convex de Olufinja.
+Ce script permet d'initialiser les catégories dans la base de données Convex de Suji.
 
 ## Utilisation
 

@@ -33,15 +33,7 @@ export default function Header() {
           {/* Logo */}
           <div className="flex items-center group">
             <Link to="/" className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
-                <i className="ri-compass-3-fill text-white text-xl"></i>
-              </div>
-              <span 
-                className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent" 
-                style={{ fontFamily: "Pacifico, serif" }}
-              >
-                Suji
-              </span>
+              <img src="/Suji Logo.webp" alt="Suji Logo" className="h-10 w-auto" />
             </Link>
           </div>
 
