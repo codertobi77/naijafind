@@ -41,6 +41,7 @@ export function SupplierBulkImport() {
   const [validatedRows, setValidatedRows] = useState<ValidatedRow[]>([]);
   const [currentStep, setCurrentStep] = useState<'upload' | 'preview' | 'importing' | 'results'>('upload');
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   
   const { showToast } = useToast();
   const bulkImportSuppliers = useMutation(api.adminImport.bulkImportSuppliers);
@@ -751,152 +752,194 @@ jane@example.com,Jane,Smith,+2348098765432,XYZ Services,info@xyzservices.com,+23
           </label>
         </div>
 
-        {/* Preview Section */}
-        {currentStep === 'preview' && validatedRows.length > 0 && (
-          <div className="mt-6">
-            {/* Summary */}
-            <div className="flex items-center justify-between mb-4 p-4 bg-gray-50 rounded-lg">
+        {/* Preview Modal */}
+        {showPreviewModal && validatedRows.length > 0 && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-4 border-b">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Preview - {validatedRows.length} fournisseurs détectés
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {validatedRows.filter(r => r.isValid).length} valides, {validatedRows.filter(r => !r.isValid).length} avec erreurs
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowPreviewModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <i className="ri-close-line text-2xl"></i>
+                </button>
+              </div>
+
+              {/* Modal Body - Scrollable */}
+              <div className="flex-1 overflow-auto p-4">
+                {/* Summary Actions */}
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={selectAllValid}
+                    className="text-sm text-blue-600 hover:text-blue-800 px-3 py-1 border border-blue-200 rounded"
+                  >
+                    Sélectionner tous les valides
+                  </button>
+                  <button
+                    onClick={deselectAll}
+                    className="text-sm text-gray-600 hover:text-gray-800 px-3 py-1 border border-gray-200 rounded"
+                  >
+                    Tout désélectionner
+                  </button>
+                </div>
+
+                {/* Validation Alert */}
+                {validatedRows.some(r => !r.isValid) && (
+                  <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <i className="ri-alert-line text-yellow-600 mt-0.5"></i>
+                      <div>
+                        <p className="font-medium text-yellow-800">Validation requise</p>
+                        <p className="text-sm text-yellow-700">
+                          Certaines lignes contiennent des erreurs. Vous pouvez corriger le fichier et le recharger, ou importer uniquement les lignes valides.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Data Table */}
+                <div className="overflow-x-auto border rounded-lg">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600 w-10">
+                          <input
+                            type="checkbox"
+                            checked={selectedRows.size === validatedRows.length && validatedRows.length > 0}
+                            onChange={(e) => e.target.checked ? setSelectedRows(new Set(validatedRows.map((_, i) => i))) : deselectAll()}
+                            className="rounded border-gray-300"
+                          />
+                        </th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Statut</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Email</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Entreprise</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Catégorie</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Ville</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">État</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {validatedRows.map((row, index) => (
+                        <tr 
+                          key={index} 
+                          className={`border-t ${!row.isValid ? 'bg-red-50' : ''} ${selectedRows.has(index) ? 'bg-green-50' : ''}`}
+                        >
+                          <td className="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedRows.has(index)}
+                              onChange={() => toggleRowSelection(index)}
+                              disabled={!row.isValid}
+                              className="rounded border-gray-300"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            {row.isValid ? (
+                              <span className="inline-flex items-center gap-1 text-green-600">
+                                <i className="ri-check-line"></i>
+                                <span className="text-xs">Valide</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-red-600" title={row.errors.map(e => `${e.field}: ${e.message}`).join('\n')}>
+                                <i className="ri-error-warning-line"></i>
+                                <span className="text-xs">{row.errors.length} erreur(s)</span>
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">{row.data.user_email}</td>
+                          <td className="px-3 py-2">{row.data.supplier_business_name}</td>
+                          <td className="px-3 py-2">{row.data.supplier_category}</td>
+                          <td className="px-3 py-2">{row.data.supplier_city}</td>
+                          <td className="px-3 py-2">{row.data.supplier_state}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Error Details for invalid rows */}
+                {validatedRows.some(r => !r.isValid) && (
+                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <h5 className="font-medium text-red-800 mb-2">Détails des erreurs</h5>
+                    <div className="max-h-40 overflow-y-auto">
+                      {validatedRows
+                        .filter(r => !r.isValid)
+                        .map((row, idx) => (
+                          <div key={idx} className="text-sm text-red-700 mb-1">
+                            <span className="font-medium">Ligne {row.errors[0]?.row}:</span>{' '}
+                            {row.errors.map(e => `${e.field}: ${e.message}`).join(', ')}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 border-t flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowPreviewModal(false);
+                    resetUpload();
+                  }}
+                  className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  <i className="ri-arrow-left-line mr-2"></i>
+                  Changer de fichier
+                </button>
+                <button
+                  onClick={() => {
+                    setShowPreviewModal(false);
+                    handleImport();
+                  }}
+                  disabled={isUploading || selectedRows.size === 0}
+                  className="flex-[2] bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isUploading ? (
+                    <>
+                      <i className="ri-loader-4-line animate-spin"></i>
+                      Import en cours...
+                    </>
+                  ) : (
+                    <>
+                      <i className="ri-upload-line"></i>
+                      Importer {selectedRows.size} fournisseur(s)
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Old Preview Section - Remove inline preview */}
+        {currentStep === 'preview' && validatedRows.length > 0 && !showPreviewModal && (
+          <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center justify-between">
               <div>
-                <h4 className="font-medium text-gray-900">
-                  {validatedRows.length} fournisseurs détectés
+                <h4 className="font-medium text-green-800">
+                  {validatedRows.length} fournisseurs prêts à importer
                 </h4>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-green-600">
                   {validatedRows.filter(r => r.isValid).length} valides, {validatedRows.filter(r => !r.isValid).length} avec erreurs
                 </p>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={selectAllValid}
-                  className="text-sm text-blue-600 hover:text-blue-800 px-3 py-1"
-                >
-                  Sélectionner tous les valides
-                </button>
-                <button
-                  onClick={deselectAll}
-                  className="text-sm text-gray-600 hover:text-gray-800 px-3 py-1"
-                >
-                  Tout désélectionner
-                </button>
-              </div>
-            </div>
-
-            {/* Validation Alert */}
-            {validatedRows.some(r => !r.isValid) && (
-              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <i className="ri-alert-line text-yellow-600 mt-0.5"></i>
-                  <div>
-                    <p className="font-medium text-yellow-800">Validation requise</p>
-                    <p className="text-sm text-yellow-700">
-                      Certaines lignes contiennent des erreurs. Vous pouvez corriger le fichier et le recharger, ou importer uniquement les lignes valides.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Data Table */}
-            <div className="overflow-x-auto border rounded-lg">
-              <table className="min-w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600 w-10">
-                      <input
-                        type="checkbox"
-                        checked={selectedRows.size === validatedRows.length && validatedRows.length > 0}
-                        onChange={(e) => e.target.checked ? setSelectedRows(new Set(validatedRows.map((_, i) => i))) : deselectAll()}
-                        className="rounded border-gray-300"
-                      />
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">Statut</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">Email</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">Entreprise</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">Catégorie</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">Ville</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">État</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {validatedRows.map((row, index) => (
-                    <tr 
-                      key={index} 
-                      className={`border-t ${!row.isValid ? 'bg-red-50' : ''} ${selectedRows.has(index) ? 'bg-green-50' : ''}`}
-                    >
-                      <td className="px-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedRows.has(index)}
-                          onChange={() => toggleRowSelection(index)}
-                          disabled={!row.isValid}
-                          className="rounded border-gray-300"
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        {row.isValid ? (
-                          <span className="inline-flex items-center gap-1 text-green-600">
-                            <i className="ri-check-line"></i>
-                            <span className="text-xs">Valide</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-red-600" title={row.errors.map(e => `${e.field}: ${e.message}`).join('\n')}>
-                            <i className="ri-error-warning-line"></i>
-                            <span className="text-xs">{row.errors.length} erreur(s)</span>
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">{row.data.user_email}</td>
-                      <td className="px-3 py-2">{row.data.supplier_business_name}</td>
-                      <td className="px-3 py-2">{row.data.supplier_category}</td>
-                      <td className="px-3 py-2">{row.data.supplier_city}</td>
-                      <td className="px-3 py-2">{row.data.supplier_state}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Error Details for invalid rows */}
-            {validatedRows.some(r => !r.isValid) && (
-              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <h5 className="font-medium text-red-800 mb-2">Détails des erreurs</h5>
-                <div className="max-h-40 overflow-y-auto">
-                  {validatedRows
-                    .filter(r => !r.isValid)
-                    .map((row, idx) => (
-                      <div key={idx} className="text-sm text-red-700 mb-1">
-                        <span className="font-medium">Ligne {row.errors[0]?.row}:</span>{' '}
-                        {row.errors.map(e => `${e.field}: ${e.message}`).join(', ')}
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="mt-6 flex gap-3">
               <button
-                onClick={resetUpload}
-                className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition-colors"
+                onClick={() => setShowPreviewModal(true)}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
               >
-                <i className="ri-arrow-left-line mr-2"></i>
-                Changer de fichier
-              </button>
-              <button
-                onClick={handleImport}
-                disabled={isUploading || selectedRows.size === 0}
-                className="flex-[2] bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isUploading ? (
-                  <>
-                    <i className="ri-loader-4-line animate-spin"></i>
-                    Import en cours...
-                  </>
-                ) : (
-                  <>
-                    <i className="ri-upload-line"></i>
-                    Importer {selectedRows.size} fournisseur(s)
-                  </>
-                )}
+                <i className="ri-eye-line"></i>
+                Voir le preview
               </button>
             </div>
           </div>
