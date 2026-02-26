@@ -73,6 +73,10 @@ export const importSupplier = internalMutation({
     supplier_social_links: v.optional(v.record(v.string(), v.string())),
     supplier_latitude: v.optional(v.float64()),
     supplier_longitude: v.optional(v.float64()),
+    supplier_rating: v.optional(v.float64()),
+    supplier_reviews: v.optional(v.int64()),
+    supplier_google_place_id: v.optional(v.string()),
+    supplier_source: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = new Date().toISOString();
@@ -151,11 +155,8 @@ export const importSupplier = internalMutation({
       image: args.supplier_image,
       imageGallery: args.supplier_imageGallery,
       business_hours: args.supplier_business_hours || defaultBusinessHours,
-      social_links: args.supplier_social_links,
-      latitude: args.supplier_latitude,
-      longitude: args.supplier_longitude,
-      rating: 0,
-      reviews_count: 0n,
+      rating: args.supplier_rating ?? 0,
+      reviews_count: args.supplier_reviews ? BigInt(args.supplier_reviews) : 0n,
       created_at: now,
       updated_at: now,
     });
@@ -209,6 +210,10 @@ export const bulkImportSuppliers = mutation({
       supplier_social_links: v.optional(v.record(v.string(), v.string())),
       supplier_latitude: v.optional(v.float64()),
       supplier_longitude: v.optional(v.float64()),
+      supplier_rating: v.optional(v.float64()),
+      supplier_reviews: v.optional(v.int64()),
+      supplier_google_place_id: v.optional(v.string()),
+      supplier_source: v.optional(v.string()),
     })),
   },
   handler: async (ctx, args) => {
@@ -270,6 +275,10 @@ export const importSingleSupplier = mutation({
     supplier_social_links: v.optional(v.record(v.string(), v.string())),
     supplier_latitude: v.optional(v.float64()),
     supplier_longitude: v.optional(v.float64()),
+    supplier_rating: v.optional(v.float64()),
+    supplier_reviews: v.optional(v.int64()),
+    supplier_google_place_id: v.optional(v.string()),
+    supplier_source: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);

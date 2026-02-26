@@ -124,15 +124,15 @@ export function SupplierBulkImport() {
     email: ['email', 'user_email', 'e-mail', 'mail', 'email address', 'adresse email', 'courriel', 'useremail'],
     firstName: ['firstname', 'first_name', 'first name', 'prénom', 'prenom', 'given name', 'user_firstname', 'userfirstName'],
     lastName: ['lastname', 'last_name', 'last name', 'nom', 'family name', 'surname', 'user_lastname', 'userlastName'],
-    phone: ['phone', 'telephone', 'tel', 'mobile', 'cell', 'téléphone', 'portable', 'user_phone', 'userphone', 'contact'],
-    business_name: ['business_name', 'business name', 'company', 'company name', 'entreprise', 'nom entreprise', 'nom de l\'entreprise', 'supplier_business_name', 'hotel', 'name', 'nom', 'businessname'],
-    category: ['category', 'type', 'categorie', 'catégorie', 'supplier_category', 'secteur', 'industry', 'business type'],
+    phone: ['phone', 'telephone', 'tel', 'mobile', 'cell', 'téléphone', 'portable', 'user_phone', 'userphone', 'contact', 'company_phone'],
+    business_name: ['business_name', 'business name', 'company', 'company name', 'entreprise', 'nom entreprise', 'nom de l\'entreprise', 'supplier_business_name', 'hotel', 'name', 'nom', 'businessname', 'company_name', 'owner_title'],
+    category: ['category', 'type', 'categorie', 'catégorie', 'supplier_category', 'secteur', 'industry', 'business type', 'subtypes'],
     city: ['city', 'town', 'ville', 'localité', 'supplier_city', 'location', 'lieu'],
     state: ['state', 'region', 'province', 'état', 'etat', 'supplier_state', 'departement', 'département'],
     address: ['address', 'adresse', 'street', 'rue', 'supplier_address', 'location', 'full address'],
     country: ['country', 'pays', 'nation', 'supplier_country'],
-    website: ['website', 'site', 'url', 'site web', 'siteweb', 'web', 'supplier_website'],
-    description: ['description', 'desc', 'about', 'à propos', 'a propos', 'supplier_description', 'notes', 'commentaires'],
+    website: ['website', 'site', 'url', 'site web', 'siteweb', 'web', 'supplier_website', 'domain', 'company_linkedin', 'company_facebook', 'company_instagram', 'company_x', 'company_youtube'],
+    description: ['description', 'desc', 'about', 'à propos', 'a propos', 'supplier_description', 'notes', 'commentaires', 'range', 'prices'],
   };
 
   // Auto-detect column mapping based on header names
@@ -214,25 +214,105 @@ export function SupplierBulkImport() {
         }
       });
       
+      // Extract additional fields specific to Google Business Profile export
+      const getValue = (headerName: string): string | undefined => {
+        const idx = headers.indexOf(headerName);
+        if (idx !== -1 && row[idx] !== undefined && row[idx] !== '') {
+          return String(row[idx]).trim();
+        }
+        return undefined;
+      };
+      
+      // Get rating and reviews
+      const rating = getValue('rating');
+      const reviews = getValue('reviews');
+      const verified = getValue('verified');
+      const photo = getValue('photo');
+      const latitude = getValue('latitude');
+      const longitude = getValue('longitude');
+      const ownerTitle = getValue('owner_title');
+      const placeId = getValue('place_id');
+      
+      // Parse about/description from JSON if present
+      let description = rowData.description;
+      const about = getValue('about');
+      if (about && about.startsWith('{')) {
+        try {
+          const aboutData = JSON.parse(about);
+          // Extract meaningful info from about field
+          const features: string[] = [];
+          if (aboutData.Other) {
+            Object.entries(aboutData.Other).forEach(([key, val]) => {
+              if (val === true) features.push(key);
+              else if (typeof val === 'string' && val !== 'null') features.push(`${key}: ${val}`);
+            });
+          }
+          if (aboutData.Amenities) {
+            Object.entries(aboutData.Amenities).forEach(([key, val]) => {
+              if (val === true) features.push(key);
+            });
+          }
+          if (features.length > 0) {
+            description = description ? `${description}. ${features.join(', ')}` : features.join(', ');
+          }
+        } catch {
+          // If JSON parsing fails, use raw value
+          description = description || about;
+        }
+      }
+      
+      // Build social links from company fields
+      const socialLinks: Record<string, string> = {};
+      const linkedin = getValue('company_linkedin');
+      const facebook = getValue('company_facebook');
+      const instagram = getValue('company_instagram');
+      const twitter = getValue('company_x');
+      const youtube = getValue('company_youtube');
+      
+      if (linkedin) socialLinks.linkedin = linkedin;
+      if (facebook) socialLinks.facebook = facebook;
+      if (instagram) socialLinks.instagram = instagram;
+      if (twitter) socialLinks.twitter = twitter;
+      if (youtube) socialLinks.youtube = youtube;
+      
+      // Determine user name from owner or business name
+      let firstName = rowData.firstName;
+      let lastName = rowData.lastName;
+      if (!firstName && ownerTitle) {
+        const nameParts = ownerTitle.split(' ');
+        firstName = nameParts[0] || 'Manager';
+        lastName = nameParts.slice(1).join(' ') || 'Hotel';
+      }
+      if (!firstName) {
+        firstName = 'Manager';
+        lastName = 'Hotel';
+      }
+      
       // Build final supplier object
       data.push({
-        user_email: rowData.email,
-        user_firstName: rowData.firstName,
-        user_lastName: rowData.lastName,
+        user_email: rowData.email || `${placeId || i}@import.local`,
+        user_firstName: firstName,
+        user_lastName: lastName,
         user_phone: rowData.phone,
         supplier_business_name: rowData.business_name,
-        supplier_email: rowData.email,
+        supplier_email: rowData.email || `${placeId || i}@import.local`,
         supplier_phone: rowData.phone,
-        supplier_category: rowData.category,
-        supplier_description: rowData.description,
+        supplier_category: rowData.category || 'Hôtels et logements',
+        supplier_description: description,
         supplier_address: rowData.address,
         supplier_city: rowData.city,
         supplier_state: rowData.state,
         supplier_country: rowData.country || 'Nigeria',
         supplier_website: rowData.website,
-        supplier_verified: false,
+        supplier_image: photo,
+        supplier_latitude: latitude ? parseFloat(latitude) : undefined,
+        supplier_longitude: longitude ? parseFloat(longitude) : undefined,
+        supplier_verified: verified?.toLowerCase() === 'true' || false,
         supplier_approved: true,
         supplier_featured: false,
+        supplier_rating: rating ? parseFloat(rating) : undefined,
+        supplier_reviews: reviews ? parseInt(reviews, 10) : undefined,
+        supplier_social_links: Object.keys(socialLinks).length > 0 ? socialLinks : undefined,
       });
     }
     
