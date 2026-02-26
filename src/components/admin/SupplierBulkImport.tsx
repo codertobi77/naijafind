@@ -376,12 +376,12 @@ export function SupplierBulkImport() {
       
       // Build final supplier object
       data.push({
-        user_email: rowData.email || `${placeId || i}@import.local`,
+        user_email: rowData.email,
         user_firstName: firstName,
         user_lastName: lastName,
         user_phone: rowData.phone,
         supplier_business_name: rowData.business_name,
-        supplier_email: rowData.email || `${placeId || i}@import.local`,
+        supplier_email: rowData.email,
         supplier_phone: rowData.phone,
         supplier_category: rowData.category || 'Hôtels et logements',
         supplier_description: description,
