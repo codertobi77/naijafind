@@ -33,7 +33,10 @@ export default function Header() {
           {/* Logo */}
           <div className="flex items-center group">
             <Link to="/" className="flex items-center space-x-2">
-              <img src="/Suji Logo.webp" alt="Suji Logo" className="h-10 w-auto" />
+              <img src="/Suji Logo.webp" alt="Suji Logo" className="h-14 w-auto" />
+              <span className="text-2xl font-bold text-green-600 hidden sm:block" style={{ fontFamily: 'Pacifico, serif' }}>
+                Suji
+              </span>
             </Link>
           </div>
 

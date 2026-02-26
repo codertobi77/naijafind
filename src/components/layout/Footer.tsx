@@ -31,7 +31,7 @@ export function Footer({ variant = 'dark', showLogo = true }: FooterProps) {
                 to="/"
                 className="flex items-center space-x-3 mb-4 group"
               >
-                <img src="/Suji Logo.webp" alt="Suji Logo" className="h-10 w-auto" />
+                <img src="/Suji Logo.webp" alt="Suji Logo" className="h-14 w-auto" />
               </Link>
               <p className={`${subTextClasses} text-sm sm:text-base`}>
                 {t('footer.description', "Le moteur de recherche géolocalisé de référence pour tous les fournisseurs du Nigeria.")}
