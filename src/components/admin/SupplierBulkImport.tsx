@@ -98,8 +98,84 @@ export function SupplierBulkImport() {
     });
   }, []);
 
-  // Parse Excel file
-  const parseExcel = useCallback((arrayBuffer: ArrayBuffer): any[] => {
+  // Column mapping configuration
+  const [detectedColumns, setDetectedColumns] = useState<string[]>([]);
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
+  const [showMappingModal, setShowMappingModal] = useState(false);
+
+  // Standard field names we need
+  const standardFields = [
+    { key: 'email', label: 'Email utilisateur', required: true },
+    { key: 'firstName', label: 'Prénom', required: false },
+    { key: 'lastName', label: 'Nom', required: false },
+    { key: 'phone', label: 'Téléphone', required: false },
+    { key: 'business_name', label: "Nom de l'entreprise", required: true },
+    { key: 'category', label: 'Catégorie', required: true },
+    { key: 'city', label: 'Ville', required: true },
+    { key: 'state', label: 'État/Région', required: true },
+    { key: 'address', label: 'Adresse', required: false },
+    { key: 'country', label: 'Pays', required: false },
+    { key: 'website', label: 'Site web', required: false },
+    { key: 'description', label: 'Description', required: false },
+  ];
+
+  // Common column name variations for auto-mapping
+  const columnVariations: Record<string, string[]> = {
+    email: ['email', 'user_email', 'e-mail', 'mail', 'email address', 'adresse email', 'courriel', 'useremail'],
+    firstName: ['firstname', 'first_name', 'first name', 'prénom', 'prenom', 'given name', 'user_firstname', 'userfirstName'],
+    lastName: ['lastname', 'last_name', 'last name', 'nom', 'family name', 'surname', 'user_lastname', 'userlastName'],
+    phone: ['phone', 'telephone', 'tel', 'mobile', 'cell', 'téléphone', 'portable', 'user_phone', 'userphone', 'contact'],
+    business_name: ['business_name', 'business name', 'company', 'company name', 'entreprise', 'nom entreprise', 'nom de l\'entreprise', 'supplier_business_name', 'hotel', 'name', 'nom', 'businessname'],
+    category: ['category', 'type', 'categorie', 'catégorie', 'supplier_category', 'secteur', 'industry', 'business type'],
+    city: ['city', 'town', 'ville', 'localité', 'supplier_city', 'location', 'lieu'],
+    state: ['state', 'region', 'province', 'état', 'etat', 'supplier_state', 'departement', 'département'],
+    address: ['address', 'adresse', 'street', 'rue', 'supplier_address', 'location', 'full address'],
+    country: ['country', 'pays', 'nation', 'supplier_country'],
+    website: ['website', 'site', 'url', 'site web', 'siteweb', 'web', 'supplier_website'],
+    description: ['description', 'desc', 'about', 'à propos', 'a propos', 'supplier_description', 'notes', 'commentaires'],
+  };
+
+  // Auto-detect column mapping based on header names
+  const autoDetectMapping = useCallback((headers: string[]): Record<string, string> => {
+    const mapping: Record<string, string> = {};
+    
+    headers.forEach((header) => {
+      const normalizedHeader = header.toLowerCase().trim().replace(/[_-]/g, ' ').replace(/\s+/g, ' ');
+      
+      for (const [fieldKey, variations] of Object.entries(columnVariations)) {
+        const normalizedVariations = variations.map(v => v.toLowerCase().trim());
+        
+        if (normalizedVariations.includes(normalizedHeader) || 
+            normalizedVariations.some(v => normalizedHeader.includes(v)) ||
+            normalizedHeader.includes(fieldKey.toLowerCase())) {
+          mapping[fieldKey] = header;
+          break;
+        }
+      }
+    });
+    
+    return mapping;
+  }, []);
+
+  // Extract data using the column mapping
+  const extractRowData = (row: any[], headers: string[], mapping: Record<string, string>): Record<string, any> => {
+    const rowData: Record<string, any> = {};
+    
+    standardFields.forEach(field => {
+      const mappedColumn = mapping[field.key];
+      if (mappedColumn) {
+        const columnIndex = headers.indexOf(mappedColumn);
+        if (columnIndex !== -1) {
+          const value = row[columnIndex];
+          rowData[field.key] = value !== undefined && value !== '' ? String(value).trim() : undefined;
+        }
+      }
+    });
+    
+    return rowData;
+  };
+  // Parse Excel file with flexible column detection
+  const parseExcel = useCallback((arrayBuffer: ArrayBuffer): { data: any[]; headers: string[]; mapping: Record<string, string> } => {
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     const firstSheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[firstSheetName];
@@ -112,103 +188,56 @@ export function SupplierBulkImport() {
     const headers = jsonData[0] as string[];
     const data: any[] = [];
     
+    // Auto-detect column mapping
+    const mapping = autoDetectMapping(headers);
+    console.log('Detected columns:', headers);
+    console.log('Auto-mapping:', mapping);
+    
     // Start from index 1 to skip header
     for (let i = 1; i < jsonData.length; i++) {
       const row = jsonData[i];
       if (!row || row.length === 0) continue;
       
-      const rowData: Record<string, any> = {};
+      // Extract data using mapping
+      const rowData = extractRowData(row, headers, mapping);
       
+      // Also try to get any additional supplier_ prefixed fields
       headers.forEach((header, index) => {
-        const value = row[index];
-        
-        if (header.startsWith('supplier_')) {
-          const fieldName = header.replace('supplier_', '');
-          
-          // Boolean fields
-          if (['verified', 'approved', 'featured'].includes(fieldName)) {
-            if (typeof value === 'boolean') {
-              rowData[fieldName] = value;
-            } else if (typeof value === 'string') {
-              rowData[fieldName] = value.toLowerCase() === 'true' || value === '1' || value === 'yes' || value === 'oui';
-            } else {
-              rowData[fieldName] = false;
+        if (header.startsWith('supplier_') || header.startsWith('user_')) {
+          const value = row[index];
+          if (value !== undefined && value !== '') {
+            const fieldName = header.replace('supplier_', '').replace('user_', '');
+            if (!rowData[fieldName]) {
+              rowData[fieldName] = String(value).trim();
             }
           }
-          // Number fields
-          else if (['latitude', 'longitude'].includes(fieldName)) {
-            rowData[fieldName] = value !== undefined && value !== '' ? parseFloat(String(value)) : undefined;
-          }
-          // Array fields (imageGallery)
-          else if (fieldName === 'imageGallery' && value) {
-            if (typeof value === 'string') {
-              try {
-                rowData[fieldName] = JSON.parse(value);
-              } catch {
-                rowData[fieldName] = value ? [value] : undefined;
-              }
-            } else if (Array.isArray(value)) {
-              rowData[fieldName] = value;
-            }
-          }
-          // JSON fields (business_hours, social_links)
-          else if (['business_hours', 'social_links'].includes(fieldName) && value) {
-            if (typeof value === 'string') {
-              try {
-                rowData[fieldName] = JSON.parse(value);
-              } catch {
-                rowData[fieldName] = undefined;
-              }
-            } else if (typeof value === 'object') {
-              rowData[fieldName] = value;
-            }
-          }
-          // String fields
-          else {
-            rowData[fieldName] = value !== undefined && value !== '' ? String(value) : undefined;
-          }
-        } else if (header.startsWith('user_')) {
-          const fieldName = header.replace('user_', '');
-          rowData[fieldName] = value !== undefined && value !== '' ? String(value) : undefined;
-        } else {
-          // Handle headers without prefix
-          rowData[header] = value !== undefined && value !== '' ? String(value) : undefined;
         }
       });
       
-      // Build final supplier object with proper structure
-      if (rowData.email && rowData.business_name) {
-        data.push({
-          user_email: rowData.email,
-          user_firstName: rowData.firstName,
-          user_lastName: rowData.lastName,
-          user_phone: rowData.phone,
-          supplier_business_name: rowData.business_name,
-          supplier_email: rowData.email,
-          supplier_phone: rowData.supplier_phone,
-          supplier_category: rowData.category,
-          supplier_description: rowData.description,
-          supplier_address: rowData.address,
-          supplier_city: rowData.city,
-          supplier_state: rowData.state,
-          supplier_country: rowData.country,
-          supplier_website: rowData.website,
-          supplier_business_type: rowData.business_type,
-          supplier_verified: rowData.verified ?? false,
-          supplier_approved: rowData.approved ?? true,
-          supplier_featured: rowData.featured ?? false,
-          supplier_image: rowData.image,
-          supplier_imageGallery: rowData.imageGallery,
-          supplier_business_hours: rowData.business_hours,
-          supplier_social_links: rowData.social_links,
-          supplier_latitude: rowData.latitude,
-          supplier_longitude: rowData.longitude,
-        });
-      }
+      // Build final supplier object
+      data.push({
+        user_email: rowData.email,
+        user_firstName: rowData.firstName,
+        user_lastName: rowData.lastName,
+        user_phone: rowData.phone,
+        supplier_business_name: rowData.business_name,
+        supplier_email: rowData.email,
+        supplier_phone: rowData.phone,
+        supplier_category: rowData.category,
+        supplier_description: rowData.description,
+        supplier_address: rowData.address,
+        supplier_city: rowData.city,
+        supplier_state: rowData.state,
+        supplier_country: rowData.country || 'Nigeria',
+        supplier_website: rowData.website,
+        supplier_verified: false,
+        supplier_approved: true,
+        supplier_featured: false,
+      });
     }
     
-    return data;
-  }, []);
+    return { data, headers, mapping };
+  }, [autoDetectMapping]);
   const parseCSV = useCallback((content: string): any[] => {
     const lines = content.split('\n').filter(line => line.trim());
     const headers: string[] = [];
@@ -354,8 +383,22 @@ export function SupplierBulkImport() {
         const arrayBuffer = event.target?.result as ArrayBuffer;
         if (arrayBuffer) {
           try {
-            const data = parseExcel(arrayBuffer);
+            const { data, headers, mapping } = parseExcel(arrayBuffer);
+            console.log('Parsed data:', data);
+            console.log('Headers:', headers);
+            console.log('Mapping:', mapping);
+            
+            if (data.length === 0) {
+              showToast('warning', 'Aucune donnée trouvée. Vérifiez le mapping des colonnes.');
+              setDetectedColumns(headers);
+              setColumnMapping(mapping);
+              setShowMappingModal(true);
+              return;
+            }
+            
             setParsedData(data);
+            setDetectedColumns(headers);
+            setColumnMapping(mapping);
             const validated = validateData(data);
             setValidatedRows(validated);
             setCurrentStep('preview');

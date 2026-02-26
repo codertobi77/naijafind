@@ -1,0 +1,135 @@
+name: Deploy to Hostinger VPS
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+    types: [closed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        env:
+          VITE_CONVEX_URL: ${{ secrets.VITE_CONVEX_URL }}
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
+          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+          VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
+        run: npm run build
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          log-public-key: false
+
+      - name: Add VPS to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.VPS_SSH_PORT || '22' }} ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT || '22' }}
+          DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH || '/var/www/naijafind' }}
+        run: |
+          echo "Starting deployment to $VPS_HOST..."
+
+          # Create deployment directory if it doesn't exist
+          ssh -p $VPS_SSH_PORT $VPS_USER@$VPS_HOST "sudo mkdir -p $DEPLOY_PATH && sudo chown $VPS_USER:$VPS_USER $DEPLOY_PATH"
+
+          # Sync built files to VPS
+          rsync -avz --delete \
+            -e "ssh -p $VPS_SSH_PORT" \
+            --exclude='node_modules' \
+            --exclude='.git' \
+            --exclude='.env' \
+            --exclude='scripts' \
+            --exclude='*.md' \
+            ./dist/ $VPS_USER@$VPS_HOST:$DEPLOY_PATH/dist/
+
+          # Copy package files for production dependencies
+          rsync -avz \
+            -e "ssh -p $VPS_SSH_PORT" \
+            ./package*.json $VPS_USER@$VPS_HOST:$DEPLOY_PATH/
+
+          # Copy PM2 ecosystem file
+          rsync -avz \
+            -e "ssh -p $VPS_SSH_PORT" \
+            ./ecosystem.config.cjs $VPS_USER@$VPS_HOST:$DEPLOY_PATH/ || true
+
+          echo "Files synced successfully"
+
+      - name: Post-deploy setup
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT || '22' }}
+          DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH || '/var/www/naijafind' }}
+        run: |
+          echo "Running post-deploy setup..."
+
+          ssh -p $VPS_SSH_PORT $VPS_USER@$VPS_HOST << EOF
+            cd $DEPLOY_PATH
+
+            # Install production dependencies if needed
+            if [ -f package.json ]; then
+              npm ci --production --silent
+            fi
+
+            # Restart PM2 process
+            if command -v pm2 &> /dev/null && [ -f ecosystem.config.cjs ]; then
+              echo "Restarting PM2..."
+              pm2 restart ecosystem.config.cjs --env production || pm2 start ecosystem.config.cjs --env production
+              pm2 save
+            elif command -v pm2 &> /dev/null; then
+              echo "Starting with PM2 (no ecosystem file)..."
+              pm2 restart naijafind || pm2 start ./dist --name naijafind -- --port 3000
+              pm2 save
+            else
+              echo "PM2 not found, please install PM2 on the server"
+              exit 1
+            fi
+
+            echo "Deployment completed successfully!"
+          EOF
+
+      - name: Verify deployment
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          echo "Verifying deployment..."
+          sleep 5
+          curl -sSf http://$VPS_HOST:3000 > /dev/null && echo "App is running on port 3000" || echo "Could not verify app status"
