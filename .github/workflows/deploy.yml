@@ -53,10 +53,32 @@ jobs:
           ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
           log-public-key: false
 
-      - name: Add VPS to known hosts
+      - name: Verify secrets and add VPS to known hosts
         run: |
+          # Vérification des secrets requis
+          if [ -z "${{ secrets.VPS_HOST }}" ]; then
+            echo "❌ Erreur: VPS_HOST secret is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VPS_USER }}" ]; then
+            echo "❌ Erreur: VPS_USER secret is not set"
+            exit 1
+          fi
+          
+          echo "✓ Secrets verified"
+          echo "Configuring SSH for ${{ secrets.VPS_HOST }}..."
+          
           mkdir -p ~/.ssh
-          ssh-keyscan -p ${{ secrets.VPS_SSH_PORT || '22' }} ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          chmod 700 ~/.ssh
+          
+          # Ajouter le host avec gestion d'erreur
+          if ! ssh-keyscan -p ${{ secrets.VPS_SSH_PORT || '22' }} -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null; then
+            echo "⚠️ ssh-keyscan a échoué, tentative avec timeout..."
+            timeout 10 ssh-keyscan -p ${{ secrets.VPS_SSH_PORT || '22' }} -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          fi
+          
+          chmod 644 ~/.ssh/known_hosts
+          echo "✓ SSH configuration completed"
 
       - name: Deploy to VPS
         env:
