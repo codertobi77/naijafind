@@ -52,10 +52,14 @@ export function SupplierBulkImport() {
       const errors: ValidationError[] = [];
       
       // Required fields validation
-      if (!row.user_email || row.user_email.trim() === '') {
-        errors.push({ row: index + 1, field: 'user_email', message: 'Email utilisateur requis' });
-      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.user_email)) {
-        errors.push({ row: index + 1, field: 'user_email', message: 'Format d\'email invalide' });
+      // Contact validation: at least one contact method required (email OR phone)
+      const hasEmail = row.user_email && row.user_email.trim() !== '';
+      const hasPhone = row.user_phone && row.user_phone.trim() !== '';
+      
+      if (!hasEmail && !hasPhone) {
+        errors.push({ row: index + 1, field: 'contact', message: 'Au moins un contact requis (email ou téléphone)' });
+      } else if (hasEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.user_email)) {
+        errors.push({ row: index + 1, field: 'user_email', message: "Format d'email invalide" });
       }
       
       if (!row.supplier_business_name || row.supplier_business_name.trim() === '') {
@@ -106,7 +110,7 @@ export function SupplierBulkImport() {
 
   // Standard field names we need
   const standardFields = [
-    { key: 'email', label: 'Email utilisateur', required: true },
+    { key: 'email', label: 'Email utilisateur', required: false },
     { key: 'firstName', label: 'Prénom', required: false },
     { key: 'lastName', label: 'Nom', required: false },
     { key: 'phone', label: 'Téléphone', required: false },
