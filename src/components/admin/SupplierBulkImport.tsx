@@ -126,10 +126,10 @@ export function SupplierBulkImport() {
     lastName: ['lastname', 'last_name', 'last name', 'nom', 'family name', 'surname', 'user_lastname', 'userlastName'],
     phone: ['phone', 'telephone', 'tel', 'mobile', 'cell', 'téléphone', 'portable', 'user_phone', 'userphone', 'contact', 'company_phone'],
     business_name: ['business_name', 'business name', 'company', 'company name', 'entreprise', 'nom entreprise', 'nom de l\'entreprise', 'supplier_business_name', 'hotel', 'name', 'nom', 'businessname', 'company_name', 'owner_title'],
-    category: ['category', 'type', 'categorie', 'catégorie', 'supplier_category', 'secteur', 'industry', 'business type', 'subtypes'],
-    city: ['city', 'town', 'ville', 'localité', 'supplier_city', 'location', 'lieu'],
+    category: ['category', 'type', 'categorie', 'catégorie', 'supplier_category', 'secteur', 'industry', 'business type'],
+    city: ['city', 'town', 'ville', 'localité', 'supplier_city'],
     state: ['state', 'region', 'province', 'état', 'etat', 'supplier_state', 'departement', 'département'],
-    address: ['address', 'adresse', 'street', 'rue', 'supplier_address', 'location', 'full address'],
+    address: ['address', 'adresse', 'street', 'rue', 'supplier_address', 'full address'],
     country: ['country', 'pays', 'nation', 'supplier_country'],
     website: ['website', 'site', 'url', 'site web', 'siteweb', 'web', 'supplier_website', 'domain', 'company_linkedin', 'company_facebook', 'company_instagram', 'company_x', 'company_youtube'],
     description: ['description', 'desc', 'about', 'à propos', 'a propos', 'supplier_description', 'notes', 'commentaires', 'range', 'prices'],
@@ -138,17 +138,83 @@ export function SupplierBulkImport() {
   // Auto-detect column mapping based on header names
   const autoDetectMapping = useCallback((headers: string[]): Record<string, string> => {
     const mapping: Record<string, string> = {};
+    const usedHeaders = new Set<string>();
     
+    // Priority order for fields that might conflict
+    const priorityOrder = ['business_name', 'category', 'city', 'address', 'website', 'phone', 'email'];
+    
+    // First pass: exact matches only
     headers.forEach((header) => {
+      const normalizedHeader = header.toLowerCase().trim();
+      
+      for (const fieldKey of priorityOrder) {
+        if (mapping[fieldKey]) continue; // Already mapped
+        
+        const variations = columnVariations[fieldKey];
+        const normalizedVariations = variations.map(v => v.toLowerCase().trim());
+        
+        // Exact match first
+        if (normalizedVariations.includes(normalizedHeader)) {
+          mapping[fieldKey] = header;
+          usedHeaders.add(header);
+          break;
+        }
+      }
+    });
+    
+    // Second pass: contains match (but be more restrictive)
+    headers.forEach((header) => {
+      if (usedHeaders.has(header)) return; // Skip already used
+      
+      const normalizedHeader = header.toLowerCase().trim().replace(/[_-]/g, ' ').replace(/\s+/g, ' ');
+      
+      // Skip URL/link columns for non-website fields
+      const isUrlColumn = normalizedHeader.includes('url') || 
+                          normalizedHeader.includes('link') || 
+                          normalizedHeader.includes('http');
+      
+      for (const fieldKey of priorityOrder) {
+        if (mapping[fieldKey]) continue;
+        
+        const variations = columnVariations[fieldKey];
+        
+        for (const variation of variations) {
+          const normalizedVariation = variation.toLowerCase().trim();
+          
+          // For city/address, avoid URL columns
+          if ((fieldKey === 'city' || fieldKey === 'address') && isUrlColumn) {
+            continue;
+          }
+          
+          // Check if header contains the variation (word boundary)
+          if (normalizedHeader === normalizedVariation || 
+              normalizedHeader.startsWith(normalizedVariation + ' ') ||
+              normalizedHeader.endsWith(' ' + normalizedVariation) ||
+              normalizedHeader.includes(' ' + normalizedVariation + ' ')) {
+            mapping[fieldKey] = header;
+            usedHeaders.add(header);
+            break;
+          }
+        }
+        if (mapping[fieldKey]) break;
+      }
+    });
+    
+    // Third pass: remaining fields
+    headers.forEach((header) => {
+      if (usedHeaders.has(header)) return;
+      
       const normalizedHeader = header.toLowerCase().trim().replace(/[_-]/g, ' ').replace(/\s+/g, ' ');
       
       for (const [fieldKey, variations] of Object.entries(columnVariations)) {
+        if (mapping[fieldKey]) continue;
+        
         const normalizedVariations = variations.map(v => v.toLowerCase().trim());
         
         if (normalizedVariations.includes(normalizedHeader) || 
-            normalizedVariations.some(v => normalizedHeader.includes(v)) ||
-            normalizedHeader.includes(fieldKey.toLowerCase())) {
+            normalizedVariations.some(v => normalizedHeader.includes(v))) {
           mapping[fieldKey] = header;
+          usedHeaders.add(header);
           break;
         }
       }
@@ -222,6 +288,25 @@ export function SupplierBulkImport() {
         }
         return undefined;
       };
+      
+      // DIRECT EXTRACTION: Get critical fields directly by column name
+      // This ensures we get the right data regardless of mapping
+      const name = getValue('name');
+      const city = getValue('city');
+      const state = getValue('state');
+      const address = getValue('address');
+      const phone = getValue('phone');
+      const website = getValue('website');
+      const country = getValue('country');
+      
+      // Override mapped values with direct extractions if available
+      if (name) rowData.business_name = name;
+      if (city) rowData.city = city;
+      if (state) rowData.state = state;
+      if (address) rowData.address = address;
+      if (phone) rowData.phone = phone;
+      if (website) rowData.website = website;
+      if (country) rowData.country = country;
       
       // Get rating and reviews
       const rating = getValue('rating');
