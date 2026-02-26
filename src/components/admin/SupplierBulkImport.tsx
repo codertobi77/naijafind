@@ -141,8 +141,8 @@ export function SupplierBulkImport() {
     const mapping: Record<string, string> = {};
     const usedHeaders = new Set<string>();
     
-    // Priority order for fields that might conflict
-    const priorityOrder = ['business_name', 'category', 'city', 'address', 'website', 'phone', 'email'];
+    // Priority order for fields that might conflict (most important first)
+    const priorityOrder = ['business_name', 'category', 'city', 'state', 'email', 'phone', 'address', 'country', 'website', 'description'];
     
     // First pass: exact matches only
     headers.forEach((header) => {
