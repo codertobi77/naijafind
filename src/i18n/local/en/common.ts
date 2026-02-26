@@ -110,6 +110,8 @@ export const common = {
   "footer.support": "Support",
   "footer.follow_us": "Follow us",
   "footer.description": "The leading geo-located search engine for all suppliers in Nigeria.",
+  "footer.contact": "Contact",
+  "footer.about": "About",
 
   // Pages
   "page.about": "About",
