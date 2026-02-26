@@ -211,7 +211,7 @@ export const bulkImportSuppliers = mutation({
       supplier_latitude: v.optional(v.float64()),
       supplier_longitude: v.optional(v.float64()),
       supplier_rating: v.optional(v.float64()),
-      supplier_reviews: v.optional(v.int64()),
+      supplier_reviews: v.optional(v.number()),
       supplier_google_place_id: v.optional(v.string()),
       supplier_source: v.optional(v.string()),
     })),
