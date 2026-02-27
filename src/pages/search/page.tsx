@@ -813,7 +813,9 @@ export default function Search() {
   }, [isAuthenticated, authLoading, navigate]);
   
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [allMapSuppliers, setAllMapSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
+  const [paginationLoading, setPaginationLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [filters, setFilters] = useState({
     category: searchParams.get('category') || '',
@@ -945,6 +947,8 @@ export default function Search() {
 
   // Use user's location if available, otherwise fall back to selected city coordinates
   const effectiveLocationCoords = userLocation || getLocationCoords(filters.location);
+  
+  // Query for paginated list results
   const queryArgs = {
     q: filters.query || undefined,
     category: filters.category || undefined,
@@ -959,6 +963,21 @@ export default function Search() {
     sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | undefined,
   } as const;
   
+  // Query for ALL suppliers (for map view - no pagination)
+  const allSuppliersQueryArgs = {
+    q: filters.query || undefined,
+    category: filters.category || undefined,
+    location: filters.location || undefined,
+    lat: effectiveLocationCoords?.lat,
+    lng: effectiveLocationCoords?.lng,
+    radiusKm: Number(filters.distance || '50'),
+    minRating: filters.rating ? Number(filters.rating) : undefined,
+    verified: filters.verified || undefined,
+    limit: undefined, // No limit for map
+    offset: BigInt(0),
+    sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | undefined,
+  } as const;
+  
   // Use React Query with shorter cache time for search results (1 minute)
   const { data: convexResult, isLoading: queryLoading } = useConvexQuery(
     api.suppliers.searchSuppliers,
@@ -968,9 +987,21 @@ export default function Search() {
       gcTime: 3 * 60 * 1000 // Keep in cache for 3 minutes
     }
   );
+  
+  // Separate query for ALL suppliers (for map display)
+  const { data: allSuppliersResult, isLoading: allSuppliersLoading } = useConvexQuery(
+    api.suppliers.searchSuppliers,
+    allSuppliersQueryArgs,
+    { 
+      staleTime: 1 * 60 * 1000,
+      gcTime: 3 * 60 * 1000
+    }
+  );
 
+  // Process paginated suppliers for list view
   useEffect(() => {
     setLoading(queryLoading);
+    setPaginationLoading(queryLoading && currentPage > 0);
     if (!convexResult) return;
     const list = (convexResult.suppliers || []).map((s: any) => ({
       id: (s._id ?? s.id) as string,
@@ -999,7 +1030,34 @@ export default function Search() {
     if (!queryLoading && list.length > 0) {
       handleScrollToResults();
     }
-  }, [convexResult, queryLoading]);
+  }, [convexResult, queryLoading, currentPage]);
+  
+  // Process ALL suppliers for map view (no pagination)
+  useEffect(() => {
+    if (!allSuppliersResult) return;
+    const allList = (allSuppliersResult.suppliers || []).map((s: any) => ({
+      id: (s._id ?? s.id) as string,
+      name: s.business_name ?? s.name ?? '',
+      category: s.category ?? '',
+      location: s.location ?? [s.city, s.state].filter(Boolean).join(', '),
+      rating: s.rating ?? 0,
+      review_count: s.reviews_count ?? 0,
+      distance: (s as any).distance,
+      verified: !!s.verified,
+      image_url: s.image ?? s.image_url ?? s.logo_url ?? '',
+      description: s.description ?? '',
+      phone: s.phone ?? '',
+      email: s.email ?? '',
+      // Include location data for map
+      latitude: s.latitude,
+      longitude: s.longitude,
+      city: s.city,
+      state: s.state,
+      country: s.country,
+      address: s.address,
+    })) as Supplier[];
+    setAllMapSuppliers(allList);
+  }, [allSuppliersResult]);
 
   useEffect(() => {
     setCurrentPage(0); // Reset to first page when filters change
@@ -1276,20 +1334,20 @@ export default function Search() {
 
             {viewMode === 'map' && (
               <div className="bg-white rounded-lg shadow-sm mb-6 h-64 sm:h-96 overflow-hidden">
-                <SupplierMapView suppliers={suppliers} userLocation={userLocation} />
+                <SupplierMapView suppliers={allMapSuppliers} userLocation={userLocation} />
               </div>
             )}
 
-            {loading ? (
+            {loading || paginationLoading ? (
               <div className="space-y-4">
-                {[1, 2, 3].map(i => (
+                {[1, 2, 3, 4, 5].map(i => (
                   <div key={i} className="bg-white rounded-lg shadow-sm p-4 sm:p-6 animate-pulse">
                     <div className="flex gap-4">
-                      <div className="w-16 sm:w-24 h-16 sm:h-24 bg-gray-200 rounded-lg flex-shrink-0"></div>
+                      <div className="w-16 sm:w-24 h-16 sm:h-24 bg-gray-200 rounded-lg flex-shrink-0 shimmer"></div>
                       <div className="flex-1">
-                        <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/4 mb-2"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                        <div className="h-4 bg-gray-200 rounded w-1/3 mb-2 shimmer"></div>
+                        <div className="h-3 bg-gray-200 rounded w-1/4 mb-2 shimmer"></div>
+                        <div className="h-3 bg-gray-200 rounded w-1/2 shimmer"></div>
                       </div>
                     </div>
                   </div>

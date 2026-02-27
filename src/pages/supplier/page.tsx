@@ -767,11 +767,11 @@ export default function SupplierDetail() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
                   <div className="lg:col-span-2">
                     <div className="bg-gray-100 rounded-lg h-64 sm:h-80 lg:h-96 mb-4 sm:mb-6 overflow-hidden">
-                      {supplier.latitude && supplier.longitude ? (
+                      {transformedSupplier?.latitude && transformedSupplier?.longitude ? (
                         <SupplierMapboxMap 
-                          latitude={supplier.latitude} 
-                          longitude={supplier.longitude} 
-                          name={supplier.name}
+                          latitude={transformedSupplier.latitude} 
+                          longitude={transformedSupplier.longitude} 
+                          name={transformedSupplier.name}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-500">
@@ -791,16 +791,16 @@ export default function SupplierDetail() {
                         {t('supplier.address')}
                       </h4>
                       <div className="space-y-2 text-gray-700 text-xs sm:text-sm">
-                        <div className="font-medium">{supplier.name}</div>
-                        <div>{supplier.address}</div>
+                        <div className="font-medium">{transformedSupplier?.name}</div>
+                        <div>{transformedSupplier?.address}</div>
                         <div>
-                          {supplier.city}, {supplier.state}
+                          {transformedSupplier?.city}, {transformedSupplier?.state}
                         </div>
-                        <div>{supplier.location}</div>
+                        <div>{transformedSupplier?.location}</div>
                       </div>
                     </div>
 
-                    {supplier.website && (
+                    {transformedSupplier?.website && (
                       <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
                         <h4 className="font-semibold text-gray-900 mb-4 flex items-center text-sm sm:text-base">
                           <i className="ri-global-line mr-2 text-green-600"></i>
@@ -808,16 +808,16 @@ export default function SupplierDetail() {
                         </h4>
                         <div className="space-y-2 text-gray-700">
                           <a
-                            href={supplier.website.startsWith('http') ? supplier.website : `https://${supplier.website}`}
+                            href={transformedSupplier.website.startsWith('http') ? transformedSupplier.website : `https://${transformedSupplier.website}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-green-600 hover:underline break-all block text-xs sm:text-sm"
                           >
-                            {supplier.website}
+                            {transformedSupplier.website}
                           </a>
                         </div>
                         <a
-                          href={supplier.website.startsWith('http') ? supplier.website : `https://${supplier.website}`}
+                          href={transformedSupplier.website.startsWith('http') ? transformedSupplier.website : `https://${transformedSupplier.website}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="mt-4 w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap block text-center text-sm sm:text-base"
