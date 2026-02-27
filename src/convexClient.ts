@@ -7,3 +7,4 @@ if (!convexUrl || !/^https?:\/\//.test(convexUrl)) {
 }
 
 export const convex = new ConvexReactClient(convexUrl);
+

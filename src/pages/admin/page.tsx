@@ -12,6 +12,7 @@ import { SupplierBulkImport } from '../../components/admin';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer, NotificationDropdown } from '../../components/base';
+import { LogoLink } from '../../components/base/Logo';
 
 // Define proper TypeScript interfaces based on Convex data model
 type Supplier = Doc<"suppliers">;
@@ -1824,17 +1825,7 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
       <aside className="fixed left-0 top-0 z-40 h-full w-64 border-r border-green-100 bg-gradient-to-b from-green-50 to-white transition-transform duration-300 lg:translate-x-0">
         <div className="flex h-full flex-col">
           <div className="border-b border-green-100 p-6">
-            <Link to="/" className="flex items-center space-x-2">
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-600 text-white">
-                <i className="ri-admin-line text-xl" />
-              </span>
-              <span
-                className="text-xl font-bold text-green-600"
-                style={{ fontFamily: 'Pacifico, serif' }}
-              >
-                Suji
-              </span>
-            </Link>
+            <LogoLink variant="admin" size="sm" to="/" />
           </div>
 
           <nav className="flex-1 overflow-y-auto px-4 py-6">
@@ -1892,7 +1883,7 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
                 }`}
               >
                 <i className="ri-star-line text-lg" />
-                <span className="font-medium">{t('admin.featured_businesses')}</span>
+                <span className="font-medium">{t('admin.premium_suppliers')}</span>
               </button>
               <button
                 onClick={() => setActiveTab('notifications')}
@@ -1944,7 +1935,7 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
                 {activeTab === 'overview' && t('admin.overview')}
                 {activeTab === 'suppliers' && t('admin.suppliers')}
                 {activeTab === 'categories' && t('admin.categories')}
-                {activeTab === 'featured' && t('admin.featured_businesses')}
+                {activeTab === 'featured' && t('admin.premium_suppliers')}
                 {activeTab === 'products' && t('admin.products')}
                 {activeTab === 'notifications' && 'Envoyer une notification'}
                 {activeTab === 'import' && 'Import Fournisseurs'}

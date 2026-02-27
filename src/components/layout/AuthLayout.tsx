@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { LogoLink } from '../base/Logo';
 
 interface AuthLayoutProps {
   children: ReactNode;
@@ -43,22 +43,7 @@ export function AuthLayout({
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         {/* Logo */}
-        <Link to="/" className="flex justify-center group mb-8">
-          <div className="text-center">
-            <div className="inline-flex items-center space-x-3 mb-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
-                <i className="ri-compass-3-fill text-white text-2xl"></i>
-              </div>
-              <span
-                className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent group-hover:from-green-700 group-hover:to-emerald-700 transition-all duration-300"
-                style={{ fontFamily: 'Pacifico, serif' }}
-              >
-                Suji
-              </span>
-            </div>
-            <div className="h-1 w-24 bg-gradient-to-r from-green-600 to-emerald-600 mx-auto rounded-full group-hover:w-32 transition-all duration-300 shadow-lg"></div>
-          </div>
-        </Link>
+        <LogoLink variant="default" size="lg" to="/" />
 
         {/* Title */}
         <div className="mt-4 text-center animate-fade-in">

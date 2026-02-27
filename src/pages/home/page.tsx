@@ -403,7 +403,7 @@ function SearchInputWithSuggestions({
 
   return (
     <div ref={containerRef} className="relative">
-      <label className="block text-sm font-semibold text-gray-700 mb-2">
+      <label className="block text-sm font-semibold text-gray-700 mb-2 min-h-[2.5rem] flex items-center">
         <i className={`${icon} mr-1`}></i>{label}
       </label>
       <div className="relative">
@@ -631,7 +631,7 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className="block text-sm font-semibold text-gray-700 mb-2 min-h-[2.5rem] flex items-center">
               <i className="ri-list-check mr-1"></i>{t('label.category')}
             </label>
             <FormSelect
@@ -885,10 +885,14 @@ export default function Home() {
                       </span>
                     </div>
                     <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between text-sm text-gray-500">
-                      <span className="flex items-center">
+                      <a 
+                        href={supplier.phone ? `tel:${supplier.phone}` : '#'}
+                        className="flex items-center hover:text-green-600 transition-colors"
+                        onClick={(e) => !supplier.phone && e.preventDefault()}
+                      >
                         <i className="ri-phone-line mr-1"></i>
                         {supplier.phone || 'Contact'}
-                      </span>
+                      </a>
                       <Link
                         to={`/supplier/${supplier._id}`}
                         className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"

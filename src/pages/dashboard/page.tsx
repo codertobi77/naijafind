@@ -28,6 +28,7 @@ import VerificationStatus from '../../components/base/VerificationStatus';
 import { useToast, type Toast } from '../../hooks/useToast';
 import { useNotifications } from '../../hooks/useNotifications';
 import { ToastContainer, NotificationDropdown } from '../../components/base';
+import { LogoLink } from '../../components/base/Logo';
 
 type DashboardTab =
   | 'overview'
@@ -1252,17 +1253,7 @@ function DashboardSidebar({
       >
         <div className="flex h-full flex-col">
           <div className="border-b border-green-100 p-6">
-            <Link to="/" className="flex items-center space-x-2">
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-600 text-white">
-                <i className="ri-store-line text-xl" />
-              </span>
-              <span
-                className="text-xl font-bold text-green-600"
-                style={{ fontFamily: 'Pacifico, serif' }}
-              >
-                Suji
-              </span>
-            </Link>
+            <LogoLink variant="supplier" size="sm" to="/" />
           </div>
 
           <nav className="flex-1 overflow-y-auto px-4 py-6">
