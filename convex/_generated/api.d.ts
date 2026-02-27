@@ -15,6 +15,7 @@ import type * as dashboard from "../dashboard.js";
 import type * as emails from "../emails.js";
 import type * as http from "../http.js";
 import type * as init from "../init.js";
+import type * as migration from "../migration.js";
 import type * as notifications from "../notifications.js";
 import type * as products from "../products.js";
 import type * as rateLimit from "../rateLimit.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   emails: typeof emails;
   http: typeof http;
   init: typeof init;
+  migration: typeof migration;
   notifications: typeof notifications;
   products: typeof products;
   rateLimit: typeof rateLimit;
