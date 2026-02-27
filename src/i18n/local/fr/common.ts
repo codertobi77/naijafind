@@ -150,7 +150,10 @@ export const common = {
   "map.more_suppliers": "fournisseurs de plus",
   "map.exact_location": "Localisation exacte",
   "map.approximate_location": "Localisation approximative",
-  "map.approximate": "approximatif"
+  "map.approximate": "approximatif",
+  "map.expand": "Agrandir la carte",
+  "map.full_map_view": "Vue Carte Complète",
+  "map.suppliers": "fournisseurs"
 };
 
 export default common;

@@ -86,7 +86,10 @@ export const supplier = {
   "supplier.feature_not_available": "This feature is not yet available",
   "supplier.internal_message": "Message",
   "supplier.message_sent_success": "Your message has been sent successfully! The supplier will contact you soon.",
-  "supplier.message_sent_error": "An error occurred while sending your message. Please try again."
+  "supplier.message_sent_error": "An error occurred while sending your message. Please try again.",
+  "supplier.no_email": "Supplier doesn't have email",
+  "supplier.no_phone": "Supplier doesn't have phone number",
+  "supplier.location_not_available": "Location not available"
 };
 
 export default supplier;

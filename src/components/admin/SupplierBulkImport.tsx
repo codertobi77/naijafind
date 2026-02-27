@@ -43,6 +43,8 @@ export function SupplierBulkImport() {
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
+  
   const { showToast } = useToast();
   const bulkImportSuppliers = useMutation(api.adminImport.bulkImportSuppliers);
 
@@ -122,6 +124,8 @@ export function SupplierBulkImport() {
     { key: 'country', label: 'Pays', required: false },
     { key: 'website', label: 'Site web', required: false },
     { key: 'description', label: 'Description', required: false },
+    { key: 'latitude', label: 'Latitude', required: false },
+    { key: 'longitude', label: 'Longitude', required: false },
   ];
 
   // Common column name variations for auto-mapping
@@ -138,6 +142,8 @@ export function SupplierBulkImport() {
     country: ['country', 'pays', 'nation', 'supplier_country'],
     website: ['website', 'site', 'url', 'site web', 'siteweb', 'web', 'supplier_website', 'domain', 'company_linkedin', 'company_facebook', 'company_instagram', 'company_x', 'company_youtube'],
     description: ['description', 'desc', 'about', 'à propos', 'a propos', 'supplier_description', 'notes', 'commentaires', 'range', 'prices'],
+    latitude: ['latitude', 'lat', 'supplier_latitude', 'gps_lat', 'location_lat', 'y'],
+    longitude: ['longitude', 'lng', 'long', 'supplier_longitude', 'gps_lng', 'location_lng', 'x'],
   };
 
   // Auto-detect column mapping based on header names
@@ -146,7 +152,7 @@ export function SupplierBulkImport() {
     const usedHeaders = new Set<string>();
     
     // Priority order for fields that might conflict (most important first)
-    const priorityOrder = ['business_name', 'category', 'city', 'state', 'email', 'phone', 'address', 'country', 'website', 'description'];
+    const priorityOrder = ['business_name', 'category', 'city', 'state', 'email', 'phone', 'address', 'country', 'website', 'description', 'latitude', 'longitude'];
     
     // First pass: exact matches only
     headers.forEach((header) => {
@@ -616,23 +622,53 @@ export function SupplierBulkImport() {
 
     setIsUploading(true);
     setCurrentStep('importing');
-    try {
-      const result = await bulkImportSuppliers({ suppliers: rowsToImport });
-      setImportResult(result);
-      setCurrentStep('results');
-      
-      if (result.created > 0) {
-        showToast('success', `${result.created} fournisseurs importés avec succès`);
+    setImportProgress({ current: 0, total: rowsToImport.length });
+
+    const results: ImportResult = {
+      success: [],
+      errors: [],
+      total: rowsToImport.length,
+      created: 0,
+      failed: 0,
+    };
+
+    // Process in batches of 5 for better progress visibility
+    const batchSize = 5;
+    for (let i = 0; i < rowsToImport.length; i += batchSize) {
+      const batch = rowsToImport.slice(i, i + batchSize);
+      try {
+        const batchResult = await bulkImportSuppliers({ suppliers: batch });
+        results.success.push(...batchResult.success);
+        results.errors.push(...batchResult.errors);
+        results.created += batchResult.created;
+        results.failed += batchResult.failed;
+        setImportProgress({ current: Math.min(i + batch.length, rowsToImport.length), total: rowsToImport.length });
+      } catch (error: any) {
+        // If batch fails, mark all items in batch as failed
+        batch.forEach((row: any) => {
+          results.errors.push({
+            supplier: row.supplier_business_name,
+            email: row.user_email,
+            error: error.message,
+          });
+          results.failed++;
+        });
+        setImportProgress({ current: Math.min(i + batch.length, rowsToImport.length), total: rowsToImport.length });
       }
-      if (result.failed > 0) {
-        showToast('warning', `${result.failed} erreurs lors de l'import`);
-      }
-    } catch (error: any) {
-      showToast('error', `Erreur: ${error.message}`);
-      setCurrentStep('preview');
-    } finally {
-      setIsUploading(false);
     }
+
+    setImportResult(results);
+    setCurrentStep('results');
+    setImportProgress(null);
+    
+    if (results.created > 0) {
+      showToast('success', `${results.created} fournisseurs importés avec succès`);
+    }
+    if (results.failed > 0) {
+      showToast('warning', `${results.failed} erreurs lors de l'import`);
+    }
+    
+    setIsUploading(false);
   };
 
   const toggleRowSelection = (index: number) => {
@@ -755,6 +791,32 @@ jane@example.com,Jane,Smith,+2348098765432,XYZ Services,info@xyzservices.com,+23
             </span>
           </label>
         </div>
+
+        {/* Import Progress */}
+        {currentStep === 'importing' && importProgress && (
+          <div className="mt-6 p-6 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <i className="ri-loader-4-line animate-spin text-blue-600 text-xl"></i>
+                <div>
+                  <h4 className="font-medium text-blue-800">Importation en cours...</h4>
+                  <p className="text-sm text-blue-600">
+                    {importProgress.current} / {importProgress.total} fournisseurs traités
+                  </p>
+                </div>
+              </div>
+              <span className="text-lg font-semibold text-blue-700">
+                {Math.round((importProgress.current / importProgress.total) * 100)}%
+              </span>
+            </div>
+            <div className="w-full bg-blue-200 rounded-full h-3 overflow-hidden">
+              <div 
+                className="bg-blue-600 h-full rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
 
         {/* Preview Modal */}
         {showPreviewModal && validatedRows.length > 0 && (

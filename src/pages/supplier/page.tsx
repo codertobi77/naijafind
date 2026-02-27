@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useConvexAuth, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
@@ -9,6 +9,10 @@ import { Header } from '../../components/base';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/base';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
 
 interface Supplier {
   id: string;
@@ -43,6 +47,87 @@ interface Review {
   user_name: string;
 }
 
+// Supplier Mapbox Map Component
+function SupplierMapboxMap({ latitude, longitude, name }: { latitude: number; longitude: number; name: string }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
+
+  useEffect(() => {
+    if (mapRef.current && !mapInstanceRef.current) {
+      mapboxgl.accessToken = MAPBOX_TOKEN;
+      
+      const map = new mapboxgl.Map({
+        container: mapRef.current,
+        style: 'mapbox://styles/mapbox/dark-v11',
+        center: [longitude, latitude],
+        zoom: 15,
+        pitch: 45,
+        bearing: -17.6,
+        antialias: true
+      });
+
+      mapInstanceRef.current = map;
+
+      map.on('load', () => {
+        map.addSource('mapbox-dem', {
+          'type': 'raster-dem',
+          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+          'tileSize': 512,
+          'maxzoom': 14
+        });
+        
+        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+        
+        if (!map.getLayer('3d-buildings')) {
+          map.addLayer({
+            'id': '3d-buildings',
+            'source': 'composite',
+            'source-layer': 'building',
+            'filter': ['==', 'extrude', 'true'],
+            'type': 'fill-extrusion',
+            'minzoom': 12,
+            'paint': {
+              'fill-extrusion-color': '#d4a574',
+              'fill-extrusion-height': ['get', 'height'],
+              'fill-extrusion-base': ['get', 'min_height'],
+              'fill-extrusion-opacity': 0.8,
+              'fill-extrusion-vertical-gradient': true,
+              'fill-extrusion-ambient-occlusion-intensity': 0.3
+            }
+          });
+        }
+
+        const el = document.createElement('div');
+        el.className = 'custom-marker';
+        el.style.width = '40px';
+        el.style.height = '40px';
+        el.innerHTML = `
+          <div class="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center shadow-lg border-3 border-white ring-2 ring-green-400">
+            <i class="ri-store-2-line text-white text-sm"></i>
+          </div>
+        `;
+
+        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
+          `<div class="p-3"><h3 class="font-semibold text-sm text-gray-900">${name}</h3></div>`
+        );
+
+        new mapboxgl.Marker(el)
+          .setLngLat([longitude, latitude])
+          .setPopup(popup)
+          .addTo(map);
+      });
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [latitude, longitude, name]);
+
+  return <div ref={mapRef} className="w-full h-full bg-gray-100 rounded-lg" />;
+}
 
 export default function SupplierDetail() {
   const { t } = useTranslation();
@@ -395,9 +480,13 @@ export default function SupplierDetail() {
                   <i className="ri-phone-line mr-2 sm:mr-3 text-green-600 text-lg sm:text-xl flex-shrink-0"></i>
                   <div className="min-w-0 flex-1">
                     <div className="font-medium text-gray-900 text-sm sm:text-base">{t('supplier.phone')}</div>
-                    <a href={`tel:${transformedSupplier.phone}`} className="text-green-600 hover:underline break-all text-xs sm:text-sm">
-                      {transformedSupplier.phone}
-                    </a>
+                    {transformedSupplier.phone ? (
+                      <a href={`tel:${transformedSupplier.phone}`} className="text-green-600 hover:underline break-all text-xs sm:text-sm">
+                        {transformedSupplier.phone}
+                      </a>
+                    ) : (
+                      <span className="text-gray-400 italic text-xs sm:text-sm">{t('supplier.no_phone')}</span>
+                    )}
                   </div>
                 </div>
 
@@ -405,9 +494,13 @@ export default function SupplierDetail() {
                   <i className="ri-mail-line mr-2 sm:mr-3 text-green-600 text-lg sm:text-xl flex-shrink-0"></i>
                   <div className="min-w-0 flex-1">
                     <div className="font-medium text-gray-900 text-sm sm:text-base">{t('supplier.email')}</div>
-                    <a href={`mailto:${transformedSupplier.email}`} className="text-green-600 hover:underline break-all text-xs sm:text-sm">
-                      {transformedSupplier.email}
-                    </a>
+                    {transformedSupplier.email ? (
+                      <a href={`mailto:${transformedSupplier.email}`} className="text-green-600 hover:underline break-all text-xs sm:text-sm">
+                        {transformedSupplier.email}
+                      </a>
+                    ) : (
+                      <span className="text-gray-400 italic text-xs sm:text-sm">{t('supplier.no_email')}</span>
+                    )}
                   </div>
                 </div>
 
@@ -673,16 +766,21 @@ export default function SupplierDetail() {
                 <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">{t('supplier.location_access')}</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
                   <div className="lg:col-span-2">
-                    <div className="bg-gray-100 rounded-lg h-64 sm:h-80 lg:h-96 mb-4 sm:mb-6">
-                      <iframe
-                        src={`https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3964.7708!2d${supplier.longitude}!3d${supplier.latitude}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNsKwMzEnMjcuOCJOIDPCsDIyJzQ1LjEiRQ!5e0!3m2!1sen!2s!4v1234567890`}
-                        width="100%"
-                        height="100%"
-                        style={{ border: 0, borderRadius: '8px' }}
-                        allowFullScreen
-                        loading="lazy"
-                        referrerPolicy="no-referrer-when-downgrade"
-                      ></iframe>
+                    <div className="bg-gray-100 rounded-lg h-64 sm:h-80 lg:h-96 mb-4 sm:mb-6 overflow-hidden">
+                      {supplier.latitude && supplier.longitude ? (
+                        <SupplierMapboxMap 
+                          latitude={supplier.latitude} 
+                          longitude={supplier.longitude} 
+                          name={supplier.name}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-500">
+                          <div className="text-center">
+                            <i className="ri-map-pin-line text-4xl mb-2"></i>
+                            <p>{t('supplier.location_not_available')}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -700,13 +798,6 @@ export default function SupplierDetail() {
                         </div>
                         <div>{supplier.location}</div>
                       </div>
-                      <button 
-                        onClick={getDirections}
-                        className="mt-4 w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap text-sm sm:text-base"
-                      >
-                        <i className="ri-navigation-line mr-2"></i>
-                        {t('supplier.get_directions')}
-                      </button>
                     </div>
 
                     {supplier.website && (

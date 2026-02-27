@@ -81,10 +81,14 @@ export const importSupplier = internalMutation({
   handler: async (ctx, args) => {
     const now = new Date().toISOString();
 
+    // Generate a placeholder email if none provided
+    const userEmail = args.user_email || (args.user_phone ? `${args.user_phone.replace(/\D/g, '')}@phone.local` : `supplier-${Date.now()}-${Math.random().toString(36).substring(2, 9)}@import.local`);
+    const supplierEmail = args.supplier_email || userEmail;
+
     // Check if user exists by email
     let user = await ctx.db
       .query("users")
-      .filter((q: any) => q.eq(q.field("email"), args.user_email))
+      .filter((q: any) => q.eq(q.field("email"), userEmail))
       .first();
 
     let userId: string;
@@ -103,7 +107,7 @@ export const importSupplier = internalMutation({
     } else {
       // Create new user
       userId = await ctx.db.insert("users", {
-        email: args.user_email,
+        email: userEmail,
         firstName: args.user_firstName,
         lastName: args.user_lastName,
         phone: args.user_phone,
@@ -120,7 +124,7 @@ export const importSupplier = internalMutation({
       .first();
 
     if (existingSupplier) {
-      throw new Error(`Un fournisseur existe déjà pour l'utilisateur ${args.user_email}`);
+      throw new Error(`Un fournisseur existe déjà pour l'utilisateur ${userEmail}`);
     }
 
     // Default business hours if not provided
@@ -138,7 +142,7 @@ export const importSupplier = internalMutation({
     const supplierId = await ctx.db.insert("suppliers", {
       userId: userId,
       business_name: args.supplier_business_name,
-      email: args.supplier_email,
+      email: supplierEmail,
       phone: args.supplier_phone,
       description: args.supplier_description,
       category: args.supplier_category,
@@ -231,7 +235,7 @@ export const bulkImportSuppliers = mutation({
     for (const supplierData of args.suppliers) {
       try {
         // Call internal mutation for each supplier
-        const result = await ctx.runMutation(api.admin.importSupplier, supplierData);
+        const result = await ctx.runMutation(api.adminImport.importSupplier, supplierData);
         results.success.push(result);
         results.created++;
       } catch (error: any) {
@@ -282,7 +286,7 @@ export const importSingleSupplier = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    return await ctx.runMutation(api.admin.importSupplier, args);
+    return await ctx.runMutation(api.adminImport.importSupplier, args);
   },
 });
 

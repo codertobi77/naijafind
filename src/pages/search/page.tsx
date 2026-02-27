@@ -44,6 +44,7 @@ function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; u
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const approximatedSuppliersRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Generate deterministic approximate coordinates based on location string
   const getApproximateCoordinates = (supplier: Supplier): { lat: number; lng: number } | null => {
@@ -529,10 +530,20 @@ function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; u
   };
 
   return (
-    <div className="relative w-full h-full">
-      <div ref={mapRef} className="w-full h-full bg-gray-100" />
-      
-      {/* Supplier list overlay */}
+    <>
+      <div className="relative w-full h-full">
+        <div ref={mapRef} className="w-full h-full bg-gray-100" />
+        
+        {/* Expand button */}
+        <button
+          onClick={() => setIsExpanded(true)}
+          className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-2 hover:bg-gray-50 transition-colors z-10"
+          title={t('map.expand')}
+        >
+          <i className="ri-fullscreen-line text-gray-700 text-lg"></i>
+        </button>
+        
+        {/* Supplier list overlay */}
       <div className="absolute bottom-4 left-4 right-4 bg-white rounded-lg shadow-lg p-3 max-h-32 overflow-y-auto">
         <p className="text-xs font-semibold text-gray-700 mb-2">
           {t('map.suppliers_found', { count: suppliers.length })}
@@ -594,6 +605,194 @@ function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; u
           >
             {t('supplier.see_details')} <i className="ri-arrow-right-line ml-1"></i>
           </Link>
+        </div>
+      )}
+      </div>
+
+      {/* Expanded Map Modal */}
+      {isExpanded && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {t('map.full_map_view')} - {suppliers.length} {t('map.suppliers')}
+              </h3>
+              <button
+                onClick={() => setIsExpanded(false)}
+                className="text-gray-400 hover:text-gray-600 p-2"
+              >
+                <i className="ri-close-line text-xl"></i>
+              </button>
+            </div>
+            <div className="flex-1 relative">
+              <ExpandedMapView 
+                suppliers={suppliers} 
+                userLocation={userLocation}
+                onClose={() => setIsExpanded(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// Expanded Map View Component for fullscreen modal
+function ExpandedMapView({ 
+  suppliers, 
+  userLocation,
+  onClose
+}: { 
+  suppliers: Supplier[]; 
+  userLocation?: { lat: number; lng: number } | null;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const approximatedSuppliersRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
+
+  const getApproximateCoordinates = (supplier: Supplier): { lat: number; lng: number } | null => {
+    if (approximatedSuppliersRef.current.has(supplier.id)) {
+      return approximatedSuppliersRef.current.get(supplier.id)!;
+    }
+    if (supplier.latitude && supplier.longitude) {
+      const coords = { lat: supplier.latitude, lng: supplier.longitude };
+      approximatedSuppliersRef.current.set(supplier.id, coords);
+      return coords;
+    }
+    const locationParts = (supplier.location || '').split(',').map(p => p.trim()).filter(Boolean);
+    const cityFromLocation = locationParts[0] || '';
+    const stateFromLocation = locationParts[1] || '';
+    const city = supplier.city || cityFromLocation;
+    const state = supplier.state || stateFromLocation;
+    const locationKey = `${city},${state},Nigeria`;
+    const hash = locationKey.split('').reduce((acc, char) => ((acc << 5) - acc) + char.charCodeAt(0) | 0, 0);
+    const locationCoords: Record<string, { lat: number; lng: number }> = {
+      'lagos': { lat: 6.5244, lng: 3.3792 },
+      'abuja': { lat: 9.0765, lng: 7.3986 },
+      'fct': { lat: 9.0765, lng: 7.3986 },
+      'ibadan': { lat: 7.3775, lng: 3.9470 },
+      'port harcourt': { lat: 4.8156, lng: 7.0498 },
+      'kano': { lat: 12.0022, lng: 8.5920 },
+      'kaduna': { lat: 10.5105, lng: 7.4165 },
+    };
+    const searchKey = locationKey.toLowerCase();
+    let baseCoords = locationCoords['lagos'] || { lat: 9.0820, lng: 8.6753 };
+    for (const [key, coords] of Object.entries(locationCoords)) {
+      if (searchKey.includes(key)) {
+        baseCoords = coords;
+        break;
+      }
+    }
+    const offsetLat = (Math.abs(hash) % 500 - 250) / 10000;
+    const offsetLng = (Math.abs(hash >> 8) % 500 - 250) / 10000;
+    const approxCoords = { lat: baseCoords.lat + offsetLat, lng: baseCoords.lng + offsetLng };
+    approximatedSuppliersRef.current.set(supplier.id, approxCoords);
+    return approxCoords;
+  };
+
+  useEffect(() => {
+    if (mapRef.current && !mapInstanceRef.current) {
+      mapboxgl.accessToken = MAPBOX_TOKEN;
+      const map = new mapboxgl.Map({
+        container: mapRef.current,
+        style: 'mapbox://styles/mapbox/dark-v11',
+        center: [8.6753, 9.0820],
+        zoom: 6,
+        pitch: 45,
+        bearing: -17.6,
+        antialias: true
+      });
+      mapInstanceRef.current = map;
+      map.on('load', () => {
+        map.addSource('mapbox-dem', {
+          'type': 'raster-dem',
+          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+          'tileSize': 512,
+          'maxzoom': 14
+        });
+        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+        if (!map.getLayer('3d-buildings')) {
+          map.addLayer({
+            'id': '3d-buildings',
+            'source': 'composite',
+            'source-layer': 'building',
+            'filter': ['==', 'extrude', 'true'],
+            'type': 'fill-extrusion',
+            'minzoom': 12,
+            'paint': {
+              'fill-extrusion-color': '#d4a574',
+              'fill-extrusion-height': ['get', 'height'],
+              'fill-extrusion-base': ['get', 'min_height'],
+              'fill-extrusion-opacity': 0.8,
+              'fill-extrusion-vertical-gradient': true,
+              'fill-extrusion-ambient-occlusion-intensity': 0.3
+            }
+          });
+        }
+        addSupplierMarkers();
+      });
+    }
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markersRef.current = [];
+      }
+    };
+  }, []);
+
+  const addSupplierMarkers = () => {
+    if (!mapInstanceRef.current) return;
+    suppliers.forEach(supplier => {
+      const coords = getApproximateCoordinates(supplier);
+      if (!coords) return;
+      const isExact = supplier.latitude && supplier.longitude;
+      const el = document.createElement('div');
+      el.className = 'custom-marker';
+      el.style.width = '40px';
+      el.style.height = '40px';
+      el.innerHTML = `
+        <div class="w-10 h-10 ${isExact ? 'bg-green-600' : 'bg-yellow-500'} rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:scale-110 transition-transform border-3 border-white ring-2 ${isExact ? 'ring-green-400' : 'ring-yellow-300'}">
+          <i class="ri-store-2-line text-white text-sm"></i>
+        </div>
+      `;
+      const popup = new mapboxgl.Popup({ offset: 25, closeButton: false, closeOnClick: false }).setHTML(
+        `<div class="p-3 min-w-[200px]">
+          <div class="flex items-center gap-2 mb-2">
+            <h3 class="font-semibold text-sm text-gray-900">${supplier.name}</h3>
+            ${isExact ? '<span class="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Exact</span>' : '<span class="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">Approximate</span>'}
+          </div>
+          <p class="text-xs text-gray-600 mb-1">${supplier.category}</p>
+          <p class="text-xs text-gray-500">${supplier.location}</p>
+          ${supplier.rating ? `<div class="flex items-center gap-1 mt-2"><i class="ri-star-fill text-yellow-500 text-xs"></i><span class="text-xs font-medium">${supplier.rating}</span></div>` : ''}
+        </div>`
+      );
+      const marker = new mapboxgl.Marker(el).setLngLat([coords.lng, coords.lat]).setPopup(popup);
+      if (mapInstanceRef.current) marker.addTo(mapInstanceRef.current);
+      el.addEventListener('mouseenter', () => { if (mapInstanceRef.current) marker.togglePopup(); });
+      el.addEventListener('mouseleave', () => { popup.remove(); });
+      el.addEventListener('click', () => { setSelectedSupplier(supplier); });
+      markersRef.current.push(marker);
+    });
+  };
+
+  return (
+    <div className="relative w-full h-full">
+      <div ref={mapRef} className="w-full h-full bg-gray-100" />
+      {selectedSupplier && (
+        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 max-w-xs z-10">
+          <div className="flex justify-between items-start mb-2">
+            <h4 className="font-semibold">{selectedSupplier.name}</h4>
+            <button onClick={() => setSelectedSupplier(null)} className="text-gray-400 hover:text-gray-600"><i className="ri-close-line"></i></button>
+          </div>
+          <p className="text-sm text-gray-600 mb-1">{selectedSupplier.category}</p>
+          <p className="text-sm text-gray-500 mb-3">{selectedSupplier.location}</p>
+          <Link to={`/supplier/${selectedSupplier.id}`} onClick={onClose} className="text-sm text-green-600 hover:text-green-700 font-medium inline-flex items-center">{t('supplier.see_details')} <i className="ri-arrow-right-line ml-1"></i></Link>
         </div>
       )}
     </div>
