@@ -20,12 +20,12 @@ async function requireAdmin(ctx: any) {
 
 // Type for supplier import data
 interface SupplierImportData {
-  user_email: string;
+  user_email?: string;
   user_firstName?: string;
   user_lastName?: string;
   user_phone?: string;
   supplier_business_name: string;
-  supplier_email: string;
+  supplier_email?: string;
   supplier_phone?: string;
   supplier_category: string;
   supplier_description?: string;
@@ -49,12 +49,12 @@ interface SupplierImportData {
 // Import a single supplier with user
 export const importSupplier = internalMutation({
   args: {
-    user_email: v.string(),
+    user_email: v.optional(v.string()),
     user_firstName: v.optional(v.string()),
     user_lastName: v.optional(v.string()),
     user_phone: v.optional(v.string()),
     supplier_business_name: v.string(),
-    supplier_email: v.string(),
+    supplier_email: v.optional(v.string()),
     supplier_phone: v.optional(v.string()),
     supplier_category: v.string(),
     supplier_description: v.optional(v.string()),
@@ -74,7 +74,7 @@ export const importSupplier = internalMutation({
     supplier_latitude: v.optional(v.float64()),
     supplier_longitude: v.optional(v.float64()),
     supplier_rating: v.optional(v.float64()),
-    supplier_reviews: v.optional(v.int64()),
+    supplier_reviews: v.optional(v.number()),
     supplier_google_place_id: v.optional(v.string()),
     supplier_source: v.optional(v.string()),
   },
@@ -186,12 +186,12 @@ export const importSupplier = internalMutation({
 export const bulkImportSuppliers = mutation({
   args: {
     suppliers: v.array(v.object({
-      user_email: v.string(),
+      user_email: v.optional(v.string()),
       user_firstName: v.optional(v.string()),
       user_lastName: v.optional(v.string()),
       user_phone: v.optional(v.string()),
       supplier_business_name: v.string(),
-      supplier_email: v.string(),
+      supplier_email: v.optional(v.string()),
       supplier_phone: v.optional(v.string()),
       supplier_category: v.string(),
       supplier_description: v.optional(v.string()),
@@ -251,12 +251,12 @@ export const bulkImportSuppliers = mutation({
 // Import single supplier via admin API (with admin auth)
 export const importSingleSupplier = mutation({
   args: {
-    user_email: v.string(),
+    user_email: v.optional(v.string()),
     user_firstName: v.optional(v.string()),
     user_lastName: v.optional(v.string()),
     user_phone: v.optional(v.string()),
     supplier_business_name: v.string(),
-    supplier_email: v.string(),
+    supplier_email: v.optional(v.string()),
     supplier_phone: v.optional(v.string()),
     supplier_category: v.string(),
     supplier_description: v.optional(v.string()),
@@ -276,7 +276,7 @@ export const importSingleSupplier = mutation({
     supplier_latitude: v.optional(v.float64()),
     supplier_longitude: v.optional(v.float64()),
     supplier_rating: v.optional(v.float64()),
-    supplier_reviews: v.optional(v.int64()),
+    supplier_reviews: v.optional(v.number()),
     supplier_google_place_id: v.optional(v.string()),
     supplier_source: v.optional(v.string()),
   },
