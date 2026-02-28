@@ -5,7 +5,6 @@ import { api } from '../../../convex/_generated/api';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
-import { useConvexAuth } from 'convex/react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -803,15 +802,8 @@ export default function Search() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  // Search page is publicly accessible - no auth required
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      navigate('/auth/login', { replace: true });
-    }
-  }, [isAuthenticated, authLoading, navigate]);
-  
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [allMapSuppliers, setAllMapSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);

@@ -161,6 +161,8 @@ export const importSupplier = internalMutation({
       business_hours: args.supplier_business_hours || defaultBusinessHours,
       rating: args.supplier_rating ?? 0,
       reviews_count: args.supplier_reviews ? BigInt(args.supplier_reviews) : 0n,
+      latitude: args.supplier_latitude,
+      longitude: args.supplier_longitude,
       created_at: now,
       updated_at: now,
     });

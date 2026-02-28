@@ -280,18 +280,18 @@ export async function clearConvexCache(queryClient: QueryClient): Promise<void> 
  * Get stale time recommendation based on query type
  */
 export function getStaleTimeForQuery(functionName: string): number {
-  // Different stale times based on data volatility
+  // Reduced stale times for more responsive updates
   if (functionName.includes('stats') || functionName.includes('dashboard')) {
-    return 2 * 60 * 1000; // 2 minutes for stats (more volatile)
+    return 10 * 1000; // 10 seconds for stats (highly volatile)
   }
   if (functionName.includes('notifications') || functionName.includes('count')) {
-    return 30 * 1000; // 30 seconds for real-time data
+    return 5 * 1000; // 5 seconds for real-time data
   }
   if (functionName.includes('search') || functionName.includes('suggestion')) {
-    return 5 * 60 * 1000; // 5 minutes for search
+    return 30 * 1000; // 30 seconds for search
   }
   if (functionName.includes('categories')) {
-    return 10 * 60 * 1000; // 10 minutes for categories (rarely change)
+    return 60 * 1000; // 1 minute for categories
   }
-  return 5 * 60 * 1000; // Default 5 minutes
+  return 30 * 1000; // Default 30 seconds (reduced from 5 minutes)
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useConvexAuth, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useConvexQuerySkippable, useConvexQuery } from '../../hooks/useConvexQuery';
@@ -131,8 +131,16 @@ function SupplierMapboxMap({ latitude, longitude, name }: { latitude: number; lo
 
 export default function SupplierDetail() {
   const { t } = useTranslation();
-  useConvexAuth();
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const navigate = useNavigate();
   const { id: supplierId } = useParams<{ id: string }>();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      navigate('/auth/login', { replace: true });
+    }
+  }, [isAuthenticated, authLoading, navigate]);
 
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewForm, setReviewForm] = useState({

@@ -4,34 +4,34 @@ import { CACHE_TAGS } from './convexCache';
 // Cache tag configurations for different data types
 const CACHE_CONFIG = {
   // Highly volatile - refetch frequently
-  [CACHE_TAGS.NOTIFICATIONS]: { staleTime: 10 * 1000, gcTime: 60 * 1000 },
-  [CACHE_TAGS.NOTIFICATION_COUNT]: { staleTime: 10 * 1000, gcTime: 60 * 1000 },
-  [CACHE_TAGS.DASHBOARD_STATS]: { staleTime: 30 * 1000, gcTime: 2 * 60 * 1000 },
+  [CACHE_TAGS.NOTIFICATIONS]: { staleTime: 5 * 1000, gcTime: 30 * 1000 },
+  [CACHE_TAGS.NOTIFICATION_COUNT]: { staleTime: 5 * 1000, gcTime: 30 * 1000 },
+  [CACHE_TAGS.DASHBOARD_STATS]: { staleTime: 10 * 1000, gcTime: 60 * 1000 },
   
-  // Medium volatility - standard cache
-  [CACHE_TAGS.USERS]: { staleTime: 2 * 60 * 1000, gcTime: 5 * 60 * 1000 },
-  [CACHE_TAGS.SUPPLIERS]: { staleTime: 2 * 60 * 1000, gcTime: 5 * 60 * 1000 },
-  [CACHE_TAGS.PRODUCTS]: { staleTime: 2 * 60 * 1000, gcTime: 5 * 60 * 1000 },
-  [CACHE_TAGS.REVIEWS]: { staleTime: 2 * 60 * 1000, gcTime: 5 * 60 * 1000 },
+  // Medium volatility - shorter cache for admin
+  [CACHE_TAGS.USERS]: { staleTime: 15 * 1000, gcTime: 60 * 1000 },
+  [CACHE_TAGS.SUPPLIERS]: { staleTime: 15 * 1000, gcTime: 60 * 1000 },
+  [CACHE_TAGS.PRODUCTS]: { staleTime: 15 * 1000, gcTime: 60 * 1000 },
+  [CACHE_TAGS.REVIEWS]: { staleTime: 15 * 1000, gcTime: 60 * 1000 },
   
   // Low volatility - cache longer
-  [CACHE_TAGS.CATEGORIES]: { staleTime: 5 * 60 * 1000, gcTime: 10 * 60 * 1000 },
-  [CACHE_TAGS.SEARCH_SUGGESTIONS]: { staleTime: 5 * 60 * 1000, gcTime: 10 * 60 * 1000 },
+  [CACHE_TAGS.CATEGORIES]: { staleTime: 60 * 1000, gcTime: 5 * 60 * 1000 },
+  [CACHE_TAGS.SEARCH_SUGGESTIONS]: { staleTime: 60 * 1000, gcTime: 5 * 60 * 1000 },
   
-  // Admin data - moderate cache
-  [CACHE_TAGS.ADMIN_DASHBOARD]: { staleTime: 60 * 1000, gcTime: 3 * 60 * 1000 },
-  [CACHE_TAGS.ADMIN_STATS]: { staleTime: 60 * 1000, gcTime: 3 * 60 * 1000 },
+  // Admin data - short cache
+  [CACHE_TAGS.ADMIN_DASHBOARD]: { staleTime: 10 * 1000, gcTime: 60 * 1000 },
+  [CACHE_TAGS.ADMIN_STATS]: { staleTime: 10 * 1000, gcTime: 60 * 1000 },
 } as const;
 
 // Configure React Query with optimized defaults for Convex
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Cache data for 5 minutes by default
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      // Reduced cache time for more responsive updates
+      staleTime: 30 * 1000, // 30 seconds (was 5 minutes)
       
-      // Keep unused data in cache for 10 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+      // Keep unused data in cache for shorter time
+      gcTime: 2 * 60 * 1000, // 2 minutes (was 10 minutes)
       
       // Refetch on window focus for fresh data
       refetchOnWindowFocus: true,
@@ -39,8 +39,8 @@ export const queryClient = new QueryClient({
       // Retry failed requests
       retry: 1,
       
-      // Don't refetch on mount if data is still fresh
-      refetchOnMount: false,
+      // Always refetch on mount to ensure fresh data after mutations
+      refetchOnMount: 'always',
       
       // Refetch on reconnect
       refetchOnReconnect: true,
@@ -48,8 +48,8 @@ export const queryClient = new QueryClient({
       // Enable suspense for better loading states
       suspense: false,
       
-      // Keep previous data while fetching new data
-      placeholderData: (previousData: unknown) => previousData,
+      // Don't keep previous data to avoid showing stale data
+      placeholderData: undefined,
     },
     mutations: {
       // Retry mutations once on failure
@@ -63,7 +63,7 @@ export const queryClient = new QueryClient({
  */
 export function getCacheConfig(tag: string) {
   return CACHE_CONFIG[tag as keyof typeof CACHE_CONFIG] || {
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: 30 * 1000, // 30 seconds default
+    gcTime: 2 * 60 * 1000, // 2 minutes
   };
 }
