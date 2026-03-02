@@ -49,60 +49,13 @@ export function SupplierBulkImport() {
   const bulkImportSuppliers = useMutation(api.adminImport.bulkImportSuppliers);
   const dbCategories = useQuery(api.categories.getAllCategories) || [];
 
-  // Debug: Log when categories change
-  useEffect(() => {
-    console.log('[DB Categories] Loaded:', dbCategories.length, 'categories');
-    console.log('[DB Categories] Data:', dbCategories);
-  }, [dbCategories]);
-
-  // Ref to track if we've processed categories for current data
-  const processedRef = useRef(false);
-
-  // Reset processedRef when data changes
-  useEffect(() => {
-    processedRef.current = false;
-  }, [parsedData]);
-
-  // Process categories after data is parsed and categories are loaded
-  useEffect(() => {
-    if (parsedData.length === 0 || dbCategories.length === 0 || processedRef.current) return;
-    
-    console.log('[Process Categories] Processing', parsedData.length, 'rows with', dbCategories.length, 'categories');
-    processedRef.current = true;
-    
-    setParsedData(prevData => {
-      return prevData.map(row => {
-        const rawCategory = row._rawCategory || row.supplier_category;
-        return {
-          ...row,
-          _rawCategory: rawCategory,
-          supplier_category: inferCategory(rawCategory)
-        };
-      });
-    });
-    
-    // Update validation rows with new categories
-    setValidatedRows(prevValidated => {
-      return prevValidated.map(row => ({
-        ...row,
-        data: {
-          ...row.data,
-          supplier_category: inferCategory(row.data._rawCategory || row.data.supplier_category)
-        }
-      }));
-    });
-    
-    console.log('[Process Categories] Done');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dbCategories, inferCategory]);
-
   // Helper function to find best matching category from database
   const inferCategory = useCallback((fileCategory: string): string => {
     console.log(`[inferCategory] Input: "${fileCategory}"`);
     console.log(`[inferCategory] Available database categories:`, dbCategories.map(c => c.name));    
     if (!fileCategory || dbCategories.length === 0) {
       console.log(`[inferCategory] Early return: fileCategory=${fileCategory}, dbCategories.length=${dbCategories.length}`);
-      return fileCategory || '';
+      return fileCategory;
     }
     
     // Normalize function: lowercase, remove accents, keep only alphanumeric
@@ -177,6 +130,53 @@ export function SupplierBulkImport() {
     // Return original file category - let backend handle fallback to "Autre"
     return fileCategory;
   }, [dbCategories]);
+
+  // Debug: Log when categories change
+  useEffect(() => {
+    console.log('[DB Categories] Loaded:', dbCategories.length, 'categories');
+    console.log('[DB Categories] Data:', dbCategories);
+  }, [dbCategories]);
+
+  // Ref to track if we've processed categories for current data
+  const processedRef = useRef(false);
+
+  // Reset processedRef when data changes
+  useEffect(() => {
+    processedRef.current = false;
+  }, [parsedData]);
+
+  // Process categories after data is parsed and categories are loaded
+  useEffect(() => {
+    if (parsedData.length === 0 || dbCategories.length === 0 || processedRef.current) return;
+    
+    console.log('[Process Categories] Processing', parsedData.length, 'rows with', dbCategories.length, 'categories');
+    processedRef.current = true;
+    
+    setParsedData(prevData => {
+      return prevData.map(row => {
+        const rawCategory = row._rawCategory || row.supplier_category;
+        return {
+          ...row,
+          _rawCategory: rawCategory,
+          supplier_category: inferCategory(rawCategory)
+        };
+      });
+    });
+    
+    // Update validation rows with new categories
+    setValidatedRows(prevValidated => {
+      return prevValidated.map(row => ({
+        ...row,
+        data: {
+          ...row.data,
+          supplier_category: inferCategory(row.data._rawCategory || row.data.supplier_category)
+        }
+      }));
+    });
+    
+    console.log('[Process Categories] Done');
+  }, [dbCategories, inferCategory]);
+
   const validateData = useCallback((data: any[]): ValidatedRow[] => {
     return data.map((row, index) => {
       const errors: ValidationError[] = [];
