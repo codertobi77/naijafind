@@ -51,7 +51,7 @@ export function SupplierBulkImport() {
 
   // Helper function to find best matching category from database
   const inferCategory = useCallback((fileCategory: string): string => {
-    if (!fileCategory || dbCategories.length === 0) return 'Hôtels et logements';
+    if (!fileCategory || dbCategories.length === 0) return fileCategory || '';
     
     const normalizedFileCat = fileCategory.toLowerCase().trim();
     
@@ -79,8 +79,8 @@ export function SupplierBulkImport() {
       }
     }
     
-    // Default fallback
-    return 'Hôtels et logements';
+    // Return original file category - let backend handle fallback to "Autre"
+    return fileCategory;
   }, [dbCategories]);
   const validateData = useCallback((data: any[]): ValidatedRow[] => {
     return data.map((row, index) => {
@@ -426,7 +426,7 @@ export function SupplierBulkImport() {
         supplier_business_name: rowData.business_name,
         supplier_email: rowData.email,
         supplier_phone: rowData.phone,
-        supplier_category: inferCategory(rowData.category || 'Hôtels et logements'),
+        supplier_category: inferCategory(rowData.category || ''),
         supplier_description: description,
         supplier_address: rowData.address,
         supplier_city: rowData.city,
