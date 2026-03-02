@@ -75,6 +75,16 @@ export default defineConfig({
   build: {
     sourcemap: true,
     outDir: 'out',
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'router-vendor': ['react-router-dom'],
+          'i18n-vendor': ['react-i18next', 'i18next'],
+        },
+      },
+    },
   },
   resolve: {
     alias: {

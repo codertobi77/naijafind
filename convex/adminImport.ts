@@ -127,6 +127,78 @@ export const importSupplier = internalMutation({
       throw new Error(`Un fournisseur existe déjà pour l'utilisateur ${userEmail}`);
     }
 
+    // Infer/validate category from database
+    let categoryName = args.supplier_category?.trim() || '';
+    
+    if (categoryName) {
+      // Get all active categories from database
+      const allCategories = await ctx.db
+        .query("categories")
+        .filter(q => q.eq(q.field("is_active"), true))
+        .collect();
+      
+      // Normalize function: lowercase, remove accents, trim
+      const normalize = (str: string) => {
+        return str
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+          .replace(/[^a-z0-9]/g, '') // Keep only alphanumeric
+          .trim();
+      };
+      
+      const normalizedInput = normalize(categoryName);
+      
+      // Try exact match first (case-insensitive)
+      let matchedCategory = allCategories.find(
+        cat => cat.name.toLowerCase().trim() === categoryName.toLowerCase()
+      );
+      
+      // If no exact match, try normalized match (ignoring accents, punctuation, spacing)
+      if (!matchedCategory) {
+        matchedCategory = allCategories.find(
+          cat => normalize(cat.name) === normalizedInput
+        );
+      }
+      
+      // If still no match, try partial match (input contains category name or vice versa)
+      if (!matchedCategory) {
+        matchedCategory = allCategories.find(cat => {
+          const normalizedCat = normalize(cat.name);
+          return normalizedInput.includes(normalizedCat) || 
+                 normalizedCat.includes(normalizedInput);
+        });
+      }
+      
+      // If we found a match, use the official category name from database
+      if (matchedCategory) {
+        categoryName = matchedCategory.name;
+      } else {
+        // No match found - check if we should create new category or use default
+        // For now, default to "Autre" if category doesn't exist
+        const defaultCategory = allCategories.find(cat => 
+          normalize(cat.name) === 'autre' || normalize(cat.name) === 'other'
+        );
+        
+        if (defaultCategory) {
+          categoryName = defaultCategory.name;
+        } else {
+          // Create "Autre" category if it doesn't exist
+          const newCategoryId = await ctx.db.insert("categories", {
+            name: "Autre",
+            description: "Catégorie par défaut pour les fournisseurs",
+            icon: "ri-store-line",
+            is_active: true,
+            created_at: now,
+          });
+          categoryName = "Autre";
+        }
+      }
+    } else {
+      // Empty category - set to default "Autre"
+      categoryName = "Autre";
+    }
+
     // Default business hours if not provided
     const defaultBusinessHours = {
       monday: "08:00-18:00",
@@ -138,14 +210,14 @@ export const importSupplier = internalMutation({
       sunday: "closed"
     };
 
-    // Create supplier
+    // Create supplier with validated category
     const supplierId = await ctx.db.insert("suppliers", {
       userId: userId,
       business_name: args.supplier_business_name,
       email: supplierEmail,
       phone: args.supplier_phone,
       description: args.supplier_description,
-      category: args.supplier_category,
+      category: categoryName,
       address: args.supplier_address,
       city: args.supplier_city,
       state: args.supplier_state,

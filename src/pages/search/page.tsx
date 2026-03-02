@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../../../convex/_generated/api';
@@ -6,10 +5,22 @@ import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
 import { SupplierAvatar } from '../../components/SupplierImage';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import type { Map, Marker, Popup } from 'mapbox-gl';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
+
+// Dynamically import mapbox-gl only when needed
+let mapboxglPromise: Promise<typeof import('mapbox-gl')> | null = null;
+const getMapboxgl = () => {
+  if (!mapboxglPromise) {
+    mapboxglPromise = import('mapbox-gl').then((mod) => {
+      // Dynamically import CSS
+      import('mapbox-gl/dist/mapbox-gl.css');
+      return mod;
+    });
+  }
+  return mapboxglPromise;
+};
 
 interface Supplier {
   id: string;
@@ -37,13 +48,13 @@ interface Supplier {
 function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; userLocation?: { lat: number; lng: number } | null }) {
   const { t } = useTranslation();
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const mapInstanceRef = useRef<Map | null>(null);
+  const markersRef = useRef<Marker[]>([]);
   const [mapCenter, setMapCenter] = useState({ lat: 9.0820, lng: 8.6753 }); // Default Nigeria center
   const [mapZoom, setMapZoom] = useState(6);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const approximatedSuppliersRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
-  const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const userMarkerRef = useRef<Marker | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Generate deterministic approximate coordinates based on location string
@@ -222,8 +233,9 @@ function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; u
   };
 
   // Add or update user location marker
-  const addUserMarker = () => {
+  const addUserMarker = async () => {
     if (!mapInstanceRef.current || !userLocation) return;
+    const mapboxgl = await getMapboxgl();
 
     // Remove existing user marker
     if (userMarkerRef.current) {
@@ -293,7 +305,7 @@ function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; u
   }, [suppliers]);
 
   // Add 3D buildings layer
-  const add3DBuildings = (map: mapboxgl.Map) => {
+  const add3DBuildings = (map: Map) => {
     if (!map.getLayer('3d-buildings')) {
       map.addLayer({
         'id': '3d-buildings',
@@ -316,39 +328,44 @@ function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; u
 
   // Initialize Mapbox map with 3D terrain
   useEffect(() => {
-    if (mapRef.current && !mapInstanceRef.current) {
-      mapboxgl.accessToken = MAPBOX_TOKEN;
-      
-      const map = new mapboxgl.Map({
-        container: mapRef.current,
-        style: 'mapbox://styles/mapbox/dark-v11',
-        center: [mapCenter.lng, mapCenter.lat],
-        zoom: mapZoom,
-        pitch: 45, // Tilt for 3D perspective
-        bearing: -17.6,
-        antialias: true
-      });
-
-      mapInstanceRef.current = map;
-
-      map.on('load', () => {
-        // Add 3D terrain
-        map.addSource('mapbox-dem', {
-          'type': 'raster-dem',
-          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-          'tileSize': 512,
-          'maxzoom': 14
+    const initMap = async () => {
+      if (mapRef.current && !mapInstanceRef.current) {
+        const mapboxgl = await getMapboxgl();
+        mapboxgl.accessToken = MAPBOX_TOKEN;
+        
+        const map = new mapboxgl.Map({
+          container: mapRef.current,
+          style: 'mapbox://styles/mapbox/dark-v11',
+          center: [mapCenter.lng, mapCenter.lat],
+          zoom: mapZoom,
+          pitch: 45, // Tilt for 3D perspective
+          bearing: -17.6,
+          antialias: true
         });
-        
-        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
-        
-        // Add 3D buildings
-        add3DBuildings(map);
-        
-        // Add markers for suppliers
-        addSupplierMarkers();
-      });
-    }
+
+        mapInstanceRef.current = map;
+
+        map.on('load', () => {
+          // Add 3D terrain
+          map.addSource('mapbox-dem', {
+            'type': 'raster-dem',
+            'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+            'tileSize': 512,
+            'maxzoom': 14
+          });
+          
+          map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+          
+          // Add 3D buildings
+          add3DBuildings(map);
+          
+          // Add markers for suppliers
+          void addSupplierMarkers();
+        });
+      }
+    };
+
+    initMap();
 
     return () => {
       if (mapInstanceRef.current) {
@@ -370,12 +387,13 @@ function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; u
       markersRef.current = [];
       
       // Add new markers
-      addSupplierMarkers();
+      void addSupplierMarkers();
     }
   }, [mapCenter, mapZoom, suppliers]);
 
-  const addSupplierMarkers = () => {
+  const addSupplierMarkers = async () => {
     if (!mapInstanceRef.current) return;
+    const mapboxgl = await getMapboxgl();
 
     // Mapping des catégories aux icônes Remix Icon
     const getCategoryIcon = (category: string): string => {
@@ -462,9 +480,9 @@ function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; u
       return 'ri-store-2-line';
     };
 
-    suppliers.forEach(supplier => {
+    for (const supplier of suppliers) {
       const coords = getApproximateCoordinates(supplier);
-      if (!coords) return;
+      if (!coords) continue;
       
       const isExact = supplier.latitude && supplier.longitude;
       const categoryIcon = getCategoryIcon(supplier.category);
@@ -526,7 +544,7 @@ function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; u
       });
 
       markersRef.current.push(marker);
-    });
+    }
   };
 
   return (
@@ -650,8 +668,8 @@ function ExpandedMapView({
 }) {
   const { t } = useTranslation();
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const mapInstanceRef = useRef<Map | null>(null);
+  const markersRef = useRef<Marker[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const approximatedSuppliersRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
 
@@ -696,47 +714,51 @@ function ExpandedMapView({
   };
 
   useEffect(() => {
-    if (mapRef.current && !mapInstanceRef.current) {
-      mapboxgl.accessToken = MAPBOX_TOKEN;
-      const map = new mapboxgl.Map({
-        container: mapRef.current,
-        style: 'mapbox://styles/mapbox/dark-v11',
-        center: [8.6753, 9.0820],
-        zoom: 6,
-        pitch: 45,
-        bearing: -17.6,
-        antialias: true
-      });
-      mapInstanceRef.current = map;
-      map.on('load', () => {
-        map.addSource('mapbox-dem', {
-          'type': 'raster-dem',
-          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-          'tileSize': 512,
-          'maxzoom': 14
+    const initMap = async () => {
+      if (mapRef.current && !mapInstanceRef.current) {
+        const mapboxgl = await getMapboxgl();
+        mapboxgl.accessToken = MAPBOX_TOKEN;
+        const map = new mapboxgl.Map({
+          container: mapRef.current,
+          style: 'mapbox://styles/mapbox/dark-v11',
+          center: [8.6753, 9.0820],
+          zoom: 6,
+          pitch: 45,
+          bearing: -17.6,
+          antialias: true
         });
-        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
-        if (!map.getLayer('3d-buildings')) {
-          map.addLayer({
-            'id': '3d-buildings',
-            'source': 'composite',
-            'source-layer': 'building',
-            'filter': ['==', 'extrude', 'true'],
-            'type': 'fill-extrusion',
-            'minzoom': 12,
-            'paint': {
-              'fill-extrusion-color': '#d4a574',
-              'fill-extrusion-height': ['get', 'height'],
-              'fill-extrusion-base': ['get', 'min_height'],
-              'fill-extrusion-opacity': 0.8,
-              'fill-extrusion-vertical-gradient': true,
-              'fill-extrusion-ambient-occlusion-intensity': 0.3
-            }
+        mapInstanceRef.current = map;
+        map.on('load', () => {
+          map.addSource('mapbox-dem', {
+            'type': 'raster-dem',
+            'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+            'tileSize': 512,
+            'maxzoom': 14
           });
-        }
-        addSupplierMarkers();
-      });
-    }
+          map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+          if (!map.getLayer('3d-buildings')) {
+            map.addLayer({
+              'id': '3d-buildings',
+              'source': 'composite',
+              'source-layer': 'building',
+              'filter': ['==', 'extrude', 'true'],
+              'type': 'fill-extrusion',
+              'minzoom': 12,
+              'paint': {
+                'fill-extrusion-color': '#d4a574',
+                'fill-extrusion-height': ['get', 'height'],
+                'fill-extrusion-base': ['get', 'min_height'],
+                'fill-extrusion-opacity': 0.8,
+                'fill-extrusion-vertical-gradient': true,
+                'fill-extrusion-ambient-occlusion-intensity': 0.3
+              }
+            });
+          }
+          addSupplierMarkers();
+        });
+      }
+    };
+    initMap();
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
@@ -746,8 +768,9 @@ function ExpandedMapView({
     };
   }, []);
 
-  const addSupplierMarkers = () => {
+  const addSupplierMarkers = async () => {
     if (!mapInstanceRef.current) return;
+    const mapboxgl = await getMapboxgl();
     suppliers.forEach(supplier => {
       const coords = getApproximateCoordinates(supplier);
       if (!coords) return;
