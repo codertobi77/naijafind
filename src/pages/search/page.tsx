@@ -1308,7 +1308,7 @@ export default function Search() {
                           <>0 {t('search.suppliers')} {t('search.results')}</>
                         ) : (
                           <>
-                            {currentPage * itemsPerPage + 1}-{Math.min((currentPage + 1) * itemsPerPage, totalCount)} {t('search.suppliers')}
+                            {currentPage * itemsPerPage + 1}-{Math.min((currentPage + 1) * itemsPerPage, totalCount)}/{totalCount} {t('search.suppliers')}
                           </>
                         )}
                       </>

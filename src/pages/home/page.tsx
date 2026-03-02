@@ -72,10 +72,11 @@ interface AdBanner {
 function AdBannerCarousel({ banners }: { banners: AdBanner[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isPaused, setIsPaused] = useState(false);
+  const bannerCount = banners.length;
 
   useEffect(() => {
     const scrollContainer = scrollRef.current;
-    if (!scrollContainer) return;
+    if (!scrollContainer || bannerCount <= 1) return;
 
     let animationId: number;
     let scrollPosition = 0;
@@ -97,10 +98,15 @@ function AdBannerCarousel({ banners }: { banners: AdBanner[] }) {
     animationId = requestAnimationFrame(animate);
 
     return () => cancelAnimationFrame(animationId);
-  }, [isPaused]);
+  }, [isPaused, bannerCount]);
 
-  // Duplicate banners for seamless loop
-  const duplicatedBanners = [...banners, ...banners];
+  // Dynamic banner width based on count
+  const bannerWidth = bannerCount === 1 ? 'w-full' : 
+    bannerCount === 2 ? 'w-[48%]' : 
+    'w-[300px] sm:w-[350px] md:w-[400px]';
+
+  // Only duplicate for seamless loop if we have more than 2 banners
+  const displayBanners = bannerCount > 2 ? [...banners, ...banners] : banners;
 
   return (
     <div 
@@ -113,11 +119,11 @@ function AdBannerCarousel({ banners }: { banners: AdBanner[] }) {
         className="flex gap-4 px-4 overflow-x-hidden scroll-smooth"
         style={{ scrollBehavior: 'auto' }}
       >
-        {duplicatedBanners.map((banner, index) => (
+        {displayBanners.map((banner, index) => (
           <a
             key={`${banner.id}-${index}`}
             href={banner.link || '#'}
-            className="flex-shrink-0 w-[300px] sm:w-[350px] md:w-[400px] h-[150px] sm:h-[160px] md:h-[180px] rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 group"
+            className={`flex-shrink-0 ${bannerWidth} h-[150px] sm:h-[160px] md:h-[180px] rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 group`}
           >
             <img
               src={banner.image}
@@ -680,6 +686,13 @@ export default function Home() {
     { staleTime: 5 * 60 * 1000 }
   );
 
+  // Fetch active homepage banners from database
+  const { data: homepageBanners } = useConvexQuery(
+    api.adBanners.getActiveBannersByPosition,
+    { position: 'homepage_top' },
+    { staleTime: 5 * 60 * 1000 }
+  );
+
   // Newsletter subscription mutation
   const subscribeToNewsletter = useMutation(api.emails.subscribeToNewsletter);
   const [isSubscribing, setIsSubscribing] = useState(false);
@@ -803,35 +816,17 @@ export default function Home() {
         </Container>
       </Section>
 
-      {/* Ad Banner Carousel */}
-      <AdBannerCarousel 
-        banners={[
-          {
-            id: '1',
-            image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=180&fit=crop',
-            alt: 'Suji Marketplace',
-            link: '/about'
-          },
-          {
-            id: '2',
-            image: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=400&h=180&fit=crop',
-            alt: 'Découvrez nos fournisseurs',
-            link: '/suppliers'
-          },
-          {
-            id: '3',
-            image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=180&fit=crop',
-            alt: 'Promotions spéciales',
-            link: '/deals'
-          },
-          {
-            id: '4',
-            image: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=400&h=180&fit=crop',
-            alt: 'Devenez fournisseur',
-            link: '/auth/register?type=supplier'
-          }
-        ]}
-      />
+      {/* Ad Banner Carousel - Only show if there are active banners */}
+      {homepageBanners && homepageBanners.length > 0 && (
+        <AdBannerCarousel 
+          banners={homepageBanners.map(banner => ({
+            id: banner._id,
+            image: banner.image,
+            alt: banner.name,
+            link: banner.link
+          }))}
+        />
+      )}
 
       {/* Premium Suppliers Section */}
       <Section background="white" padding="md">

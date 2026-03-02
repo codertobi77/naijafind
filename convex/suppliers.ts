@@ -131,19 +131,32 @@ export const searchSuppliers = query({
         .filter(s => s.distance <= radius);
     }
 
-    // Apply sorting
-    if (sortBy === 'distance') {
-      all = all.sort((a, b) => {
+    // Apply sorting - prioritize featured suppliers first, then apply user-selected sort
+    all = all.sort((a, b) => {
+      // First priority: featured suppliers come first
+      const featuredA = a.featured ? 1 : 0;
+      const featuredB = b.featured ? 1 : 0;
+      
+      if (featuredB !== featuredA) {
+        return featuredB - featuredA; // Featured first
+      }
+      
+      // Second priority: user-selected sort
+      if (sortBy === 'distance') {
         const distA = (a as any).distance ?? Number.POSITIVE_INFINITY;
         const distB = (b as any).distance ?? Number.POSITIVE_INFINITY;
         return distA - distB;
-      });
-    } else if (sortBy === 'rating') {
-      all = all.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-    } else if (sortBy === 'reviews') {
-      all = all.sort((a, b) => Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0));
-    }
-    // else sortBy === 'relevance' - keep original order
+      } else if (sortBy === 'rating') {
+        return (b.rating ?? 0) - (a.rating ?? 0);
+      } else if (sortBy === 'reviews') {
+        return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
+      }
+      
+      // Default 'relevance' - sort by rating then reviews
+      const ratingDiff = (b.rating ?? 0) - (a.rating ?? 0);
+      if (ratingDiff !== 0) return ratingDiff;
+      return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
+    });
 
     const total = all.length;
     const sliced = all.slice(offset, offset + limit);
