@@ -20,6 +20,369 @@ type Category = Doc<"categories">;
 
 // Types
 
+// Common Remix Icon names for autocomplete
+const COMMON_REMIX_ICONS = [
+  'ri-home-line', 'ri-home-fill', 'ri-building-line', 'ri-building-fill',
+  'ri-store-line', 'ri-store-fill', 'ri-restaurant-line', 'ri-restaurant-fill',
+  'ri-hotel-bed-line', 'ri-hotel-bed-fill', 'ri-hospital-line', 'ri-hospital-fill',
+  'ri-school-line', 'ri-school-fill', 'ri-bank-line', 'ri-bank-fill',
+  'ri-shopping-bag-line', 'ri-shopping-bag-fill', 'ri-shopping-cart-line', 'ri-shopping-cart-fill',
+  'ri-car-line', 'ri-car-fill', 'ri-truck-line', 'ri-truck-fill',
+  'ri-plane-line', 'ri-plane-fill', 'ri-train-line', 'ri-train-fill',
+  'ri-phone-line', 'ri-phone-fill', 'ri-mail-line', 'ri-mail-fill',
+  'ri-map-pin-line', 'ri-map-pin-fill', 'ri-global-line', 'ri-global-fill',
+  'ri-computer-line', 'ri-computer-fill', 'ri-smartphone-line', 'ri-smartphone-fill',
+  'ri-wifi-line', 'ri-wifi-fill', 'ri-cloud-line', 'ri-cloud-fill',
+  'ri-tools-line', 'ri-tools-fill', 'ri-hammer-line', 'ri-hammer-fill',
+  'ri-paint-brush-line', 'ri-paint-brush-fill', 'ri-palette-line', 'ri-palette-fill',
+  'ri-music-line', 'ri-music-fill', 'ri-movie-line', 'ri-movie-fill',
+  'ri-gamepad-line', 'ri-gamepad-fill', 'ri-book-line', 'ri-book-fill',
+  'ri-graduation-cap-line', 'ri-graduation-cap-fill', 'ri-award-line', 'ri-award-fill',
+  'ri-trophy-line', 'ri-trophy-fill', 'ri-medal-line', 'ri-medal-fill',
+  'ri-heart-line', 'ri-heart-fill', 'ri-star-line', 'ri-star-fill',
+  'ri-user-line', 'ri-user-fill', 'ri-team-line', 'ri-team-fill',
+  'ri-customer-service-line', 'ri-customer-service-fill',
+  'ri-settings-line', 'ri-settings-fill', 'ri-dashboard-line', 'ri-dashboard-fill',
+  'ri-bar-chart-line', 'ri-bar-chart-fill', 'ri-pie-chart-line', 'ri-pie-chart-fill',
+  'ri-calendar-line', 'ri-calendar-fill', 'ri-time-line', 'ri-time-fill',
+  'ri-notification-line', 'ri-notification-fill', 'ri-mail-unread-line', 'ri-mail-unread-fill',
+  'ri-search-line', 'ri-search-fill', 'ri-filter-line', 'ri-filter-fill',
+  'ri-sort-asc', 'ri-sort-desc', 'ri-arrow-up-line', 'ri-arrow-down-line',
+  'ri-add-line', 'ri-subtract-line', 'ri-close-line', 'ri-check-line',
+  'ri-edit-line', 'ri-edit-fill', 'ri-delete-bin-line', 'ri-delete-bin-fill',
+  'ri-save-line', 'ri-save-fill', 'ri-download-line', 'ri-download-fill',
+  'ri-upload-line', 'ri-upload-fill', 'ri-share-line', 'ri-share-fill',
+  'ri-printer-line', 'ri-printer-fill', 'ri-file-list-line', 'ri-file-list-fill',
+  'ri-clipboard-line', 'ri-clipboard-fill', 'ri-folder-line', 'ri-folder-fill',
+  'ri-image-line', 'ri-image-fill', 'ri-gallery-line', 'ri-gallery-fill',
+  'ri-camera-line', 'ri-camera-fill', 'ri-video-line', 'ri-video-fill',
+  'ri-mic-line', 'ri-mic-fill', 'ri-voiceprint-line', 'ri-voiceprint-fill',
+  'ri-lock-line', 'ri-lock-fill', 'ri-unlock-line', 'ri-unlock-fill',
+  'ri-key-line', 'ri-key-fill', 'ri-shield-line', 'ri-shield-fill',
+  'ri-error-warning-line', 'ri-error-warning-fill', 'ri-question-line', 'ri-question-fill',
+  'ri-information-line', 'ri-information-fill', 'ri-alert-line', 'ri-alert-fill',
+  'ri-flashlight-line', 'ri-flashlight-fill', 'ri-flash-line', 'ri-flash-fill',
+  'ri-sun-line', 'ri-sun-fill', 'ri-moon-line', 'ri-moon-fill',
+  'ri-drop-line', 'ri-drop-fill', 'ri-oil-line', 'ri-oil-fill',
+  'ri-fire-line', 'ri-fire-fill', 'ri-water-flash-line', 'ri-water-flash-fill',
+  'ri-seedling-line', 'ri-seedling-fill', 'ri-leaf-line', 'ri-leaf-fill',
+  'ri-tree-line', 'ri-tree-fill', 'ri-plant-line', 'ri-plant-fill',
+  'ri-recycle-line', 'ri-recycle-fill', 'ri-earth-line', 'ri-earth-fill',
+  'ri-magic-line', 'ri-magic-fill', 'ri-sparkling-line', 'ri-sparkling-fill',
+  'ri-gift-line', 'ri-gift-fill', 'ri-coupon-line', 'ri-coupon-fill',
+  'ri-vip-crown-line', 'ri-vip-crown-fill', 'ri-vip-diamond-line', 'ri-vip-diamond-fill',
+  'ri-currency-line', 'ri-currency-fill', 'ri-coins-line', 'ri-coins-fill',
+  'ri-wallet-line', 'ri-wallet-fill', 'ri-bank-card-line', 'ri-bank-card-fill',
+  'ri-safe-line', 'ri-safe-fill', 'ri-hand-coin-line', 'ri-hand-coin-fill',
+  'ri-exchange-dollar-line', 'ri-exchange-dollar-fill', 'ri-funds-line', 'ri-funds-fill',
+  'ri-stock-line', 'ri-stock-fill', 'ri-auction-line', 'ri-auction-fill',
+  'ri-scales-line', 'ri-scales-fill', 'ri-auction-fill', 'ri-gavel-line',
+  'ri-brush-line', 'ri-brush-fill', 'ri-pencil-line', 'ri-pencil-fill',
+  'ri-quill-pen-line', 'ri-quill-pen-fill', 'ri-mark-pen-line', 'ri-mark-pen-fill',
+  'ri-scissors-line', 'ri-scissors-fill', 'ri-scissors-cut-line', 'ri-scissors-cut-fill',
+  'ri-ruler-line', 'ri-ruler-fill', 'ri-compasses-line', 'ri-compasses-fill',
+  'ri-drag-move-line', 'ri-drag-move-fill', 'ri-drag-drop-line', 'ri-drag-drop-fill',
+  'ri-focus-line', 'ri-focus-fill', 'ri-focus-2-line', 'ri-focus-2-fill',
+  'ri-crop-line', 'ri-crop-fill', 'ri-contrast-line', 'ri-contrast-fill',
+  'ri-brightness-line', 'ri-brightness-fill', 'ri-eye-line', 'ri-eye-fill',
+  'ri-eye-off-line', 'ri-eye-off-fill', 'ri-glasses-line', 'ri-glasses-fill',
+  'ri-sunglasses-line', 'ri-sunglasses-fill', 'ri-run-line', 'ri-run-fill',
+  'ri-walk-line', 'ri-walk-fill', 'ri-bike-line', 'ri-bike-fill',
+  'ri-swimming-pool-line', 'ri-swimming-pool-fill', 'ri-basketball-line', 'ri-basketball-fill',
+  'ri-football-line', 'ri-football-fill', 'ri-volleyball-line', 'ri-volleyball-fill',
+  'ri-boxing-line', 'ri-boxing-fill', 'ri-dumbbell-line', 'ri-dumbbell-fill',
+  'ri-fitness-center-line', 'ri-fitness-center-fill', 'ri-yoga-line', 'ri-yoga-fill',
+  'ri-mental-health-line', 'ri-mental-health-fill', 'ri-first-aid-kit-line', 'ri-first-aid-kit-fill',
+  'ri-medicine-bottle-line', 'ri-medicine-bottle-fill', 'ri-capsule-line', 'ri-capsule-fill',
+  'ri-surgical-mask-line', 'ri-surgical-mask-fill', 'ri-thermometer-line', 'ri-thermometer-fill',
+  'ri-heart-pulse-line', 'ri-heart-pulse-fill', 'ri-mental-health-line', 'ri-mental-health-fill',
+  'ri-service-line', 'ri-service-fill', 'ri-customer-service-2-line', 'ri-customer-service-2-fill',
+  'ri-robot-line', 'ri-robot-fill', 'ri-brain-line', 'ri-brain-fill',
+  'ri-lightbulb-line', 'ri-lightbulb-fill', 'ri-lightbulb-flash-line', 'ri-lightbulb-flash-fill',
+  'ri-flashlight-line', 'ri-flashlight-fill', 'ri-lamp-line', 'ri-lamp-fill',
+  'ri-candle-line', 'ri-candle-fill', 'ri-firework-line', 'ri-firework-fill',
+  'ri-confetti-line', 'ri-confetti-fill', 'ri-balloon-line', 'ri-balloon-fill',
+  'ri-music-2-line', 'ri-music-2-fill', 'ri-headphone-line', 'ri-headphone-fill',
+  'ri-speaker-line', 'ri-speaker-fill', 'ri-volume-up-line', 'ri-volume-up-fill',
+  'ri-volume-down-line', 'ri-volume-down-fill', 'ri-volume-mute-line', 'ri-volume-mute-fill',
+  'ri-play-line', 'ri-play-fill', 'ri-pause-line', 'ri-pause-fill',
+  'ri-stop-line', 'ri-stop-fill', 'ri-skip-back-line', 'ri-skip-back-fill',
+  'ri-skip-forward-line', 'ri-skip-forward-fill', 'ri-shuffle-line', 'ri-shuffle-fill',
+  'ri-repeat-line', 'ri-repeat-fill', 'ri-repeat-one-line', 'ri-repeat-one-fill',
+  'ri-play-list-line', 'ri-play-list-fill', 'ri-play-list-add-line', 'ri-play-list-add-fill',
+  'ri-mic-2-line', 'ri-mic-2-fill', 'ri-disc-line', 'ri-disc-fill',
+  'ri-album-line', 'ri-album-fill', 'ri-dvd-line', 'ri-dvd-fill',
+  'ri-clapperboard-line', 'ri-clapperboard-fill', 'ri-film-line', 'ri-film-fill',
+  'ri-article-line', 'ri-article-fill', 'ri-newspaper-line', 'ri-newspaper-fill',
+  'ri-broadcast-line', 'ri-broadcast-fill', 'ri-live-line', 'ri-live-fill',
+  'ri-record-circle-line', 'ri-record-circle-fill', 'ri-webcam-line', 'ri-webcam-fill',
+  'ri-slideshow-line', 'ri-slideshow-fill', 'ri-presentation-line', 'ri-presentation-fill',
+  'ri-stack-line', 'ri-stack-fill', 'ri-layers-line', 'ri-layers-fill',
+  'ri-layout-line', 'ri-layout-fill', 'ri-layout-grid-line', 'ri-layout-grid-fill',
+  'ri-layout-masonry-line', 'ri-layout-masonry-fill', 'ri-dashboard-line', 'ri-dashboard-fill',
+  'ri-window-line', 'ri-window-fill', 'ri-door-line', 'ri-door-fill',
+  'ri-archive-line', 'ri-archive-fill', 'ri-archive-drawer-line', 'ri-archive-drawer-fill',
+  'ri-drawer-line', 'ri-drawer-fill', 'ri-cupboard-line', 'ri-cupboard-fill',
+  'ri-fridge-line', 'ri-fridge-fill', 'ri-washing-machine-line', 'ri-washing-machine-fill',
+  'ri-t-shirt-line', 'ri-t-shirt-fill', 'ri-t-shirt-air-line', 'ri-t-shirt-air-fill',
+  'ri-shirt-line', 'ri-shirt-fill', 'ri-handbag-line', 'ri-handbag-fill',
+  'ri-backpack-line', 'ri-backpack-fill', 'ri-luggage-cart-line', 'ri-luggage-cart-fill',
+  'ri-suitcase-line', 'ri-suitcase-fill', 'ri-briefcase-line', 'ri-briefcase-fill',
+  'ri-suitcase-2-line', 'ri-suitcase-2-fill', 'ri-suitcase-3-line', 'ri-suitcase-3-fill',
+  'ri-passport-line', 'ri-passport-fill', 'ri-ticket-line', 'ri-ticket-fill',
+  'ri-vip-line', 'ri-vip-fill', 'ri-poker-hearts-line', 'ri-poker-hearts-fill',
+  'ri-poker-clubs-line', 'ri-poker-clubs-fill', 'ri-poker-diamonds-line', 'ri-poker-diamonds-fill',
+  'ri-poker-spades-line', 'ri-poker-spades-fill', 'ri-dice-line', 'ri-dice-fill',
+  'ri-billiards-line', 'ri-billiards-fill', 'ri-footprint-line', 'ri-footprint-fill',
+  'ri-paw-print-line', 'ri-paw-print-fill', 'ri-bug-line', 'ri-bug-fill',
+  'ri-bug-2-line', 'ri-bug-2-fill', 'ri-spider-line', 'ri-spider-fill',
+  'ri-bear-smile-line', 'ri-bear-smile-fill', 'ri-ghost-line', 'ri-ghost-fill',
+  'ri-ghost-smile-line', 'ri-ghost-smile-fill', 'ri-robot-2-line', 'ri-robot-2-fill',
+  'ri-aliens-line', 'ri-aliens-fill', 'ri-space-ship-line', 'ri-space-ship-fill',
+  'ri-planet-line', 'ri-planet-fill', 'ri-sun-cloudy-line', 'ri-sun-cloudy-fill',
+  'ri-moon-cloudy-line', 'ri-moon-cloudy-fill', 'ri-temp-hot-line', 'ri-temp-hot-fill',
+  'ri-temp-cold-line', 'ri-temp-cold-fill', 'ri-windy-line', 'ri-windy-fill',
+  'ri-showers-line', 'ri-showers-fill', 'ri-heavy-showers-line', 'ri-heavy-showers-fill',
+  'ri-thunderstorms-line', 'ri-thunderstorms-fill', 'ri-hail-line', 'ri-hail-fill',
+  'ri-snowy-line', 'ri-snowy-fill', 'ri-foggy-line', 'ri-foggy-fill',
+  'ri-cloudy-line', 'ri-cloudy-fill', 'ri-cloud-windy-line', 'ri-cloud-windy-fill',
+  'ri-sun-foggy-line', 'ri-sun-foggy-fill', 'ri-moon-foggy-line', 'ri-moon-foggy-fill',
+  'ri-flashlight-line', 'ri-flashlight-fill', 'ri-landscape-line', 'ri-landscape-fill',
+  'ri-gallery-upload-line', 'ri-gallery-upload-fill', 'ri-gallery-download-line', 'ri-gallery-download-fill',
+];
+
+// Icon Autocomplete Component
+function IconAutocomplete({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(value);
+  const [filteredIcons, setFilteredIcons] = useState<string[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setSearchTerm(value);
+  }, [value]);
+
+  useEffect(() => {
+    const term = searchTerm.toLowerCase().replace(/ri-/g, '').replace(/-line/g, '').replace(/-fill/g, '');
+    if (term.length > 0) {
+      const filtered = COMMON_REMIX_ICONS.filter(icon =>
+        icon.toLowerCase().includes(term) ||
+        icon.replace(/ri-/g, '').replace(/-line/g, '').replace(/-fill/g, '').includes(term)
+      ).slice(0, 10);
+      setFilteredIcons(filtered);
+    } else {
+      setFilteredIcons(COMMON_REMIX_ICONS.slice(0, 8));
+    }
+  }, [searchTerm]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelect = (icon: string) => {
+    onChange(icon);
+    setSearchTerm(icon);
+    setIsOpen(false);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchTerm(val);
+    setIsOpen(true);
+    onChange(val);
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={searchTerm}
+          onChange={handleInputChange}
+          onFocus={() => setIsOpen(true)}
+          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+          placeholder={placeholder || "Search icons..."}
+        />
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+          {value && <i className={`${value} text-lg`}></i>}
+        </div>
+      </div>
+      
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+          <div className="p-2 text-xs text-gray-500 border-b border-gray-100">
+            {filteredIcons.length} icons found
+          </div>
+          {filteredIcons.map((icon) => (
+            <button
+              key={icon}
+              onClick={() => handleSelect(icon)}
+              className="w-full px-3 py-2 flex items-center gap-3 hover:bg-green-50 transition-colors text-left"
+            >
+              <i className={`${icon} text-xl text-gray-600`}></i>
+              <span className="text-sm text-gray-700">{icon}</span>
+              {value === icon && (
+                <i className="ri-check-line text-green-500 ml-auto"></i>
+              )}
+            </button>
+          ))}
+          {filteredIcons.length === 0 && (
+            <div className="px-3 py-4 text-center text-gray-500 text-sm">
+              No icons found. Try a different search term.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Category Image Input Component with Upload/URL toggle
+function CategoryImageInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [mode, setMode] = useState<'url' | 'upload'>(value && !value.startsWith('data:') ? 'url' : 'upload');
+  const [preview, setPreview] = useState<string>(value || '');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setPreview(value || '');
+    if (value && !value.startsWith('data:')) {
+      setMode('url');
+    }
+  }, [value]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Image size should be less than 2MB');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setPreview(base64);
+        onChange(base64);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const url = e.target.value;
+    setPreview(url);
+    onChange(url);
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Mode Toggle */}
+      <div className="flex gap-2 p-1 bg-gray-100 rounded-lg w-fit">
+        <button
+          type="button"
+          onClick={() => setMode('url')}
+          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            mode === 'url'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <i className="ri-link mr-1"></i>
+          URL
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('upload')}
+          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            mode === 'upload'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <i className="ri-upload-cloud-2-line mr-1"></i>
+          Upload
+        </button>
+      </div>
+
+      {/* Input based on mode */}
+      {mode === 'url' ? (
+        <input
+          type="text"
+          value={value || ''}
+          onChange={handleUrlChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+          placeholder="https://example.com/image.jpg"
+        />
+      ) : (
+        <div className="space-y-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors text-sm text-gray-600"
+          >
+            <i className="ri-upload-cloud-line text-xl mb-1 block"></i>
+            Click to upload image
+          </button>
+        </div>
+      )}
+
+      {/* Preview */}
+      {preview && (
+        <div className="relative w-24 h-24">
+          <img
+            src={preview}
+            alt="Category preview"
+            className="w-full h-full object-cover rounded-lg border border-gray-200"
+            onError={() => setPreview('')}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setPreview('');
+              onChange('');
+              if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+              }
+            }}
+            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+          >
+            <i className="ri-close-line"></i>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Add ConfirmationModal component
 function ConfirmationModal({
   isOpen,
@@ -550,24 +913,19 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       {t('admin.icon')} (Remix Icon)
                     </label>
-                    <input
-                      type="text"
+                    <IconAutocomplete
                       value={categoryForm.icon}
-                      onChange={(e) => setCategoryForm({...categoryForm, icon: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                      placeholder={t('admin.placeholder_icon')}
+                      onChange={(value) => setCategoryForm({...categoryForm, icon: value})}
+                      placeholder={t('admin.placeholder_icon') || "Search icons..."}
                     />
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('admin.category_image')} (URL)
+                      {t('admin.category_image')}
                     </label>
-                    <input
-                      type="text"
+                    <CategoryImageInput
                       value={categoryForm.image}
-                      onChange={(e) => setCategoryForm({...categoryForm, image: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                      placeholder={t('admin.placeholder_image')}
+                      onChange={(value) => setCategoryForm({...categoryForm, image: value})}
                     />
                   </div>
                   <div className="md:col-span-2">
@@ -670,19 +1028,15 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
                               />
                             </td>
                             <td className="py-2 px-2">
-                              <input
-                                type="text"
+                              <IconAutocomplete
                                 value={categoryForm.icon}
-                                onChange={(e) => setCategoryForm({...categoryForm, icon: e.target.value})}
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                onChange={(value) => setCategoryForm({...categoryForm, icon: value})}
                               />
                             </td>
                             <td className="py-2 px-2">
-                              <input
-                                type="text"
+                              <CategoryImageInput
                                 value={categoryForm.image}
-                                onChange={(e) => setCategoryForm({...categoryForm, image: e.target.value})}
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                onChange={(value) => setCategoryForm({...categoryForm, image: value})}
                               />
                             </td>
                             <td className="py-2 px-2">
@@ -1825,7 +2179,12 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
       <aside className="fixed left-0 top-0 z-40 h-full w-64 border-r border-green-100 bg-gradient-to-b from-green-50 to-white transition-transform duration-300 lg:translate-x-0">
         <div className="flex h-full flex-col">
           <div className="border-b border-green-100 p-6">
-            <LogoLink variant="admin" size="sm" to="/" />
+            <Link to="/" className="flex items-center space-x-2">
+              <img src="/Suji Logo.webp" alt="Suji Logo" className="h-12 w-auto" />
+              <span className="text-2xl font-bold text-green-600" style={{ fontFamily: 'Pacifico, serif' }}>
+                Suji
+              </span>
+            </Link>
           </div>
 
           <nav className="flex-1 overflow-y-auto px-4 py-6">

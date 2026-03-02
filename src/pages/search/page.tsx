@@ -4,6 +4,7 @@ import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../../../convex/_generated/api';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
+import { SupplierAvatar } from '../../components/SupplierImage';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -1280,7 +1281,13 @@ export default function Search() {
                     ) : (
                       <>
                         <i className="ri-checkbox-circle-line text-green-600 mr-2"></i>
-                        {suppliers.length} {t('search.suppliers')} {t('search.results')}
+                        {totalCount === 0 ? (
+                          <>0 {t('search.suppliers')} {t('search.results')}</>
+                        ) : (
+                          <>
+                            {currentPage * itemsPerPage + 1}-{Math.min((currentPage + 1) * itemsPerPage, totalCount)} {t('search.suppliers')}
+                          </>
+                        )}
                       </>
                     )}
                   </p>
@@ -1350,32 +1357,18 @@ export default function Search() {
                 {suppliers.map((supplier: any) => {
                   const supplierId = supplier.id;
                   const supplierName = supplier.name;
-                  const imageQuery = encodeURIComponent(`${supplierName} ${supplier.category} business Nigeria professional storefront`);
                                 
                   return (
                     <div key={supplierId} className="bg-white rounded-2xl shadow-soft hover:shadow-medium transition-all duration-300 border border-gray-100 hover:-translate-y-1">
                       <div className="p-6">
                         <div className="flex gap-6">
                           <div className="w-20 sm:w-28 h-20 sm:h-28 flex-shrink-0">
-                            {supplier.image_url ? (
-                              <img
-                                src={supplier.image_url}
-                                alt={supplierName}
-                                className="w-full h-full object-cover object-top rounded-xl shadow-sm"
-                                onError={(e) => {
-                                  // Fallback to generated image if the actual image fails to load
-                                  const target = e.target as HTMLImageElement;
-                                  target.src = `https://readdy.ai/api/search-image?query=${imageQuery}&width=200&height=200&seq=search-${supplierId}&orientation=squarish`;
-                                  target.onerror = null; // Prevent infinite loop
-                                }}
-                              />
-                            ) : (
-                              <img
-                                src={`https://readdy.ai/api/search-image?query=${imageQuery}&width=200&height=200&seq=search-${supplierId}&orientation=squarish`}
-                                alt={supplierName}
-                                className="w-full h-full object-cover object-top rounded-xl shadow-sm"
-                              />
-                            )}
+                            <SupplierAvatar
+                              name={supplierName}
+                              category={supplier.category}
+                              size="lg"
+                              className="rounded-xl"
+                            />
                           </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between mb-3">
@@ -1465,8 +1458,14 @@ export default function Search() {
           )}
 
             {!loading && suppliers.length > 0 && (
-              <div className="mt-8 flex justify-center">
-                <div className="flex items-center gap-2">
+              <div className="mt-8 flex flex-col items-center gap-4">
+                {/* Total count */}
+                <p className="text-sm text-gray-600">
+                  {t('search.total_suppliers', { count: totalCount })}
+                </p>
+                
+                <div className="flex justify-center">
+                  <div className="flex items-center gap-2">
                   <button 
                     onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
                     disabled={currentPage === 0}

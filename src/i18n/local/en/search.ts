@@ -17,6 +17,8 @@ export const search = {
   "search.showing": "Showing",
   "search.of": "of",
   "search.suppliers": "suppliers",
+  "search.total_suppliers": "{{count}} total suppliers found",
+  "search.total_suppliers_count": "{{count}} total suppliers",
   
   // Filters
   "filter.category": "Category",

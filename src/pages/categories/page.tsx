@@ -9,6 +9,43 @@ import { api } from '../../../convex/_generated/api';
 // Default category image URL for fallback
 const DEFAULT_CATEGORY_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23f3f4f6'/%3E%3Cg transform='translate(200,150)'%3E%3Cpath d='M-60-80h120v160h-120zM-40-100h80v20h-80zM-30-90h20v-20h-20z' fill='%239ca3af'/%3E%3Cpath d='M-40-40h80v20h-80zM-40-10h80v20h-80zM-40 20h60v20h-60z' fill='%23d1d5db'/%3E%3C/g%3E%3C/svg%3E";
 
+// Helper to check if an image string is valid
+function isValidImageUrl(url: string): boolean {
+  if (!url || url.trim() === '') return false;
+  // Check if it's a valid URL (http/https) or base64 data URI
+  return url.startsWith('http://') || 
+         url.startsWith('https://') || 
+         url.startsWith('data:image/');
+}
+
+// Category image component with proper fallback handling
+function CategoryImage({ src, alt }: { src: string; alt: string }) {
+  const [imgSrc, setImgSrc] = useState<string>(src);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    // Reset state when src changes
+    setImgSrc(src);
+    setHasError(false);
+  }, [src]);
+
+  const handleError = () => {
+    if (!hasError) {
+      setImgSrc(DEFAULT_CATEGORY_IMAGE);
+      setHasError(true);
+    }
+  };
+
+  return (
+    <img
+      src={imgSrc}
+      alt={alt}
+      className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-500"
+      onError={handleError}
+    />
+  );
+}
+
 export default function Categories() {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
@@ -70,7 +107,7 @@ export default function Categories() {
     icon: cat.icon || 'ri-folder-line',
     count: categoryCounts[cat.name] || 0,
     description: cat.description || '',
-    image: cat.image || DEFAULT_CATEGORY_IMAGE
+    image: isValidImageUrl(cat.image) ? cat.image : DEFAULT_CATEGORY_IMAGE
   })) || [];
 
   const filteredCategories = categories.filter((category: any) =>
@@ -135,16 +172,9 @@ export default function Categories() {
             {filteredCategories.map((category, index) => (
               <div key={category.name} className="group bg-white rounded-2xl shadow-soft overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-100 hover:-translate-y-2">
                 <div className="h-48 relative overflow-hidden">
-                  <img
+                  <CategoryImage
                     src={category.image}
                     alt={category.name}
-                    className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-500"
-                    onError={(e) => {
-                      // Fallback to default image if the actual image fails to load
-                      const target = e.target as HTMLImageElement;
-                      target.src = DEFAULT_CATEGORY_IMAGE;
-                      target.onerror = null; // Prevent infinite loop
-                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
                   <div className="absolute top-4 left-4">

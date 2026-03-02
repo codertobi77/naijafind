@@ -3,10 +3,10 @@ import { useParams, Link } from 'react-router-dom';
 import { useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useConvexQuerySkippable, useConvexQuery } from '../../hooks/useConvexQuery';
-import { useQuery } from 'convex/react';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
-import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import { SupplierAvatar } from '../../components/SupplierImage';
+import { SignedIn, SignedOut } from '@clerk/clerk-react';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/base';
 import mapboxgl from 'mapbox-gl';
@@ -1066,23 +1066,22 @@ export default function SupplierDetail() {
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 lg:p-8">
           <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">{t('supplier.similar_businesses')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {similarSuppliers.map((similarSupplier) => {
-              const imageQuery = encodeURIComponent(similarSupplier.image_url);
-              return (
-                <div key={similarSupplier.id} className="border border-gray-200 rounded-lg p-4 sm:p-6 hover:shadow-md transition-shadow">
-                  <div className="flex items-center mb-4">
-                    <img
-                      src={`https://readdy.ai/api/search-image?query=${imageQuery}&width=60&height=60&seq=similar-${similarSupplier.id}&orientation=squarish`}
-                      alt={similarSupplier.name}
-                      className="w-10 sm:w-12 h-10 sm:h-12 object-cover object-top rounded-lg mr-3 flex-shrink-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">
-                        {similarSupplier.name}
-                      </h4>
-                      <p className="text-xs sm:text-sm text-gray-600">{similarSupplier.category}</p>
-                    </div>
+            {similarSuppliers.map((similarSupplier) => (
+              <div key={similarSupplier.id} className="border border-gray-200 rounded-lg p-4 sm:p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-center mb-4">
+                  <SupplierAvatar
+                    name={similarSupplier.name}
+                    category={similarSupplier.category}
+                    size="md"
+                    className="mr-3 flex-shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">
+                      {similarSupplier.name}
+                    </h4>
+                    <p className="text-xs sm:text-sm text-gray-600">{similarSupplier.category}</p>
                   </div>
+                </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <div className="flex">
@@ -1101,8 +1100,8 @@ export default function SupplierDetail() {
                     </Link>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
       </div>
