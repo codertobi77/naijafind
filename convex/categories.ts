@@ -18,10 +18,12 @@ async function isAdmin(ctx: any) {
 export const getAllCategories = query({
   args: {},
   handler: async (ctx) => {
-    const categories = await ctx.db
+    const allCategories = await ctx.db
       .query("categories")
-      .filter(q => q.eq(q.field("is_active"), true))
       .collect();
+
+    // Filter: include categories where is_active is true OR undefined (treat undefined as active)
+    const categories = allCategories.filter(c => c.is_active !== false);
 
     // Sort by order field if available, otherwise by name
     return categories.sort((a, b) => {

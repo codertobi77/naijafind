@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import * as XLSX from 'xlsx';
 import { api } from '../../../convex/_generated/api';
@@ -48,6 +48,12 @@ export function SupplierBulkImport() {
   const { showToast } = useToast();
   const bulkImportSuppliers = useMutation(api.adminImport.bulkImportSuppliers);
   const dbCategories = useQuery(api.categories.getAllCategories) || [];
+
+  // Debug: Log when categories change
+  useEffect(() => {
+    console.log('[DB Categories] Loaded:', dbCategories.length, 'categories');
+    console.log('[DB Categories] Data:', dbCategories);
+  }, [dbCategories]);
 
   // Helper function to find best matching category from database
   const inferCategory = useCallback((fileCategory: string): string => {
