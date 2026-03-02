@@ -51,34 +51,82 @@ export function SupplierBulkImport() {
 
   // Helper function to find best matching category from database
   const inferCategory = useCallback((fileCategory: string): string => {
-    if (!fileCategory || dbCategories.length === 0) return fileCategory || '';
+    console.log(`[inferCategory] Input: "${fileCategory}"`);
+    console.log(`[inferCategory] Available database categories:`, dbCategories.map(c => c.name));    
+    if (!fileCategory || dbCategories.length === 0) {
+      console.log(`[inferCategory] Early return: fileCategory=${fileCategory}, dbCategories.length=${dbCategories.length}`);
+      return fileCategory || '';
+    }
     
-    const normalizedFileCat = fileCategory.toLowerCase().trim();
+    // Normalize function: lowercase, remove accents, keep only alphanumeric
+    const normalize = (str: string) => {
+      return str
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+        .replace(/[^a-z0-9]/g, '') // Keep only alphanumeric
+        .trim();
+    };
     
-    // First try exact match
-    const exactMatch = dbCategories.find(c => 
-      c.name.toLowerCase().trim() === normalizedFileCat
+    const normalizedFileCat = normalize(fileCategory);
+    console.log(`[inferCategory] Normalized input "${fileCategory}" -> "${normalizedFileCat}"`);
+    
+    // First try exact normalized match (e.g., "hotels" === "hotels" from "Hôtels")
+    let matchedCategory = dbCategories.find(
+      cat => {
+        const normalizedDbCat = normalize(cat.name);
+        const isMatch = normalizedDbCat === normalizedFileCat;
+        console.log(`[inferCategory] Exact match check: "${cat.name}" -> "${normalizedDbCat}" === "${normalizedFileCat}" ? ${isMatch}`);
+        return isMatch;
+      }
     );
-    if (exactMatch) return exactMatch.name;
     
-    // Try partial match (category name contains file category or vice versa)
-    const partialMatch = dbCategories.find(c => {
-      const dbCat = c.name.toLowerCase().trim();
-      return dbCat.includes(normalizedFileCat) || normalizedFileCat.includes(dbCat);
+    if (matchedCategory) {
+      console.log(`[inferCategory] ✓ Found exact match: "${matchedCategory.name}"`);
+      return matchedCategory.name;
+    }
+    
+    // If no match, try partial normalized match
+    console.log(`[inferCategory] No exact match, trying partial match...`);
+    matchedCategory = dbCategories.find(cat => {
+      const normalizedDbCat = normalize(cat.name);
+      const isMatch = normalizedDbCat.includes(normalizedFileCat) || 
+             normalizedFileCat.includes(normalizedDbCat);
+      if (isMatch) {
+        console.log(`[inferCategory] Partial match found: "${cat.name}" -> "${normalizedDbCat}"`);
+      }
+      return isMatch;
     });
-    if (partialMatch) return partialMatch.name;
     
-    // Try word-by-word matching
+    if (matchedCategory) {
+      console.log(`[inferCategory] ✓ Found partial match: "${matchedCategory.name}"`);
+      return matchedCategory.name;
+    }
+    
+    // If still no match, try word-by-word matching
+    console.log(`[inferCategory] No partial match, trying word-by-word...`);
     const fileWords = normalizedFileCat.split(/\s+/);
+    console.log(`[inferCategory] File words: ${JSON.stringify(fileWords)}`);
+    
     for (const cat of dbCategories) {
-      const dbCat = cat.name.toLowerCase().trim();
-      const dbWords = dbCat.split(/\s+/);
-      const commonWords = fileWords.filter(fw => dbWords.some(dw => dw.includes(fw) || fw.includes(dw)));
+      const normalizedCat = normalize(cat.name);
+      const dbWords = normalizedCat.split(/\s+/);
+      const commonWords = fileWords.filter(fw => 
+        dbWords.some(dw => dw.includes(fw) || fw.includes(dw))
+      );
+      console.log(`[inferCategory] Word check: "${cat.name}" -> words=${JSON.stringify(dbWords)}, common=${JSON.stringify(commonWords)}`);
       if (commonWords.length > 0) {
-        return cat.name;
+        matchedCategory = cat;
+        console.log(`[inferCategory] ✓ Found word match: "${cat.name}" (common words: ${commonWords.join(', ')})`);
+        break;
       }
     }
     
+    if (matchedCategory) {
+      return matchedCategory.name;
+    }
+    
+    console.log(`[inferCategory] ✗ No match found, returning original: "${fileCategory}"`);
     // Return original file category - let backend handle fallback to "Autre"
     return fileCategory;
   }, [dbCategories]);
