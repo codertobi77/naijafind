@@ -172,4 +172,20 @@ export default defineSchema({
     .index("userId", ["userId"])
     .index("userId_read", ["userId", "read"])
     .index("createdAt", ["createdAt"]),
+  // Ad banners for homepage and other pages
+  ad_banners: defineTable({
+    name: v.string(), // Banner name/title
+    image: v.string(), // Image URL or base64
+    link: v.optional(v.string()), // Optional click-through URL
+    position: v.string(), // 'homepage_top', 'homepage_bottom', 'sidebar', etc.
+    is_active: v.boolean(),
+    order: v.optional(v.number()), // Display order
+    start_date: v.optional(v.string()), // Optional start date (ISO string)
+    end_date: v.optional(v.string()), // Optional end date (ISO string)
+    created_at: v.string(),
+    updated_at: v.string(),
+  })
+    .index("position", ["position"])
+    .index("is_active", ["is_active"])
+    .index("position_active", ["position", "is_active"]),
 });

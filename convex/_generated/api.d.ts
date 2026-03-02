@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as adBanners from "../adBanners.js";
 import type * as admin from "../admin.js";
 import type * as adminImport from "../adminImport.js";
 import type * as categories from "../categories.js";
@@ -41,6 +42,7 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  adBanners: typeof adBanners;
   admin: typeof admin;
   adminImport: typeof adminImport;
   categories: typeof categories;

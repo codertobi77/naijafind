@@ -13,6 +13,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer, NotificationDropdown } from '../../components/base';
 import { LogoLink } from '../../components/base/Logo';
+import AdBannerManager from '../../components/admin/AdBannerManager';
 
 // Define proper TypeScript interfaces based on Convex data model
 type Supplier = Doc<"suppliers">;
@@ -488,7 +489,7 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
   const sendAdminNotification = useMutation(api.notifications.sendAdminNotification);
   const sendBulkNotification = useMutation(api.notifications.sendBulkNotification);
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications' | 'import'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications' | 'import' | 'adBanners'>('overview');
   // Suppression de l’état fournisseurs simulé (on utilise allSuppliers de Convex)
 
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -1562,6 +1563,8 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
         );
       case 'import':
         return <SupplierBulkImport />;
+      case 'adBanners':
+        return <AdBannerManager />;
       default:
         return null;
     }
@@ -2266,6 +2269,17 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
                 <i className="ri-upload-cloud-line text-lg" />
                 <span className="font-medium">Import Fournisseurs</span>
               </button>
+              <button
+                onClick={() => setActiveTab('adBanners')}
+                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                  activeTab === 'adBanners'
+                    ? 'bg-green-600 text-white shadow'
+                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
+                }`}
+              >
+                <i className="ri-image-line text-lg" />
+                <span className="font-medium">Ad Banners</span>
+              </button>
             </div>
           </nav>
 
@@ -2298,6 +2312,7 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
                 {activeTab === 'products' && t('admin.products')}
                 {activeTab === 'notifications' && 'Envoyer une notification'}
                 {activeTab === 'import' && 'Import Fournisseurs'}
+                {activeTab === 'adBanners' && 'Ad Banners'}
               </h1>
             </div>
             <div className="flex items-center space-x-3 sm:space-x-6">
