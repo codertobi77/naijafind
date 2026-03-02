@@ -175,7 +175,7 @@ export function SupplierBulkImport() {
     });
     
     console.log('[Process Categories] Done');
-  }, [dbCategories, inferCategory]);
+  }, [dbCategories, inferCategory, parsedData.length]);
 
   const validateData = useCallback((data: any[]): ValidatedRow[] => {
     return data.map((row, index) => {
