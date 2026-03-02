@@ -47,8 +47,41 @@ export function SupplierBulkImport() {
   
   const { showToast } = useToast();
   const bulkImportSuppliers = useMutation(api.adminImport.bulkImportSuppliers);
+  const dbCategories = useQuery(api.categories.getAllCategories) || [];
 
-  // Validate parsed data
+  // Helper function to find best matching category from database
+  const inferCategory = useCallback((fileCategory: string): string => {
+    if (!fileCategory || dbCategories.length === 0) return 'Hôtels et logements';
+    
+    const normalizedFileCat = fileCategory.toLowerCase().trim();
+    
+    // First try exact match
+    const exactMatch = dbCategories.find(c => 
+      c.name.toLowerCase().trim() === normalizedFileCat
+    );
+    if (exactMatch) return exactMatch.name;
+    
+    // Try partial match (category name contains file category or vice versa)
+    const partialMatch = dbCategories.find(c => {
+      const dbCat = c.name.toLowerCase().trim();
+      return dbCat.includes(normalizedFileCat) || normalizedFileCat.includes(dbCat);
+    });
+    if (partialMatch) return partialMatch.name;
+    
+    // Try word-by-word matching
+    const fileWords = normalizedFileCat.split(/\s+/);
+    for (const cat of dbCategories) {
+      const dbCat = cat.name.toLowerCase().trim();
+      const dbWords = dbCat.split(/\s+/);
+      const commonWords = fileWords.filter(fw => dbWords.some(dw => dw.includes(fw) || fw.includes(dw)));
+      if (commonWords.length > 0) {
+        return cat.name;
+      }
+    }
+    
+    // Default fallback
+    return 'Hôtels et logements';
+  }, [dbCategories]);
   const validateData = useCallback((data: any[]): ValidatedRow[] => {
     return data.map((row, index) => {
       const errors: ValidationError[] = [];
@@ -393,7 +426,7 @@ export function SupplierBulkImport() {
         supplier_business_name: rowData.business_name,
         supplier_email: rowData.email,
         supplier_phone: rowData.phone,
-        supplier_category: rowData.category || 'Hôtels et logements',
+        supplier_category: inferCategory(rowData.category || 'Hôtels et logements'),
         supplier_description: description,
         supplier_address: rowData.address,
         supplier_city: rowData.city,
@@ -892,6 +925,7 @@ jane@example.com,Jane,Smith,+2348098765432,XYZ Services,info@xyzservices.com,+23
                         <th className="px-3 py-2 text-left font-medium text-gray-600">Catégorie</th>
                         <th className="px-3 py-2 text-left font-medium text-gray-600">Ville</th>
                         <th className="px-3 py-2 text-left font-medium text-gray-600">État</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">GPS (Lat, Long)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -927,6 +961,15 @@ jane@example.com,Jane,Smith,+2348098765432,XYZ Services,info@xyzservices.com,+23
                           <td className="px-3 py-2">{row.data.supplier_category}</td>
                           <td className="px-3 py-2">{row.data.supplier_city}</td>
                           <td className="px-3 py-2">{row.data.supplier_state}</td>
+                          <td className="px-3 py-2">
+                            {row.data.supplier_latitude && row.data.supplier_longitude ? (
+                              <span className="text-green-600 text-xs">
+                                {row.data.supplier_latitude.toFixed(6)}, {row.data.supplier_longitude.toFixed(6)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs italic">Non disponible</span>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
