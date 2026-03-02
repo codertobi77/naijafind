@@ -50,80 +50,91 @@ export function SupplierBulkImport() {
   const dbCategories = useQuery(api.categories.getAllCategories) || [];
 
   // Helper function to find best matching category from database
-  const inferCategory = useCallback((fileCategory: string): string => {
-    console.log(`[inferCategory] Input: "${fileCategory}"`);
+  // Searches in multiple fields and can use the most frequent category as fallback
+  const inferCategory = useCallback((row: any, mostFrequentCategory: string = ''): string => {
+    const fileCategory = row._rawCategory || row.supplier_category || '';
+    const businessName = row.business_name || row.name || '';
+    const description = row.description || row.subtypes || '';
+    
+    console.log(`[inferCategory] Input fields:`, { 
+      category: fileCategory, 
+      businessName, 
+      description: description?.substring(0, 50) 
+    });
     console.log(`[inferCategory] Available database categories:`, dbCategories.map(c => c.name));    
-    if (!fileCategory || dbCategories.length === 0) {
-      console.log(`[inferCategory] Early return: fileCategory=${fileCategory}, dbCategories.length=${dbCategories.length}`);
-      return fileCategory;
+    if (dbCategories.length === 0) {
+      console.log(`[inferCategory] Early return: dbCategories is empty`);
+      return fileCategory || mostFrequentCategory || '';
     }
     
     // Normalize function: lowercase, remove accents, keep only alphanumeric
     const normalize = (str: string) => {
+      if (!str) return '';
       return str
         .toLowerCase()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-        .replace(/[^a-z0-9]/g, '') // Keep only alphanumeric
+        .replace(/[^a-z0-9\s]/g, ' ') // Replace non-alphanumeric with space
         .trim();
     };
     
     const normalizedFileCat = normalize(fileCategory);
-    console.log(`[inferCategory] Normalized input "${fileCategory}" -> "${normalizedFileCat}"`);
     
-    // First try exact normalized match (e.g., "hotels" === "hotels" from "Hôtels")
+    // Combine all text fields to search for category keywords
+    const combinedText = normalize(`${fileCategory} ${businessName} ${description}`);
+    console.log(`[inferCategory] Normalized combined text: "${combinedText}"`);
+    
+    // First try exact normalized match on category field
     let matchedCategory = dbCategories.find(
       cat => {
         const normalizedDbCat = normalize(cat.name);
-        const isMatch = normalizedDbCat === normalizedFileCat;
-        console.log(`[inferCategory] Exact match check: "${cat.name}" -> "${normalizedDbCat}" === "${normalizedFileCat}" ? ${isMatch}`);
+        const isMatch = normalizedDbCat === normalizedFileCat && normalizedFileCat !== '';
+        if (isMatch) {
+          console.log(`[inferCategory] Exact match on category: "${cat.name}"`);
+        }
         return isMatch;
       }
     );
     
     if (matchedCategory) {
-      console.log(`[inferCategory] ✓ Found exact match: "${matchedCategory.name}"`);
       return matchedCategory.name;
     }
     
-    // If no match, try partial normalized match
-    console.log(`[inferCategory] No exact match, trying partial match...`);
-    matchedCategory = dbCategories.find(cat => {
-      const normalizedDbCat = normalize(cat.name);
-      const isMatch = normalizedDbCat.includes(normalizedFileCat) || 
-             normalizedFileCat.includes(normalizedDbCat);
-      if (isMatch) {
-        console.log(`[inferCategory] Partial match found: "${cat.name}" -> "${normalizedDbCat}"`);
-      }
-      return isMatch;
-    });
-    
-    if (matchedCategory) {
-      console.log(`[inferCategory] ✓ Found partial match: "${matchedCategory.name}"`);
-      return matchedCategory.name;
-    }
-    
-    // If still no match, try word-by-word matching
-    console.log(`[inferCategory] No partial match, trying word-by-word...`);
-    const fileWords = normalizedFileCat.split(/\s+/);
-    console.log(`[inferCategory] File words: ${JSON.stringify(fileWords)}`);
+    // If no match on category, search in all text fields (business name, description)
+    // Score categories by how many keywords match
+    const categoryScores: { cat: typeof dbCategories[0]; score: number }[] = [];
     
     for (const cat of dbCategories) {
-      const normalizedCat = normalize(cat.name);
-      const dbWords = normalizedCat.split(/\s+/);
-      const commonWords = fileWords.filter(fw => 
-        dbWords.some(dw => dw.includes(fw) || fw.includes(dw))
-      );
-      console.log(`[inferCategory] Word check: "${cat.name}" -> words=${JSON.stringify(dbWords)}, common=${JSON.stringify(commonWords)}`);
-      if (commonWords.length > 0) {
-        matchedCategory = cat;
-        console.log(`[inferCategory] ✓ Found word match: "${cat.name}" (common words: ${commonWords.join(', ')})`);
-        break;
+      const normalizedCatName = normalize(cat.name);
+      const catWords = normalizedCatName.split(/\s+/).filter(w => w.length > 2);
+      let score = 0;
+      
+      for (const word of catWords) {
+        // Check if category word appears in combined text
+        if (combinedText.includes(word)) {
+          score += 1;
+          console.log(`[inferCategory] Keyword match: "${word}" from "${cat.name}" found in text`);
+        }
+      }
+      
+      if (score > 0) {
+        categoryScores.push({ cat, score });
       }
     }
     
-    if (matchedCategory) {
+    // Sort by score descending
+    categoryScores.sort((a, b) => b.score - a.score);
+    
+    if (categoryScores.length > 0) {
+      matchedCategory = categoryScores[0].cat;
+      console.log(`[inferCategory] ✓ Found keyword match: "${matchedCategory.name}" (score: ${categoryScores[0].score})`);
       return matchedCategory.name;
+    }
+    
+    // If still no match and no category field, use the most frequent category from file
+    if (!fileCategory && mostFrequentCategory) {
+      console.log(`[inferCategory] Using most frequent category: "${mostFrequentCategory}"`);
+      return mostFrequentCategory;
     }
     
     console.log(`[inferCategory] ✗ No match found, returning original: "${fileCategory}"`);
@@ -152,13 +163,35 @@ export function SupplierBulkImport() {
     console.log('[Process Categories] Processing', parsedData.length, 'rows with', dbCategories.length, 'categories');
     processedRef.current = true;
     
+    // Calculate most frequent category in the file (non-empty only)
+    const categoryCounts: Record<string, number> = {};
+    parsedData.forEach(row => {
+      const cat = row._rawCategory || row.supplier_category;
+      if (cat && cat.trim() !== '') {
+        const normalizedCat = cat.toLowerCase().trim();
+        categoryCounts[normalizedCat] = (categoryCounts[normalizedCat] || 0) + 1;
+      }
+    });
+    
+    let mostFrequentCategory = '';
+    let maxCount = 0;
+    Object.entries(categoryCounts).forEach(([cat, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        mostFrequentCategory = cat;
+      }
+    });
+    
+    console.log('[Process Categories] Most frequent category:', mostFrequentCategory, `(${maxCount} occurrences)`);
+    console.log('[Process Categories] Category distribution:', categoryCounts);
+    
     setParsedData(prevData => {
       return prevData.map(row => {
-        const rawCategory = row._rawCategory || row.supplier_category;
+        const inferred = inferCategory(row, mostFrequentCategory);
         return {
           ...row,
-          _rawCategory: rawCategory,
-          supplier_category: inferCategory(rawCategory)
+          _rawCategory: row._rawCategory || row.supplier_category,
+          supplier_category: inferred
         };
       });
     });
@@ -169,7 +202,7 @@ export function SupplierBulkImport() {
         ...row,
         data: {
           ...row.data,
-          supplier_category: inferCategory(row.data._rawCategory || row.data.supplier_category)
+          supplier_category: inferCategory(row.data, mostFrequentCategory)
         }
       }));
     });
