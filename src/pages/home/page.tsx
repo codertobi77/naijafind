@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, type TFunction } from 'react-i18next';
 import { Header } from '../../components/base';
 import { useConvexAuth, useMutation } from 'convex/react';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
@@ -135,7 +135,7 @@ type Supplier = Doc<"suppliers">;
 
 // Search Hero Component with Autocomplete
 interface SearchHeroProps {
-  t: (key: string) => string;
+  t: TFunction;
   searchQuery: string;
   searchLocation: string;
   category: string;
@@ -1041,7 +1041,6 @@ export default function Home() {
         primaryAction={{
           onClick: handleAddBusinessClick,
           label: "Inscrire mon entreprise gratuitement",
-          variant: 'primary',
         }}
         secondaryAction={{
           onClick: () => {
@@ -1050,7 +1049,6 @@ export default function Home() {
           },
           label: "Parler à un conseiller",
           icon: 'ri-chat-3-line',
-          variant: 'secondary',
         }}
       />
 

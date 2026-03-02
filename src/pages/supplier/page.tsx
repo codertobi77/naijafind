@@ -147,8 +147,6 @@ export default function SupplierDetail() {
     supplierId ? { id: supplierId } : undefined,
     { staleTime: 5 * 60 * 1000 } // Cache supplier details for 5 minutes
   );
-  const { data: meData } = useConvexQuery(api.users.me, {}, { staleTime: 2 * 60 * 1000 });
-  
   // Review mutation
   const createReviewMutation = useMutation(api.reviews.createReview);
   const createContactRequestMutation = useMutation(api.notifications.createContactRequest);
@@ -1100,7 +1098,6 @@ export default function SupplierDetail() {
                     </Link>
                   </div>
                 </div>
-              </div>
             ))}
           </div>
         </div>

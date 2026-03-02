@@ -259,7 +259,7 @@ export default function SupplierSetup() {
                     }`}
                   >
                     <option value="">{t('supplier_setup.select_category')}</option>
-                    {categories?.map((cat) => (
+                    {categories?.map((cat: { _id: string; name: string }) => (
                       <option key={cat._id} value={cat.name}>
                         {cat.name}
                       </option>
