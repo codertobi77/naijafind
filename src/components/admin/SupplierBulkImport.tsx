@@ -50,24 +50,27 @@ export function SupplierBulkImport() {
   const dbCategories = useQuery(api.categories.getAllCategories) || [];
 
   // Helper function to find best matching category from database
-  // Searches in multiple fields and can use the most frequent category as fallback
-  const inferCategory = useCallback((row: any, mostFrequentCategory: string = ''): string => {
+  // Calculates membership score based on all text fields and always maps to a DB category
+  const inferCategory = useCallback((row: any, mostFrequentFileCategory: string = ''): string => {
     const fileCategory = row._rawCategory || row.supplier_category || '';
     const businessName = row.business_name || row.name || '';
-    const description = row.description || row.subtypes || '';
+    const description = row.description || row.subtypes || row.type || '';
+    const query = row.query || '';
     
     console.log(`[inferCategory] Input fields:`, { 
       category: fileCategory, 
-      businessName, 
-      description: description?.substring(0, 50) 
+      businessName: businessName?.substring(0, 50), 
+      description: description?.substring(0, 50),
+      query: query?.substring(0, 50)
     });
-    console.log(`[inferCategory] Available database categories:`, dbCategories.map(c => c.name));    
+    console.log(`[inferCategory] Available database categories:`, dbCategories.map(c => c.name));
+    
     if (dbCategories.length === 0) {
       console.log(`[inferCategory] Early return: dbCategories is empty`);
-      return fileCategory || mostFrequentCategory || '';
+      return '';
     }
     
-    // Normalize function: lowercase, remove accents, keep only alphanumeric
+    // Normalize function: lowercase, remove accents, keep alphanumeric and spaces
     const normalize = (str: string) => {
       if (!str) return '';
       return str
@@ -78,68 +81,126 @@ export function SupplierBulkImport() {
         .trim();
     };
     
-    const normalizedFileCat = normalize(fileCategory);
+    // Extract keywords from text (remove common words, keep meaningful terms)
+    const extractKeywords = (text: string): string[] => {
+      const commonWords = new Set(['et', 'de', 'des', 'du', 'le', 'la', 'les', 'un', 'une', 'en', 'au', 'aux', 'par', 'pour', 'avec', 'sur', 'dans', 'the', 'and', 'of', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'with', 'by']);
+      return normalize(text)
+        .split(/\s+/)
+        .filter(w => w.length > 2 && !commonWords.has(w));
+    };
     
-    // Combine all text fields to search for category keywords
-    const combinedText = normalize(`${fileCategory} ${businessName} ${description}`);
-    console.log(`[inferCategory] Normalized combined text: "${combinedText}"`);
+    // Combine all text fields
+    const allText = normalize(`${fileCategory} ${businessName} ${description} ${query}`);
+    const allKeywords = extractKeywords(`${fileCategory} ${businessName} ${description} ${query}`);
     
-    // First try exact normalized match on category field
-    let matchedCategory = dbCategories.find(
-      cat => {
-        const normalizedDbCat = normalize(cat.name);
-        const isMatch = normalizedDbCat === normalizedFileCat && normalizedFileCat !== '';
-        if (isMatch) {
-          console.log(`[inferCategory] Exact match on category: "${cat.name}"`);
-        }
-        return isMatch;
-      }
-    );
+    console.log(`[inferCategory] All text: "${allText}"`);
+    console.log(`[inferCategory] Extracted keywords:`, allKeywords);
     
-    if (matchedCategory) {
-      return matchedCategory.name;
+    // Calculate score for each DB category
+    interface CategoryScore {
+      cat: typeof dbCategories[0];
+      score: number;
+      matchDetails: string[];
     }
     
-    // If no match on category, search in all text fields (business name, description)
-    // Score categories by how many keywords match
-    const categoryScores: { cat: typeof dbCategories[0]; score: number }[] = [];
+    const categoryScores: CategoryScore[] = [];
     
     for (const cat of dbCategories) {
       const normalizedCatName = normalize(cat.name);
-      const catWords = normalizedCatName.split(/\s+/).filter(w => w.length > 2);
+      const catKeywords = extractKeywords(cat.name);
       let score = 0;
+      const matchDetails: string[] = [];
       
-      for (const word of catWords) {
-        // Check if category word appears in combined text
-        if (combinedText.includes(word)) {
-          score += 1;
-          console.log(`[inferCategory] Keyword match: "${word}" from "${cat.name}" found in text`);
+      // 1. Exact match on file category vs DB category (highest score)
+      const normalizedFileCat = normalize(fileCategory);
+      if (normalizedFileCat && normalizedCatName === normalizedFileCat) {
+        score += 100;
+        matchDetails.push(`exact category match: ${cat.name}`);
+      }
+      
+      // 2. File category contains DB category name or vice versa
+      if (normalizedFileCat && (normalizedFileCat.includes(normalizedCatName) || normalizedCatName.includes(normalizedFileCat))) {
+        score += 50;
+        matchDetails.push(`partial category match`);
+      }
+      
+      // 3. Keyword matches in all text fields
+      for (const keyword of catKeywords) {
+        // Check if DB category keyword appears in the text
+        if (allText.includes(keyword)) {
+          score += 10;
+          matchDetails.push(`keyword "${keyword}" found in text`);
+        }
+        
+        // Check for similar words (e.g., "hotel" matches "hotels")
+        for (const textKeyword of allKeywords) {
+          if (textKeyword.includes(keyword) || keyword.includes(textKeyword)) {
+            if (textKeyword !== keyword) {
+              score += 5;
+              matchDetails.push(`similar word: "${textKeyword}" ~ "${keyword}"`);
+            }
+          }
+        }
+      }
+      
+      // 4. Special mappings for common category synonyms
+      const synonyms: Record<string, string[]> = {
+        'hotels et logements': ['hotel', 'hotels', 'lodging', 'lodge', 'motel', 'guest house', 'guesthouse', 'accommodation', 'hebergement', 'chambre', 'auberge', 'inn', 'resort', 'hospitality'],
+        'restaurants': ['restaurant', 'resto', 'cafe', 'cafeteria', 'bistro', 'brasserie', 'eatery', 'dining', 'food', 'cuisine', 'gastronomie'],
+        'bars et nightlife': ['bar', 'pub', 'nightclub', 'club', 'disco', 'lounge', 'cocktail', 'bieres', 'drinks'],
+        'transport': ['taxi', 'bus', 'train', 'airport', 'transport', 'shuttle', 'transfer', 'car rental', 'location voiture'],
+        'services professionnels': ['agency', 'agence', 'consulting', 'consultant', 'service', 'bureau', 'office', 'professional'],
+        'shopping': ['shop', 'boutique', 'store', 'market', 'shopping', 'retail', 'commerce', 'magasin'],
+        'sante et bien etre': ['health', 'sante', 'medical', 'clinic', 'pharmacy', 'wellness', 'spa', 'fitness', 'gym'],
+        'tourisme': ['tour', 'tourism', 'guide', 'excursion', 'attraction', 'monument', 'museum', 'musee', 'sightseeing']
+      };
+      
+      for (const [dbCatName, synonymList] of Object.entries(synonyms)) {
+        if (normalizedCatName.includes(normalize(dbCatName))) {
+          for (const synonym of synonymList) {
+            if (allText.includes(synonym)) {
+              score += 15;
+              matchDetails.push(`synonym "${synonym}" for ${dbCatName}`);
+            }
+          }
         }
       }
       
       if (score > 0) {
-        categoryScores.push({ cat, score });
+        categoryScores.push({ cat, score, matchDetails });
       }
     }
     
     // Sort by score descending
     categoryScores.sort((a, b) => b.score - a.score);
     
+    console.log(`[inferCategory] Category scores:`, categoryScores.map(cs => ({ name: cs.cat.name, score: cs.score })));
+    
+    // Return the best matching category
     if (categoryScores.length > 0) {
-      matchedCategory = categoryScores[0].cat;
-      console.log(`[inferCategory] ✓ Found keyword match: "${matchedCategory.name}" (score: ${categoryScores[0].score})`);
-      return matchedCategory.name;
+      const bestMatch = categoryScores[0];
+      console.log(`[inferCategory] ✓ Best match: "${bestMatch.cat.name}" (score: ${bestMatch.score})`);
+      console.log(`[inferCategory] Match details:`, bestMatch.matchDetails);
+      return bestMatch.cat.name;
     }
     
-    // If still no match and no category field, use the most frequent category from file
-    if (!fileCategory && mostFrequentCategory) {
-      console.log(`[inferCategory] Using most frequent category: "${mostFrequentCategory}"`);
-      return mostFrequentCategory;
+    // If no match found, try to map the most frequent file category
+    if (mostFrequentFileCategory) {
+      console.log(`[inferCategory] No direct match, trying to map most frequent category: "${mostFrequentFileCategory}"`);
+      // Try to match the most frequent category to a DB category
+      const normalizedFreqCat = normalize(mostFrequentFileCategory);
+      for (const cat of dbCategories) {
+        const normalizedDbCat = normalize(cat.name);
+        if (normalizedDbCat.includes(normalizedFreqCat) || normalizedFreqCat.includes(normalizedDbCat)) {
+          console.log(`[inferCategory] ✓ Mapped frequent category to: "${cat.name}"`);
+          return cat.name;
+        }
+      }
     }
     
-    console.log(`[inferCategory] ✗ No match found, returning original: "${fileCategory}"`);
-    // Return original file category - let backend handle fallback to "Autre"
-    return fileCategory;
+    // Last resort: return the first DB category (shouldn't happen often)
+    console.log(`[inferCategory] ⚠ No match found, using first DB category: "${dbCategories[0].name}"`);
+    return dbCategories[0].name;
   }, [dbCategories]);
 
   // Debug: Log when categories change
