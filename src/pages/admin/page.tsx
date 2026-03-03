@@ -489,7 +489,7 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
   const sendAdminNotification = useMutation(api.notifications.sendAdminNotification);
   const sendBulkNotification = useMutation(api.notifications.sendBulkNotification);
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications' | 'import' | 'adBanners'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications' | 'import' | 'adBanners' | 'claims'>('overview');
   // Suppression de l’état fournisseurs simulé (on utilise allSuppliers de Convex)
 
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -1565,6 +1565,8 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
         return <SupplierBulkImport />;
       case 'adBanners':
         return <AdBannerManager />;
+      case 'claims':
+        return <SupplierClaimsManager />;
       default:
         return null;
     }
@@ -2280,6 +2282,17 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
                 <i className="ri-image-line text-lg" />
                 <span className="font-medium">Ad Banners</span>
               </button>
+              <button
+                onClick={() => setActiveTab('claims')}
+                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                  activeTab === 'claims'
+                    ? 'bg-green-600 text-white shadow'
+                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
+                }`}
+              >
+                <i className="ri-shield-user-line text-lg" />
+                <span className="font-medium">Réclamations</span>
+              </button>
             </div>
           </nav>
 
@@ -2313,6 +2326,7 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
                 {activeTab === 'notifications' && 'Envoyer une notification'}
                 {activeTab === 'import' && 'Import Fournisseurs'}
                 {activeTab === 'adBanners' && 'Ad Banners'}
+                {activeTab === 'claims' && 'Réclamations Fournisseurs'}
               </h1>
             </div>
             <div className="flex items-center space-x-3 sm:space-x-6">
@@ -2381,6 +2395,279 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
 
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+    </div>
+  );
+}
+
+// Supplier Claims Manager Component
+function SupplierClaimsManager() {
+  const { t } = useTranslation();
+  const { showToast } = useToast();
+  const [processingClaim, setProcessingClaim] = useState<string | null>(null);
+  const [selectedClaim, setSelectedClaim] = useState<any | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [notes, setNotes] = useState('');
+  
+  // Fetch pending claims
+  const { data: pendingClaims, refetch: refetchClaims } = useConvexQuery(
+    api.suppliers.getPendingClaims, 
+    {}, 
+    { staleTime: 30 * 1000 }
+  );
+  
+  // Mutations
+  const approveClaim = useMutation(api.suppliers.approveClaim);
+  const rejectClaim = useMutation(api.suppliers.rejectClaim);
+  
+  const handleApprove = async (claimId: string) => {
+    setProcessingClaim(claimId);
+    try {
+      await approveClaim({ claimId, notes });
+      showToast('success', 'Demande approuvée avec succès');
+      refetchClaims();
+      setShowDetailModal(false);
+      setNotes('');
+    } catch (error: any) {
+      showToast('error', error.message || 'Erreur lors de l\'approbation');
+    } finally {
+      setProcessingClaim(null);
+    }
+  };
+  
+  const handleReject = async (claimId: string) => {
+    setProcessingClaim(claimId);
+    try {
+      await rejectClaim({ claimId, notes });
+      showToast('success', 'Demande refusée');
+      refetchClaims();
+      setShowDetailModal(false);
+      setNotes('');
+    } catch (error: any) {
+      showToast('error', error.message || 'Erreur lors du refus');
+    } finally {
+      setProcessingClaim(null);
+    }
+  };
+  
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">
+            Réclamations de Fournisseurs
+          </h2>
+          <p className="mt-1 text-gray-600">
+            Gérez les demandes de propriété des entreprises
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+            <i className="ri-time-line mr-1" />
+            {pendingClaims?.length || 0} en attente
+          </span>
+        </div>
+      </div>
+
+      {/* Claims List */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Entreprise
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Demandeur
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Email entreprise
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Statut
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {pendingClaims && pendingClaims.length > 0 ? (
+                pendingClaims.map((claim: any) => (
+                  <tr key={claim._id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                          <i className="ri-store-line text-green-600" />
+                        </div>
+                        <div className="ml-3">
+                          <div className="text-sm font-medium text-gray-900">
+                            {claim.supplier?.business_name || 'N/A'}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {claim.supplier?.city}, {claim.supplier?.state}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-gray-900">
+                        {claim.claimant?.firstName} {claim.claimant?.lastName}
+                      </div>
+                      <div className="text-xs text-gray-500">{claim.userEmail}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-gray-900">{claim.supplierEmail || 'Non disponible'}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-gray-900">
+                        {new Date(claim.claimedAt).toLocaleDateString('fr-FR')}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(claim.claimedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <i className="ri-time-line mr-1" />
+                        En attente
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => {
+                            setSelectedClaim(claim);
+                            setShowDetailModal(true);
+                          }}
+                          className="text-xs px-3 py-1.5 rounded bg-gray-600 text-white hover:bg-gray-700 transition-colors"
+                        >
+                          Voir détails
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                    <div className="flex flex-col items-center">
+                      <i className="ri-shield-check-line text-4xl text-gray-300 mb-2" />
+                      <p className="text-sm">Aucune demande de réclamation en attente</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Detail Modal */}
+      {showDetailModal && selectedClaim && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Détails de la réclamation</h3>
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <i className="ri-close-line text-xl" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Supplier Info */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-2">Entreprise</h4>
+                <p className="text-sm text-gray-700"><strong>Nom:</strong> {selectedClaim.supplier?.business_name}</p>
+                <p className="text-sm text-gray-700"><strong>Email:</strong> {selectedClaim.supplier?.email || 'N/A'}</p>
+                <p className="text-sm text-gray-700"><strong>Téléphone:</strong> {selectedClaim.supplier?.phone || 'N/A'}</p>
+                <p className="text-sm text-gray-700"><strong>Adresse:</strong> {selectedClaim.supplier?.address || 'N/A'}</p>
+                <p className="text-sm text-gray-700"><strong>Ville:</strong> {selectedClaim.supplier?.city}, {selectedClaim.supplier?.state}</p>
+              </div>
+
+              {/* Claimant Info */}
+              <div className="bg-blue-50 rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-2">Demandeur</h4>
+                <p className="text-sm text-gray-700"><strong>Nom:</strong> {selectedClaim.claimant?.firstName} {selectedClaim.claimant?.lastName}</p>
+                <p className="text-sm text-gray-700"><strong>Email:</strong> {selectedClaim.userEmail}</p>
+                <p className="text-sm text-gray-700"><strong>Date:</strong> {new Date(selectedClaim.claimedAt).toLocaleString('fr-FR')}</p>
+              </div>
+
+              {/* Email Verification */}
+              <div className={`rounded-lg p-4 ${
+                selectedClaim.userEmail.toLowerCase() === (selectedClaim.supplierEmail || '').toLowerCase()
+                  ? 'bg-green-50 border border-green-200'
+                  : 'bg-yellow-50 border border-yellow-200'
+              }`}>
+                <h4 className="font-medium text-gray-900 mb-2">Vérification Email</h4>
+                {selectedClaim.userEmail.toLowerCase() === (selectedClaim.supplierEmail || '').toLowerCase() ? (
+                  <p className="text-sm text-green-700">
+                    <i className="ri-check-line mr-1" />
+                    Les emails correspondent parfaitement
+                  </p>
+                ) : (
+                  <p className="text-sm text-yellow-700">
+                    <i className="ri-alert-line mr-1" />
+                    Les emails ne correspondent pas. Vérification manuelle requise.
+                  </p>
+                )}
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes (optionnel)
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="Ajouter des notes sur cette décision..."
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowDetailModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={() => handleReject(selectedClaim._id)}
+                  disabled={processingClaim === selectedClaim._id}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {processingClaim === selectedClaim._id ? (
+                    <i className="ri-loader-4-line animate-spin" />
+                  ) : (
+                    <><i className="ri-close-line mr-1" /> Refuser</>
+                  )}
+                </button>
+                <button
+                  onClick={() => handleApprove(selectedClaim._id)}
+                  disabled={processingClaim === selectedClaim._id}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  {processingClaim === selectedClaim._id ? (
+                    <i className="ri-loader-4-line animate-spin" />
+                  ) : (
+                    <><i className="ri-check-line mr-1" /> Approuver</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

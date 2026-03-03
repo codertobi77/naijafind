@@ -335,4 +335,179 @@ export const claimSupplier = mutation({
   }
 });
 
+// Admin: Get all pending supplier claims
+export const getPendingClaims = query({
+  args: {},
+  handler: async (ctx) => {
+    // Check if user is admin
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Non autorisé");
+    
+    const user = await ctx.db
+      .query("users")
+      .filter(q => q.eq(q.field("email"), identity.email))
+      .first();
+      
+    if (!user || !user.is_admin) {
+      throw new Error("Accès refusé. Seuls les administrateurs peuvent effectuer cette action.");
+    }
+    
+    // Get all pending claims
+    const claims = await ctx.db
+      .query("supplierClaims")
+      .filter(q => q.eq(q.field("status"), "pending"))
+      .collect();
+    
+    // Get supplier details for each claim
+    const claimsWithDetails = await Promise.all(
+      claims.map(async (claim) => {
+        const supplier = await ctx.db
+          .query("suppliers")
+          .filter(q => q.eq(q.field("_id"), claim.supplierId))
+          .first();
+          
+        const claimant = await ctx.db
+          .query("users")
+          .filter(q => q.eq(q.field("_id"), claim.userId))
+          .first();
+          
+        return {
+          ...claim,
+          supplier: supplier ? {
+            _id: supplier._id,
+            business_name: supplier.business_name,
+            email: supplier.email,
+            phone: supplier.phone,
+            city: supplier.city,
+            state: supplier.state,
+          } : null,
+          claimant: claimant ? {
+            _id: claimant._id,
+            email: claimant.email,
+            firstName: claimant.firstName,
+            lastName: claimant.lastName,
+          } : null,
+        };
+      })
+    );
+    
+    return claimsWithDetails;
+  }
+});
+
+// Admin: Approve a supplier claim
+export const approveClaim = mutation({
+  args: {
+    claimId: v.id("supplierClaims"),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Check if user is admin
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Non autorisé");
+    
+    const admin = await ctx.db
+      .query("users")
+      .filter(q => q.eq(q.field("email"), identity.email))
+      .first();
+      
+    if (!admin || !admin.is_admin) {
+      throw new Error("Accès refusé. Seuls les administrateurs peuvent effectuer cette action.");
+    }
+    
+    // Get the claim
+    const claim = await ctx.db
+      .query("supplierClaims")
+      .filter(q => q.eq(q.field("_id"), args.claimId))
+      .first();
+      
+    if (!claim) {
+      throw new Error("Demande de réclamation non trouvée");
+    }
+    
+    if (claim.status !== "pending") {
+      throw new Error("Cette demande a déjà été traitée");
+    }
+    
+    // Update claim status
+    await ctx.db.patch(args.claimId, {
+      status: "approved",
+      verifiedAt: new Date().toISOString(),
+      verifiedBy: admin._id,
+      notes: args.notes || "",
+    });
+    
+    // Update supplier: assign to the claiming user
+    await ctx.db.patch(claim.supplierId, {
+      userId: claim.userId,
+      claimStatus: "approved",
+      claimId: args.claimId,
+      verified: true,
+      approved: true,
+      updated_at: new Date().toISOString(),
+    });
+    
+    return { 
+      success: true, 
+      message: "Demande de réclamation approuvée avec succès" 
+    };
+  }
+});
+
+// Admin: Reject a supplier claim
+export const rejectClaim = mutation({
+  args: {
+    claimId: v.id("supplierClaims"),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Check if user is admin
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Non autorisé");
+    
+    const admin = await ctx.db
+      .query("users")
+      .filter(q => q.eq(q.field("email"), identity.email))
+      .first();
+      
+    if (!admin || !admin.is_admin) {
+      throw new Error("Accès refusé. Seuls les administrateurs peuvent effectuer cette action.");
+    }
+    
+    // Get the claim
+    const claim = await ctx.db
+      .query("supplierClaims")
+      .filter(q => q.eq(q.field("_id"), args.claimId))
+      .first();
+      
+    if (!claim) {
+      throw new Error("Demande de réclamation non trouvée");
+    }
+    
+    if (claim.status !== "pending") {
+      throw new Error("Cette demande a déjà été traitée");
+    }
+    
+    // Update claim status
+    await ctx.db.patch(args.claimId, {
+      status: "rejected",
+      verifiedAt: new Date().toISOString(),
+      verifiedBy: admin._id,
+      notes: args.notes || "",
+    });
+    
+    // Update supplier: reset claim status
+    await ctx.db.patch(claim.supplierId, {
+      claimStatus: undefined,
+      claimId: undefined,
+      updated_at: new Date().toISOString(),
+    });
+    
+    return { 
+      success: true, 
+      message: "Demande de réclamation refusée" 
+    };
+  }
+});
+
 
