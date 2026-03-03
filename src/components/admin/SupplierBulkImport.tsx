@@ -42,6 +42,7 @@ export function SupplierBulkImport() {
   const [currentStep, setCurrentStep] = useState<'upload' | 'preview' | 'importing' | 'results'>('upload');
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
   
   const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
   
@@ -49,233 +50,11 @@ export function SupplierBulkImport() {
   const bulkImportSuppliers = useMutation(api.adminImport.bulkImportSuppliers);
   const dbCategories = useQuery(api.categories.getAllCategories) || [];
 
-  // Helper function to find best matching category from database
-  // Calculates membership score based on all text fields and always maps to a DB category
-  const inferCategory = useCallback((row: any, mostFrequentFileCategory: string = ''): string => {
-    const fileCategory = row._rawCategory || row.supplier_category || '';
-    const businessName = row.business_name || row.name || '';
-    const description = row.description || row.subtypes || row.type || '';
-    const query = row.query || '';
-    
-    console.log(`[inferCategory] Input fields:`, { 
-      category: fileCategory, 
-      businessName: businessName?.substring(0, 50), 
-      description: description?.substring(0, 50),
-      query: query?.substring(0, 50)
-    });
-    console.log(`[inferCategory] Available database categories:`, dbCategories.map(c => c.name));
-    
-    if (dbCategories.length === 0) {
-      console.log(`[inferCategory] Early return: dbCategories is empty`);
-      return '';
-    }
-    
-    // Normalize function: lowercase, remove accents, keep alphanumeric and spaces
-    const normalize = (str: string) => {
-      if (!str) return '';
-      return str
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-        .replace(/[^a-z0-9\s]/g, ' ') // Replace non-alphanumeric with space
-        .trim();
-    };
-    
-    // Extract keywords from text (remove common words, keep meaningful terms)
-    const extractKeywords = (text: string): string[] => {
-      const commonWords = new Set(['et', 'de', 'des', 'du', 'le', 'la', 'les', 'un', 'une', 'en', 'au', 'aux', 'par', 'pour', 'avec', 'sur', 'dans', 'the', 'and', 'of', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'with', 'by']);
-      return normalize(text)
-        .split(/\s+/)
-        .filter(w => w.length > 2 && !commonWords.has(w));
-    };
-    
-    // Combine all text fields
-    const allText = normalize(`${fileCategory} ${businessName} ${description} ${query}`);
-    const allKeywords = extractKeywords(`${fileCategory} ${businessName} ${description} ${query}`);
-    
-    console.log(`[inferCategory] All text: "${allText}"`);
-    console.log(`[inferCategory] Extracted keywords:`, allKeywords);
-    
-    // Calculate score for each DB category
-    interface CategoryScore {
-      cat: typeof dbCategories[0];
-      score: number;
-      matchDetails: string[];
-    }
-    
-    const categoryScores: CategoryScore[] = [];
-    
-    for (const cat of dbCategories) {
-      const normalizedCatName = normalize(cat.name);
-      const catKeywords = extractKeywords(cat.name);
-      let score = 0;
-      const matchDetails: string[] = [];
-      
-      // 1. Exact match on file category vs DB category (highest score)
-      const normalizedFileCat = normalize(fileCategory);
-      if (normalizedFileCat && normalizedCatName === normalizedFileCat) {
-        score += 100;
-        matchDetails.push(`exact category match: ${cat.name}`);
-      }
-      
-      // 2. File category contains DB category name or vice versa
-      if (normalizedFileCat && (normalizedFileCat.includes(normalizedCatName) || normalizedCatName.includes(normalizedFileCat))) {
-        score += 50;
-        matchDetails.push(`partial category match`);
-      }
-      
-      // 3. Keyword matches in all text fields
-      for (const keyword of catKeywords) {
-        // Check if DB category keyword appears in the text
-        if (allText.includes(keyword)) {
-          score += 10;
-          matchDetails.push(`keyword "${keyword}" found in text`);
-        }
-        
-        // Check for similar words (e.g., "hotel" matches "hotels")
-        for (const textKeyword of allKeywords) {
-          if (textKeyword.includes(keyword) || keyword.includes(textKeyword)) {
-            if (textKeyword !== keyword) {
-              score += 5;
-              matchDetails.push(`similar word: "${textKeyword}" ~ "${keyword}"`);
-            }
-          }
-        }
-      }
-      
-      // 4. Special mappings for common category synonyms
-      const synonyms: Record<string, string[]> = {
-        'hotels et logements': ['hotel', 'hotels', 'lodging', 'lodge', 'motel', 'guest house', 'guesthouse', 'accommodation', 'hebergement', 'chambre', 'auberge', 'inn', 'resort', 'hospitality'],
-        'restaurants': ['restaurant', 'resto', 'cafe', 'cafeteria', 'bistro', 'brasserie', 'eatery', 'dining', 'food', 'cuisine', 'gastronomie'],
-        'bars et nightlife': ['bar', 'pub', 'nightclub', 'club', 'disco', 'lounge', 'cocktail', 'bieres', 'drinks'],
-        'transport': ['taxi', 'bus', 'train', 'airport', 'transport', 'shuttle', 'transfer', 'car rental', 'location voiture'],
-        'services professionnels': ['agency', 'agence', 'consulting', 'consultant', 'service', 'bureau', 'office', 'professional'],
-        'shopping': ['shop', 'boutique', 'store', 'market', 'shopping', 'retail', 'commerce', 'magasin'],
-        'sante et bien etre': ['health', 'sante', 'medical', 'clinic', 'pharmacy', 'wellness', 'spa', 'fitness', 'gym'],
-        'tourisme': ['tour', 'tourism', 'guide', 'excursion', 'attraction', 'monument', 'museum', 'musee', 'sightseeing']
-      };
-      
-      for (const [dbCatName, synonymList] of Object.entries(synonyms)) {
-        if (normalizedCatName.includes(normalize(dbCatName))) {
-          for (const synonym of synonymList) {
-            if (allText.includes(synonym)) {
-              score += 15;
-              matchDetails.push(`synonym "${synonym}" for ${dbCatName}`);
-            }
-          }
-        }
-      }
-      
-      if (score > 0) {
-        categoryScores.push({ cat, score, matchDetails });
-      }
-    }
-    
-    // Sort by score descending
-    categoryScores.sort((a, b) => b.score - a.score);
-    
-    console.log(`[inferCategory] Category scores:`, categoryScores.map(cs => ({ name: cs.cat.name, score: cs.score })));
-    
-    // Return the best matching category
-    if (categoryScores.length > 0) {
-      const bestMatch = categoryScores[0];
-      console.log(`[inferCategory] ✓ Best match: "${bestMatch.cat.name}" (score: ${bestMatch.score})`);
-      console.log(`[inferCategory] Match details:`, bestMatch.matchDetails);
-      return bestMatch.cat.name;
-    }
-    
-    // If no match found, try to map the most frequent file category
-    if (mostFrequentFileCategory) {
-      console.log(`[inferCategory] No direct match, trying to map most frequent category: "${mostFrequentFileCategory}"`);
-      // Try to match the most frequent category to a DB category
-      const normalizedFreqCat = normalize(mostFrequentFileCategory);
-      for (const cat of dbCategories) {
-        const normalizedDbCat = normalize(cat.name);
-        if (normalizedDbCat.includes(normalizedFreqCat) || normalizedFreqCat.includes(normalizedDbCat)) {
-          console.log(`[inferCategory] ✓ Mapped frequent category to: "${cat.name}"`);
-          return cat.name;
-        }
-      }
-    }
-    
-    // Last resort: return the first DB category (shouldn't happen often)
-    console.log(`[inferCategory] ⚠ No match found, using first DB category: "${dbCategories[0].name}"`);
-    return dbCategories[0].name;
-  }, [dbCategories]);
-
-  // Debug: Log when categories change
-  useEffect(() => {
-    console.log('[DB Categories] Loaded:', dbCategories.length, 'categories');
-    console.log('[DB Categories] Data:', dbCategories);
-  }, [dbCategories]);
-
-  // Ref to track if we've processed categories for current data
-  const processedRef = useRef(false);
-
-  // Reset processedRef when data changes
-  useEffect(() => {
-    processedRef.current = false;
-  }, [parsedData]);
-
-  // Process categories after data is parsed and categories are loaded
-  useEffect(() => {
-    if (parsedData.length === 0 || dbCategories.length === 0 || processedRef.current) return;
-    
-    console.log('[Process Categories] Processing', parsedData.length, 'rows with', dbCategories.length, 'categories');
-    processedRef.current = true;
-    
-    // Calculate most frequent category in the file (non-empty only)
-    const categoryCounts: Record<string, number> = {};
-    parsedData.forEach(row => {
-      const cat = row._rawCategory || row.supplier_category;
-      if (cat && cat.trim() !== '') {
-        const normalizedCat = cat.toLowerCase().trim();
-        categoryCounts[normalizedCat] = (categoryCounts[normalizedCat] || 0) + 1;
-      }
-    });
-    
-    let mostFrequentCategory = '';
-    let maxCount = 0;
-    Object.entries(categoryCounts).forEach(([cat, count]) => {
-      if (count > maxCount) {
-        maxCount = count;
-        mostFrequentCategory = cat;
-      }
-    });
-    
-    console.log('[Process Categories] Most frequent category:', mostFrequentCategory, `(${maxCount} occurrences)`);
-    console.log('[Process Categories] Category distribution:', categoryCounts);
-    
-    setParsedData(prevData => {
-      return prevData.map(row => {
-        const inferred = inferCategory(row, mostFrequentCategory);
-        return {
-          ...row,
-          _rawCategory: row._rawCategory || row.supplier_category,
-          supplier_category: inferred
-        };
-      });
-    });
-    
-    // Update validation rows with new categories
-    setValidatedRows(prevValidated => {
-      return prevValidated.map(row => ({
-        ...row,
-        data: {
-          ...row.data,
-          supplier_category: inferCategory(row.data, mostFrequentCategory)
-        }
-      }));
-    });
-    
-    console.log('[Process Categories] Done');
-  }, [dbCategories, inferCategory, parsedData.length]);
-
+  // Validate data - category comes from user selection, not file
   const validateData = useCallback((data: any[]): ValidatedRow[] => {
     return data.map((row, index) => {
       const errors: ValidationError[] = [];
       
-      // Required fields validation
       // Contact validation: at least one contact method required (email OR phone)
       const hasEmail = row.user_email && row.user_email.trim() !== '';
       const hasPhone = row.user_phone && row.user_phone.trim() !== '';
@@ -290,9 +69,8 @@ export function SupplierBulkImport() {
         errors.push({ row: index + 1, field: 'supplier_business_name', message: 'Nom de l\'entreprise requis' });
       }
       
-      if (!row.supplier_category || row.supplier_category.trim() === '') {
-        errors.push({ row: index + 1, field: 'supplier_category', message: 'Catégorie requise' });
-      }
+      // Category is now selected by user, not from file
+      // We validate it separately before import
       
       if (!row.supplier_city || row.supplier_city.trim() === '') {
         errors.push({ row: index + 1, field: 'supplier_city', message: 'Ville requise' });
@@ -339,7 +117,7 @@ export function SupplierBulkImport() {
     { key: 'lastName', label: 'Nom', required: false },
     { key: 'phone', label: 'Téléphone', required: false },
     { key: 'business_name', label: "Nom de l'entreprise", required: true },
-    { key: 'category', label: 'Catégorie', required: true },
+    { key: 'category', label: 'Catégorie (optionnel)', required: false },
     { key: 'city', label: 'Ville', required: true },
     { key: 'state', label: 'État/Région', required: true },
     { key: 'address', label: 'Adresse', required: false },
@@ -832,10 +610,19 @@ export function SupplierBulkImport() {
   }, [parseCSV, parseExcel, showToast]);
 
   const handleImport = async () => {
+    // Validate that a category is selected
+    if (!selectedCategory) {
+      showToast('error', 'Veuillez sélectionner une catégorie pour les fournisseurs à importer');
+      return;
+    }
+    
     const rowsToImport = validatedRows
       .filter((_, index) => selectedRows.has(index))
       .filter(row => row.isValid)
-      .map(row => row.data);
+      .map(row => ({
+        ...row.data,
+        supplier_category: selectedCategory // Use the user-selected category
+      }));
     
     if (rowsToImport.length === 0) {
       showToast('error', 'Aucune donnée valide sélectionnée pour l\'import');
@@ -921,6 +708,7 @@ export function SupplierBulkImport() {
     setImportResult(null);
     setCurrentStep('upload');
     setSelectedRows(new Set());
+    setSelectedCategory('');
   };
 
   const downloadTemplate = () => {
@@ -1013,6 +801,32 @@ jane@example.com,Jane,Smith,+2348098765432,XYZ Services,info@xyzservices.com,+23
             </span>
           </label>
         </div>
+
+        {/* Category Selector - Required before import */}
+        {currentStep === 'preview' && dbCategories.length > 0 && (
+          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <label className="block text-sm font-medium text-yellow-800 mb-2">
+              <i className="ri-folder-line mr-2"></i>
+              Sélectionnez la catégorie pour tous les fournisseurs à importer *
+            </label>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full p-3 border border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 bg-white"
+              required
+            >
+              <option value="">-- Choisir une catégorie --</option>
+              {dbCategories.map((cat) => (
+                <option key={cat._id} value={cat.name}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-yellow-600 mt-2">
+              * Obligatoire. Tous les fournisseurs importés seront assignés à cette catégorie.
+            </p>
+          </div>
+        )}
 
         {/* Import Progress */}
         {currentStep === 'importing' && importProgress && (

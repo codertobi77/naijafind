@@ -265,6 +265,74 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * c;
 }
 
-function toRad(v: number) { return v * Math.PI / 180; }
+function toRad(v: number) { return v * v * Math.PI / 180; }
+
+// Mutation for claiming a supplier/business
+export const claimSupplier = mutation({
+  args: {
+    supplierId: v.id("suppliers"),
+    userEmail: v.string(),
+    claimedAt: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Get current user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Non autorisé");
+    
+    // Find the user in our database
+    const user = await ctx.db
+      .query("users")
+      .filter(q => q.eq(q.field("email"), identity.email))
+      .first();
+    
+    if (!user) {
+      throw new Error("Utilisateur non trouvé");
+    }
+    
+    // Get the supplier
+    const supplier = await ctx.db
+      .query("suppliers")
+      .filter(q => q.eq(q.field("_id"), args.supplierId))
+      .first();
+    
+    if (!supplier) {
+      throw new Error("Fournisseur non trouvé");
+    }
+    
+    // Check if supplier is already claimed
+    if (supplier.userId && supplier.userId !== user._id) {
+      throw new Error("Cette entreprise a déjà été réclamée");
+    }
+    
+    // Verify email matches (basic validation)
+    const supplierEmail = (supplier.email || "").toLowerCase();
+    const claimerEmail = args.userEmail.toLowerCase();
+    
+    // Create a claim record
+    const claimId = await ctx.db.insert("supplierClaims", {
+      supplierId: args.supplierId,
+      userId: user._id,
+      userEmail: args.userEmail,
+      supplierEmail: supplier.email || "",
+      status: "pending", // pending, approved, rejected
+      claimedAt: args.claimedAt,
+      verifiedAt: undefined,
+      verifiedBy: undefined,
+      notes: "",
+    });
+    
+    // Update supplier with pending claim status
+    await ctx.db.patch(args.supplierId, {
+      claimStatus: "pending",
+      claimId: claimId,
+    });
+    
+    return { 
+      success: true, 
+      claimId,
+      message: "Demande de réclamation soumise avec succès" 
+    };
+  }
+});
 
 

@@ -6,7 +6,7 @@ import { useConvexQuerySkippable, useConvexQuery } from '../../hooks/useConvexQu
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
 import { SupplierAvatar } from '../../components/SupplierImage';
-import { SignedIn, SignedOut } from '@clerk/clerk-react';
+import { SignedIn, SignedOut, useUser } from '@clerk/clerk-react';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/base';
 import mapboxgl from 'mapbox-gl';
@@ -170,6 +170,7 @@ export default function SupplierDetail() {
   const [activeTab, setActiveTab] = useState('overview');
   const [showContactForm, setShowContactForm] = useState(false);
   const [showInternalMessageForm, setShowInternalMessageForm] = useState(false);
+  const [showClaimModal, setShowClaimModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSendingInternalMessage, setIsSendingInternalMessage] = useState(false);
   const [internalMessageForm, setInternalMessageForm] = useState({
@@ -584,6 +585,26 @@ export default function SupplierDetail() {
                   <span className="hidden sm:inline">{t('supplier.favorite')}</span>
                   <span className="sm:hidden">{t('supplier.favorite')}</span>
                 </button>
+                
+                {/* Claim Business Button */}
+                <SignedOut>
+                  <Link
+                    to="/auth/login"
+                    className="bg-orange-500 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-orange-600 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base"
+                  >
+                    <i className="ri-shield-user-line mr-1 sm:mr-2"></i>
+                    Vous possédez cette entreprise ?
+                  </Link>
+                </SignedOut>
+                <SignedIn>
+                  <button
+                    onClick={() => setShowClaimModal(true)}
+                    className="bg-orange-500 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-orange-600 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base"
+                  >
+                    <i className="ri-shield-user-line mr-1 sm:mr-2"></i>
+                    Vous possédez cette entreprise ?
+                  </button>
+                </SignedIn>
               </div>
             </div>
           </div>
@@ -1436,8 +1457,227 @@ export default function SupplierDetail() {
         </div>
       )}
 
+      {/* Claim Business Modal */}
+      {showClaimModal && (
+        <ClaimBusinessModal
+          supplier={transformedSupplier}
+          onClose={() => setShowClaimModal(false)}
+          showToast={showToast}
+        />
+      )}
+
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+    </div>
+  );
+}
+
+// Claim Business Modal Component
+interface ClaimBusinessModalProps {
+  supplier: Supplier | null;
+  onClose: () => void;
+  showToast: (type: 'success' | 'error' | 'warning', message: string) => void;
+}
+
+function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModalProps) {
+  const { user } = useUser();
+  const [step, setStep] = useState<'verify' | 'confirm' | 'success'>('verify');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const claimMutation = useMutation(api.suppliers.claimSupplier);
+  
+  // Get user's email addresses from Clerk
+  const userEmails = user?.emailAddresses?.map(e => e.emailAddress) || [];
+  const primaryEmail = user?.primaryEmailAddress?.emailAddress || '';
+  const supplierEmail = supplier?.email?.toLowerCase() || '';
+  
+  // Check if user's email matches the supplier's email
+  const hasMatchingEmail = userEmails.some(email => 
+    email.toLowerCase() === supplierEmail || 
+    email.toLowerCase().includes(supplier?.name?.toLowerCase()?.replace(/\s+/g, '') || '')
+  );
+  
+  const handleVerifyEmail = async () => {
+    // Trigger email verification if needed
+    const primaryEmailObj = user?.primaryEmailAddress;
+    if (primaryEmailObj && !primaryEmailObj.verification?.status === 'verified') {
+      try {
+        await primaryEmailObj.prepareEmailAddressVerification({
+          strategy: 'email_code'
+        });
+        showToast('success', 'Un code de vérification a été envoyé à votre email');
+      } catch (error) {
+        showToast('error', 'Erreur lors de l\'envoi du code de vérification');
+      }
+    }
+  };
+  
+  const handleSubmitClaim = async () => {
+    if (!supplier || !user) return;
+    
+    setIsSubmitting(true);
+    try {
+      await claimMutation({
+        supplierId: supplier.id,
+        userEmail: primaryEmail,
+        claimedAt: new Date().toISOString()
+      });
+      setStep('success');
+      showToast('success', 'Votre demande de réclamation a été soumise avec succès');
+    } catch (error) {
+      showToast('error', 'Erreur lors de la soumission de la demande');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  if (!supplier) return null;
+  
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <h3 className="text-base sm:text-lg lg:text-xl font-semibold flex items-center">
+            <i className="ri-shield-user-line text-orange-500 mr-2"></i>
+            Réclamer cette entreprise
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 p-1"
+          >
+            <i className="ri-close-line text-lg sm:text-xl"></i>
+          </button>
+        </div>
+        
+        {step === 'verify' && (
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-800 mb-2">
+                <i className="ri-information-line mr-1"></i>
+                Pour réclamer <strong>{supplier.name}</strong>, vous devez vérifier que vous êtes le propriétaire.
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <span className="text-sm text-gray-700">Email de l'entreprise:</span>
+                <span className="text-sm font-medium text-gray-900">{supplier.email || 'Non disponible'}</span>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <span className="text-sm text-gray-700">Votre email:</span>
+                <span className="text-sm font-medium text-gray-900">{primaryEmail || 'Non disponible'}</span>
+              </div>
+            </div>
+            
+            {hasMatchingEmail ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-sm text-green-800">
+                  <i className="ri-check-line mr-1"></i>
+                  Votre email correspond à celui de l'entreprise. Vous pouvez réclamer cette entreprise.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-sm text-yellow-800">
+                  <i className="ri-alert-line mr-1"></i>
+                  Votre email ne correspond pas à celui de l'entreprise. 
+                  Veuillez utiliser l'email professionnel de l'entreprise ou contacter le support.
+                </p>
+              </div>
+            )}
+            
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+              <button
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-xs sm:text-sm"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => setStep('confirm')}
+                disabled={!hasMatchingEmail}
+                className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
+              >
+                Continuer
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {step === 'confirm' && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-700">
+              En réclamant <strong>{supplier.name}</strong>, vous confirmez que vous êtes le propriétaire 
+              ou un représentant autorisé de cette entreprise. Vous aurez accès au tableau de bord 
+              pour gérer les informations, les avis et les messages.
+            </p>
+            
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2">
+              <p className="text-xs text-gray-600">
+                <i className="ri-check-line text-green-500 mr-1"></i>
+                Gérer les informations de l'entreprise
+              </p>
+              <p className="text-xs text-gray-600">
+                <i className="ri-check-line text-green-500 mr-1"></i>
+                Répondre aux avis clients
+              </p>
+              <p className="text-xs text-gray-600">
+                <i className="ri-check-line text-green-500 mr-1"></i>
+                Accéder aux statistiques
+              </p>
+              <p className="text-xs text-gray-600">
+                <i className="ri-check-line text-green-500 mr-1"></i>
+                Gérer les messages et demandes
+              </p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+              <button
+                onClick={() => setStep('verify')}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-xs sm:text-sm"
+              >
+                Retour
+              </button>
+              <button
+                onClick={handleSubmitClaim}
+                disabled={isSubmitting}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 text-xs sm:text-sm"
+              >
+                {isSubmitting ? (
+                  <>
+                    <i className="ri-loader-4-line animate-spin mr-2"></i>
+                    Envoi...
+                  </>
+                ) : (
+                  <>
+                    <i className="ri-check-double-line mr-2"></i>
+                    Confirmer la réclamation
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {step === 'success' && (
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+              <i className="ri-check-line text-3xl text-green-600"></i>
+            </div>
+            <h4 className="text-lg font-semibold text-gray-900">Demande soumise !</h4>
+            <p className="text-sm text-gray-700">
+              Votre demande de réclamation pour <strong>{supplier.name}</strong> a été soumise. 
+              Notre équipe va vérifier vos informations et vous recevrez une confirmation par email.
+            </p>
+            <button
+              onClick={onClose}
+              className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+            >
+              Fermer
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

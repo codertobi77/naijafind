@@ -45,9 +45,6 @@ export const queryClient = new QueryClient({
       // Refetch on reconnect
       refetchOnReconnect: true,
       
-      // Enable suspense for better loading states
-      suspense: false,
-      
       // Don't keep previous data to avoid showing stale data
       placeholderData: undefined,
     },

@@ -42,10 +42,13 @@ export default defineSchema({
     business_type: v.optional(v.string()), // 'products' or 'services'
     created_at: v.string(),
     updated_at: v.string(),
+    claimStatus: v.optional(v.string()), // 'pending', 'approved', 'rejected'
+    claimId: v.optional(v.string()), // Reference to supplierClaims
   })
-    .index("userId", ["userId"]) // Index pour garantir 1 supplier par user (application-level enforced)
+    .index("userId", ["userId"])
     .index("approved", ["approved"])
-    .index("featured", ["featured"]), // Index pour améliorer les performances des requêtes
+    .index("featured", ["featured"])
+    .index("claimStatus", ["claimStatus"]),
   products: defineTable({
     supplierId: v.string(),
     name: v.string(),
@@ -188,4 +191,19 @@ export default defineSchema({
     .index("position", ["position"])
     .index("is_active", ["is_active"])
     .index("position_active", ["position", "is_active"]),
+  // Supplier claims for business ownership verification
+  supplierClaims: defineTable({
+    supplierId: v.id("suppliers"),
+    userId: v.string(),
+    userEmail: v.string(),
+    supplierEmail: v.string(),
+    status: v.string(), // 'pending', 'approved', 'rejected'
+    claimedAt: v.string(),
+    verifiedAt: v.optional(v.string()),
+    verifiedBy: v.optional(v.string()), // userId of admin who verified
+    notes: v.optional(v.string()),
+  })
+    .index("supplierId", ["supplierId"])
+    .index("userId", ["userId"])
+    .index("status", ["status"]),
 });

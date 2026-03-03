@@ -467,7 +467,7 @@ export default function Dashboard() {
 
   const [products, setProducts] = useState<any[]>([]);
   const [productModalMode, setProductModalMode] =
-    useState<'add' | 'edit' | 'delete'>('add');
+    useState<'add' | 'edit'>('add');
   const [productModalData, setProductModalData] = useState<any>(null);
   const [showProductModal, setShowProductModal] = useState(false);
   const [showProductDeleteModal, setShowProductDeleteModal] = useState(false);
@@ -1003,7 +1003,6 @@ export default function Dashboard() {
               setShowProductModal(true);
             }}
             onDelete={(product) => {
-              setProductModalMode('delete');
               setProductModalData(product);
               setShowProductDeleteModal(true);
             }}

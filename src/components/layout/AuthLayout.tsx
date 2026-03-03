@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { LogoLink } from '../base/Logo';
+import { Link } from 'react-router-dom';
 
 interface AuthLayoutProps {
   children: ReactNode;

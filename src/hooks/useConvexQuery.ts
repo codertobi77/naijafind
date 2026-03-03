@@ -114,7 +114,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       }
       // Call user-provided onSuccess if exists
       if (options?.onSuccess) {
-        await options.onSuccess(data, variables, context);
+        await options.onSuccess(data, variables, context, {} as any);
       }
     },
     ...options,
@@ -147,7 +147,7 @@ export function useConvexMutationWithInvalidation<Mutation extends FunctionRefer
         await invalidateCacheByTags(queryClient, allTags);
       }
       if (options?.onSuccess) {
-        await options.onSuccess(data, variables, context);
+        await options.onSuccess(data, variables, context, {} as any);
       }
     },
     ...options,
