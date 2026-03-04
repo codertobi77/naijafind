@@ -3,10 +3,7 @@ import { v } from "convex/values";
 
 export const getAllSuppliers = query({
   args: {
-    paginationOpts: v.optional(v.object({
-      numItems: v.number(),
-      cursor: v.optional(v.string()),
-    })),
+    limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     // Check if user is admin
@@ -22,23 +19,20 @@ export const getAllSuppliers = query({
       throw new Error("Accès refusé. Seuls les administrateurs peuvent effectuer cette action.");
     }
     
-    // Use pagination to limit data transfer (max 100 items per request)
-    const paginationOpts = args.paginationOpts || { numItems: 100 };
-    const result = await ctx.db
+    // Limit to prevent bandwidth issues (default 100, max 500)
+    const limit = Math.min(args.limit ?? 100, 500);
+    const suppliers = await ctx.db
       .query("suppliers")
-      .paginate(paginationOpts);
+      .take(limit);
     
-    return result;
+    return suppliers;
   }
 });
 
 // Query admin : lister toutes les galeries (imageGallery de chaque fournisseur)
 export const listAllGalleriesAdmin = query({
   args: {
-    paginationOpts: v.optional(v.object({
-      numItems: v.number(),
-      cursor: v.optional(v.string()),
-    })),
+    limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     // Check if user is admin
@@ -51,20 +45,17 @@ export const listAllGalleriesAdmin = query({
     if (!user || !user.is_admin) {
       throw new Error("Accès refusé. Seuls les administrateurs peuvent effectuer cette action.");
     }
-    // Use pagination to limit data transfer (max 100 items per request)
-    const paginationOpts = args.paginationOpts || { numItems: 100 };
-    const result = await ctx.db
+    // Limit to prevent bandwidth issues (default 100, max 500)
+    const limit = Math.min(args.limit ?? 100, 500);
+    const suppliers = await ctx.db
       .query("suppliers")
-      .paginate(paginationOpts);
+      .take(limit);
     // Map to only return needed fields
-    return {
-      ...result,
-      page: result.page.map(s => ({
-        _id: s._id,
-        business_name: s.business_name,
-        imageGallery: s.imageGallery || [],
-      })),
-    };
+    return suppliers.map(s => ({
+      _id: s._id,
+      business_name: s.business_name,
+      imageGallery: s.imageGallery || [],
+    }));
   }
 });
 

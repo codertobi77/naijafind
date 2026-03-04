@@ -198,48 +198,42 @@ export const rejectSupplier = mutation({
 
 export const getPendingSuppliers = query({
   args: {
-    paginationOpts: v.optional(v.object({
-      numItems: v.number(),
-      cursor: v.optional(v.string()),
-    })),
+    limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     // Check if user is admin
     await requireAdmin(ctx);
     
-    // Use pagination to limit data transfer
-    const paginationOpts = args.paginationOpts || { numItems: 100 };
-    const result = await ctx.db
+    // Limit to prevent bandwidth issues (default 100, max 500)
+    const limit = Math.min(args.limit ?? 100, 500);
+    const suppliers = await ctx.db
       .query("suppliers")
       .filter((q: any) => q.eq(q.field("approved"), false))
-      .paginate(paginationOpts);
+      .take(limit);
     
-    return result;
+    return suppliers;
   }
 });
 
 // Get featured suppliers
 export const getFeaturedSuppliers = query({
   args: {
-    paginationOpts: v.optional(v.object({
-      numItems: v.number(),
-      cursor: v.optional(v.string()),
-    })),
+    limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     // Check if user is admin
     await requireAdmin(ctx);
     
-    // Use pagination to limit data transfer
-    const paginationOpts = args.paginationOpts || { numItems: 100 };
-    const result = await ctx.db
+    // Limit to prevent bandwidth issues (default 100, max 500)
+    const limit = Math.min(args.limit ?? 100, 500);
+    const suppliers = await ctx.db
       .query("suppliers")
       .filter((q: any) => q.and(
         q.eq(q.field("approved"), true),
         q.eq(q.field("featured"), true)
       ))
-      .paginate(paginationOpts);
+      .take(limit);
     
-    return result;
+    return suppliers;
   }
 });

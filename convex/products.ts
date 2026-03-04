@@ -98,10 +98,7 @@ export const updateProduct = mutation({
 // Query admin : lister tous les produits
 export const listAllProductsAdmin = query({
   args: {
-    paginationOpts: v.optional(v.object({
-      numItems: v.number(),
-      cursor: v.optional(v.string()),
-    })),
+    limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     // Vérifier si admin
@@ -114,10 +111,10 @@ export const listAllProductsAdmin = query({
     if (!user || (!user.is_admin && user.user_type !== 'admin')) {
       throw new Error("Non autorisé - Admin uniquement");
     }
-    // Use pagination to limit data transfer
-    const paginationOpts = args.paginationOpts || { numItems: 100 };
-    const result = await ctx.db.query("products").paginate(paginationOpts);
-    return result;
+    // Limit to prevent bandwidth issues (default 100, max 500)
+    const limit = Math.min(args.limit ?? 100, 500);
+    const products = await ctx.db.query("products").take(limit);
+    return products;
   },
 });
 
