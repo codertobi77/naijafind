@@ -606,10 +606,13 @@ const refetchAllSuppliers = () => {};
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-              {/* Tableau Fournisseurs */}
-              <div className="col-span-1 bg-white rounded-lg shadow p-4 overflow-auto">
-                <h3 className="text-lg font-bold mb-2">{t('admin.suppliers')}</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+              {/* Tableau Fournisseurs - Top 10 */}
+              <div className="bg-white rounded-lg shadow p-4 overflow-auto">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold">{t('admin.suppliers')}</h3>
+                  <span className="text-xs text-gray-500">Top 10</span>
+                </div>
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50">
                     <tr>
@@ -620,7 +623,7 @@ const refetchAllSuppliers = () => {};
                     </tr>
                   </thead>
                   <tbody>
-                    {allSuppliers?.map((supplier) => (
+                    {allSuppliers?.slice(0, 10).map((supplier) => (
                       <tr key={supplier._id}>
                         <td className="px-2 py-2">{supplier.business_name}</td>
                         <td className="px-2 py-2">{supplier.email}</td>
@@ -642,9 +645,12 @@ const refetchAllSuppliers = () => {};
                 </table>
               </div>
 
-              {/* Tableau Produits */}
-              <div className="col-span-1 bg-white rounded-lg shadow p-4 overflow-auto">
-                <h3 className="text-lg font-bold mb-2">{t('admin.products')}</h3>
+              {/* Tableau Produits - Top 10 */}
+              <div className="bg-white rounded-lg shadow p-4 overflow-auto">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold">{t('admin.products')}</h3>
+                  <span className="text-xs text-gray-500">Top 10</span>
+                </div>
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50">
                     <tr>
@@ -654,7 +660,7 @@ const refetchAllSuppliers = () => {};
                     </tr>
                   </thead>
                   <tbody>
-                    {allProducts?.map((product) => (
+                    {allProducts?.slice(0, 10).map((product) => (
                       <tr key={product._id}>
                         <td className="px-2 py-2">{product.name}</td>
                         <td className="px-2 py-2">{formatCurrency(product.price)}</td>
@@ -664,28 +670,6 @@ const refetchAllSuppliers = () => {};
                   </tbody>
                 </table>
               </div>
-
-              {/* Tableau Galeries */}
-              <div className="col-span-1 bg-white rounded-lg shadow p-4 overflow-auto">
-                <h3 className="text-lg font-bold mb-2">{t('admin.galleries')}</h3>
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-2 py-2">Nom</th>
-                      <th className="px-2 py-2">Description</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allGalleries?.map((gallery) => (
-                      <tr key={gallery._id}>
-                        <td className="px-2 py-2">{gallery.business_name}</td>
-                        <td className="px-2 py-2">{gallery.imageGallery?.length || 0} images</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {/* À remplacer par une vraie section d’activité si besoin */}
             </div>
           </div>
         );
