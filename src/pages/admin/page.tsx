@@ -489,10 +489,16 @@ export default function AdminPage(){
     { staleTime: 2 * 60 * 1000 }
   );
 
-// Statistiques dynamiques
-const usersCount = Array.isArray(allSuppliers) ? allSuppliers.length : 0;
-const reviewsCount = Array.isArray(allSuppliers) ? allSuppliers.reduce((acc, s) => acc + Number(s.reviews_count || 0), 0) : 0;
-const refetchAllSuppliers = () => {};
+  const { data: adminStats } = useConvexQuery(
+    api.stats.getAdminStats,
+    {},
+    { staleTime: 30 * 1000 } // Cache stats for 30 seconds
+  );
+
+// Statistiques depuis la table stats (plus performant)
+const usersCount = adminStats?.totalSuppliers || 0;
+const reviewsCount = adminStats?.totalReviews || 0;
+const pendingCount = adminStats?.pendingSuppliers || 0;
   
   const addCategory = useMutation(api.categories.addCategory);
   const updateCategory = useMutation(api.categories.updateCategory);
@@ -576,24 +582,31 @@ const refetchAllSuppliers = () => {};
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
                 label={t('admin.pending_suppliers')}
-                value={pendingSuppliers?.length || 0}
+                value={pendingCount}
                 icon="ri-store-line"
                 iconColor="text-blue-600"
                 iconBg="bg-blue-100"
               />
               <StatCard
-                label={t('admin.users')}
-                value={usersCount ?? 0}
-                icon="ri-user-line"
+                label={t('admin.total_suppliers')}
+                value={usersCount}
+                icon="ri-store-2-line"
                 iconColor="text-green-600"
                 iconBg="bg-green-100"
               />
               <StatCard
                 label={t('admin.reviews')}
-                value={reviewsCount ?? 0}
+                value={reviewsCount}
                 icon="ri-star-line"
                 iconColor="text-yellow-600"
                 iconBg="bg-yellow-100"
+              />
+              <StatCard
+                label={t('admin.total_products')}
+                value={adminStats?.totalProducts || 0}
+                icon="ri-product-hunt-line"
+                iconColor="text-purple-600"
+                iconBg="bg-purple-100"
               />
             </div>
 

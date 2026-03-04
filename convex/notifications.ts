@@ -17,7 +17,7 @@ export const getNotifications = query({
     // Look up the user to get their Convex document ID
     const user = await ctx.db
       .query('users')
-      .filter(q => q.eq(q.field('tokenIdentifier'), userId))
+      .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', userId))
       .first();
     
     if (!user) {
@@ -56,7 +56,7 @@ export const getUnreadCount = query({
     // Look up the user to get their Convex document ID
     const user = await ctx.db
       .query('users')
-      .filter(q => q.eq(q.field('tokenIdentifier'), userId))
+      .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', userId))
       .first();
     
     if (!user) {

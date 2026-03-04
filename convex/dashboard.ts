@@ -12,7 +12,7 @@ export const supplierDashboard = query({
 
     const supplier = await ctx.db
       .query("suppliers")
-      .filter(q => q.eq(q.field("userId"), identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.subject))
       .first();
     if (!supplier) throw new Error("Profil fournisseur non trouvé");
 
@@ -30,7 +30,7 @@ export const supplierDashboard = query({
     
     const reviewsResult = await ctx.db
       .query("reviews")
-      .filter(q => q.eq(q.field("supplierId"), supplier._id as unknown as string))
+      .withIndex("supplierId", (q) => q.eq("supplierId", supplier._id as unknown as string))
       .paginate({ cursor: null, numItems: MAX_PAGE_SIZE });
     const reviews = reviewsResult.page;
 

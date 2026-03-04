@@ -20,16 +20,13 @@ export const checkRateLimit = query({
     const now = Date.now();
     const windowStart = now - windowMs;
 
-    // Count recent attempts
+    // Count recent attempts using compound index
     const attempts = await ctx.db
       .query("rate_limit_attempts")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("identifier"), args.identifier),
-          q.eq(q.field("action"), args.action),
-          q.gt(q.field("timestamp"), windowStart)
-        )
+      .withIndex("identifier_action", (q) => 
+        q.eq("identifier", args.identifier).eq("action", args.action)
       )
+      .filter((q) => q.gt(q.field("timestamp"), windowStart))
       .collect();
 
     const allowed = attempts.length < limit;
@@ -68,7 +65,7 @@ export const cleanupOldAttempts = mutation({
 
     const oldAttempts = await ctx.db
       .query("rate_limit_attempts")
-      .filter((q) => q.lt(q.field("timestamp"), cutoff))
+      .withIndex("timestamp", (q) => q.lt("timestamp", cutoff))
       .collect();
 
     for (const attempt of oldAttempts) {

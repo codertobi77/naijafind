@@ -1,6 +1,7 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 
 /**
  * Email service using Resend
@@ -63,10 +64,7 @@ export const sendSupplierContactEmail = mutation({
   },
   handler: async (ctx, args) => {
     // Get supplier details from suppliers table
-    const supplier = await ctx.db
-      .query("suppliers")
-      .filter((q) => q.eq(q.field("_id"), args.supplierId as any))
-      .first();
+    const supplier = await ctx.db.get(args.supplierId as Id<"suppliers">);
       
     if (!supplier) {
       throw new Error("Supplier not found");
@@ -167,7 +165,7 @@ export const sendPasswordResetEmail = mutation({
     // Find user by email
     const user = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("email"), args.email))
+      .withIndex("email", (q) => q.eq("email", args.email))
       .first();
 
     if (!user) {
@@ -228,7 +226,7 @@ export const sendSupplierApprovalEmail = mutation({
     // Check if user is admin
     const user = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("email"), identity.email))
+      .withIndex("email", (q) => q.eq("email", identity.email))
       .first();
 
     if (!user || !user.is_admin) {
@@ -236,10 +234,7 @@ export const sendSupplierApprovalEmail = mutation({
     }
 
     // Get supplier details from suppliers table
-    const supplier = await ctx.db
-      .query("suppliers")
-      .filter((q) => q.eq(q.field("_id"), args.supplierId as any))
-      .first();
+    const supplier = await ctx.db.get(args.supplierId as Id<"suppliers">);
       
     if (!supplier) {
       throw new Error("Supplier not found");
@@ -365,7 +360,7 @@ export const subscribeToNewsletter = mutation({
     // Check if email already exists
     const existing = await ctx.db
       .query("newsletter_subscriptions")
-      .filter((q) => q.eq(q.field("email"), normalizedEmail))
+      .withIndex("email", (q) => q.eq("email", normalizedEmail))
       .first();
     
     if (existing) {
@@ -459,7 +454,7 @@ export const unsubscribeFromNewsletter = mutation({
     
     const subscription = await ctx.db
       .query("newsletter_subscriptions")
-      .filter((q) => q.eq(q.field("email"), normalizedEmail))
+      .withIndex("email", (q) => q.eq("email", normalizedEmail))
       .first();
     
     if (!subscription) {
@@ -492,7 +487,7 @@ export const sendNewsletter = mutation({
     // Check if user is admin
     const user = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("email"), identity.email))
+      .withIndex("email", (q) => q.eq("email", identity.email))
       .first();
     
     if (!user || !user.is_admin) {
@@ -502,7 +497,7 @@ export const sendNewsletter = mutation({
     // Get all active subscribers
     const subscribers = await ctx.db
       .query("newsletter_subscriptions")
-      .filter((q) => q.eq(q.field("status"), "active"))
+      .withIndex("status", (q) => q.eq("status", "active"))
       .collect();
     
     if (subscribers.length === 0) {
@@ -548,17 +543,18 @@ export const getNewsletterSubscribers = mutation({
     // Check if user is admin
     const user = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("email"), identity.email))
+      .withIndex("email", (q) => q.eq("email", identity.email))
       .first();
     
     if (!user || !user.is_admin) {
       throw new Error("Access denied. Admin only.");
     }
     
-    let query = ctx.db.query("newsletter_subscriptions");
-    
+    let query;
     if (args.status && args.status !== "all") {
-      query = query.filter((q) => q.eq(q.field("status"), args.status));
+      query = ctx.db.query("newsletter_subscriptions").withIndex("status", (q) => q.eq("status", args.status));
+    } else {
+      query = ctx.db.query("newsletter_subscriptions");
     }
     
     const subscribers = await query.collect();

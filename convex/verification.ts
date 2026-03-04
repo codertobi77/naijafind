@@ -94,7 +94,7 @@ export const getVerificationDocuments = query({
 
     const documents = await ctx.db
       .query("verification_documents")
-      .filter((q) => q.eq(q.field("supplierId"), supplierId))
+      .withIndex("supplierId", (q) => q.eq("supplierId", supplierId))
       .collect();
 
     return documents;
@@ -117,7 +117,7 @@ export const reviewVerificationDocument = mutation({
     // Check if user is admin
     const user = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("email"), identity.email))
+      .withIndex("email", (q) => q.eq("email", identity.email))
       .first();
 
     if (!user || !user.is_admin) {
@@ -173,7 +173,7 @@ export const getPendingVerificationDocuments = query({
     // Check if user is admin
     const user = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("email"), identity.email))
+      .withIndex("email", (q) => q.eq("email", identity.email))
       .first();
 
     if (!user || !user.is_admin) {
@@ -182,7 +182,7 @@ export const getPendingVerificationDocuments = query({
 
     const pendingDocuments = await ctx.db
       .query("verification_documents")
-      .filter((q) => q.eq(q.field("status"), "pending"))
+      .withIndex("status", (q) => q.eq("status", "pending"))
       .collect();
 
     // Enrich with supplier information
@@ -209,7 +209,7 @@ export const getVerificationStatus = query({
   handler: async (ctx, { supplierId }) => {
     const documents = await ctx.db
       .query("verification_documents")
-      .filter((q) => q.eq(q.field("supplierId"), supplierId))
+      .withIndex("supplierId", (q) => q.eq("supplierId", supplierId))
       .collect();
 
     const requiredDocTypes = [

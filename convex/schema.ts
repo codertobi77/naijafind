@@ -222,4 +222,14 @@ export default defineSchema({
   })
     .index("status", ["status"])
     .index("scheduledBy", ["scheduledBy"]),
+  // Global statistics counters
+  stats: defineTable({
+    key: v.string(), // 'totalSuppliers', 'totalUsers', 'totalReviews', 'totalProducts', 'pendingSuppliers', 'approvedSuppliers', 'featuredSuppliers', etc.
+    value: v.number(), // the counter value
+    category: v.optional(v.string()), // 'global', 'category', 'supplier' for grouping
+    metadata: v.optional(v.record(v.string(), v.any())), // extra data like category name, supplierId, etc.
+    updatedAt: v.string(),
+  })
+    .index("key", ["key"])
+    .index("category", ["category"]),
 });

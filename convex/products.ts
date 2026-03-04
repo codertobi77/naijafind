@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 
 export const listProducts = query({
   args: {},
@@ -10,7 +11,7 @@ export const listProducts = query({
 
     const supplier = await ctx.db
       .query("suppliers")
-      .filter(q => q.eq(q.field("userId"), identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.subject))
       .first();
     if (!supplier) throw new Error("Profil fournisseur non trouvé");
 
@@ -39,7 +40,7 @@ export const createProduct = mutation({
 
     const supplier = await ctx.db
       .query("suppliers")
-      .filter(q => q.eq(q.field("userId"), identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.subject))
       .first();
     if (!supplier) throw new Error("Profil fournisseur non trouvé");
 
@@ -56,6 +57,14 @@ export const createProduct = mutation({
       created_at: now,
       updated_at: now,
     });
+    
+    // Update global stats
+    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
+      key: "totalProducts",
+      amount: 1,
+      category: "global",
+    });
+    
     return { success: true, id };
   }
 });
@@ -106,7 +115,7 @@ export const listAllProductsAdmin = query({
     if (!identity) throw new Error("Non autorisé");
     const user = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("email"), identity.email ?? ""))
+      .withIndex("email", (q) => q.eq("email", identity.email ?? ""))
       .first();
     if (!user || (!user.is_admin && user.user_type !== 'admin')) {
       throw new Error("Non autorisé - Admin uniquement");
@@ -131,6 +140,14 @@ export const deleteProduct = mutation({
     if (!supplier || prod.supplierId !== (supplier._id as unknown as string)) throw new Error("Accès refusé");
 
     await ctx.db.delete(id);
+    
+    // Update global stats
+    await ctx.scheduler.runAfter(0, internal.stats.decrementStat, {
+      key: "totalProducts",
+      amount: 1,
+      category: "global",
+    });
+    
     return { success: true };
   }
 });

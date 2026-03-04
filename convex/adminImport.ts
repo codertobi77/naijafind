@@ -1,5 +1,6 @@
 import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 
 // Helper function to normalize strings for category matching
 function normalizeString(str: string): string {
@@ -184,6 +185,39 @@ async function importSingleSupplierInternal(
       read: false,
       actionUrl: '/dashboard',
       createdAt: now,
+    });
+    // Update global stats after successful import
+    const isApproved = args.supplier_approved ?? true;
+    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
+      key: "totalSuppliers",
+      amount: 1,
+      category: "global",
+    });
+    if (isApproved) {
+      await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
+        key: "approvedSuppliers",
+        amount: 1,
+        category: "global",
+      });
+    } else {
+      await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
+        key: "pendingSuppliers",
+        amount: 1,
+        category: "global",
+      });
+    }
+    if (args.supplier_featured) {
+      await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
+        key: "featuredSuppliers",
+        amount: 1,
+        category: "global",
+      });
+    }
+    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
+      key: "suppliersInCategory",
+      amount: 1,
+      category: "category",
+      metadata: { categoryName },
     });
   }
 

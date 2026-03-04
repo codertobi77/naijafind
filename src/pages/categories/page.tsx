@@ -59,30 +59,17 @@ export default function Categories() {
     {},
     { staleTime: 15 * 60 * 1000 } // Categories don't change often - cache for 15 minutes
   );
-  const { data: allSuppliers, isLoading: suppliersLoading } = useConvexQuery(
-    api.suppliers.searchSuppliers,
-    { limit: BigInt(1000) },
-    { staleTime: 5 * 60 * 1000 } // Cache supplier list for 5 minutes
+  const { data: categoryStats, isLoading: statsLoading } = useConvexQuery(
+    api.stats.getCategoryStats,
+    {},
+    { staleTime: 5 * 60 * 1000 } // Cache category stats for 5 minutes
   );
 
   // Loading state
-  const loading = categoriesLoading || suppliersLoading;
+  const loading = categoriesLoading || statsLoading;
 
-  // Calculer le nombre de suppliers par catégorie
-  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    if (allSuppliers?.suppliers) {
-      const counts: Record<string, number> = {};
-      allSuppliers.suppliers.forEach((supplier: any) => {
-        const cat = supplier.category || supplier.business_name;
-        if (cat) {
-          counts[cat] = (counts[cat] || 0) + 1;
-        }
-      });
-      setCategoryCounts(counts);
-    }
-  }, [allSuppliers]);
+  // Utiliser les counts depuis la table stats (plus performant)
+  const categoryCounts = categoryStats || {};
 
   const handleAddBusinessClick = () => {
     if (!isLoading) {

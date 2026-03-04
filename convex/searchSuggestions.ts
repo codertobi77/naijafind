@@ -15,7 +15,7 @@ export const getSearchSuggestions = query({
     // Get all approved suppliers
     const suppliers = await ctx.db
       .query("suppliers")
-      .filter(q => q.eq(q.field("approved"), true))
+      .withIndex("approved", (q) => q.eq("approved", true))
       .collect();
 
     // Get all products
@@ -24,7 +24,7 @@ export const getSearchSuggestions = query({
     // Get all active categories
     const categories = await ctx.db
       .query("categories")
-      .filter(q => q.eq(q.field("is_active"), true))
+      .withIndex("is_active", (q) => q.eq("is_active", true))
       .collect();
 
     // Extract unique supplier business names
@@ -85,7 +85,7 @@ export const searchSuggestionsWithQuery = query({
     // Get all approved suppliers
     const suppliers = await ctx.db
       .query("suppliers")
-      .filter(q => q.eq(q.field("approved"), true))
+      .withIndex("approved", (q) => q.eq("approved", true))
       .collect();
 
     // Get all products
@@ -94,7 +94,7 @@ export const searchSuggestionsWithQuery = query({
     // Get all active categories
     const categories = await ctx.db
       .query("categories")
-      .filter(q => q.eq(q.field("is_active"), true))
+      .withIndex("is_active", (q) => q.eq("is_active", true))
       .collect();
 
     // Build suggestions

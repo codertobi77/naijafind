@@ -8,7 +8,7 @@ async function isAdmin(ctx: any) {
 
   const user = await ctx.db
     .query("users")
-    .filter((q: any) => q.eq(q.field("email"), identity.email ?? ""))
+    .withIndex("email", (q) => q.eq("email", identity.email ?? ""))
     .first();
 
   return user?.is_admin === true || user?.user_type === 'admin';

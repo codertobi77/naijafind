@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 
 export const listReviews = query({
   args: {},
@@ -9,13 +10,13 @@ export const listReviews = query({
 
     const supplier = await ctx.db
       .query("suppliers")
-      .filter(q => q.eq(q.field("userId"), identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.subject))
       .first();
     if (!supplier) throw new Error("Profil fournisseur non trouvé");
 
     const reviews = await ctx.db
       .query("reviews")
-      .filter(q => q.eq(q.field("supplierId"), supplier._id as unknown as string))
+      .withIndex("supplierId", (q) => q.eq("supplierId", supplier._id as unknown as string))
       .collect();
 
     return reviews;
@@ -40,10 +41,8 @@ export const createReview = mutation({
     // Check if user already reviewed this supplier
     const existingReview = await ctx.db
       .query("reviews")
-      .filter(q => q.and(
-        q.eq(q.field("supplierId"), args.supplierId),
-        q.eq(q.field("userId"), identity.subject)
-      ))
+      .withIndex("userId", (q) => q.eq("userId", identity.subject))
+      .filter(q => q.eq(q.field("supplierId"), args.supplierId))
       .first();
     
     if (existingReview) {
@@ -66,10 +65,17 @@ export const createReview = mutation({
       created_at: new Date().toISOString(),
     });
     
+    // Update global stats
+    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
+      key: "totalReviews",
+      amount: 1,
+      category: "global",
+    });
+    
     // Update supplier rating and review count
     const supplierReviews = await ctx.db
       .query("reviews")
-      .filter(q => q.eq(q.field("supplierId"), args.supplierId))
+      .withIndex("supplierId", (q) => q.eq("supplierId", args.supplierId))
       .collect();
     
     const totalReviews = supplierReviews.length;
@@ -143,6 +149,13 @@ export const deleteReview = mutation({
     if (!supplier || review.supplierId !== (supplier._id as unknown as string)) throw new Error("Accès refusé");
 
     await ctx.db.delete(id);
+    
+    // Update global stats
+    await ctx.scheduler.runAfter(0, internal.stats.decrementStat, {
+      key: "totalReviews",
+      amount: 1,
+      category: "global",
+    });
     
     // Update supplier rating and review count
     const supplierReviews = await ctx.db

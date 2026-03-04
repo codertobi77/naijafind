@@ -1,5 +1,6 @@
 import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 
 // Helper function to require admin authentication
 async function requireAdmin(ctx: any) {
@@ -8,7 +9,7 @@ async function requireAdmin(ctx: any) {
   
   const user = await ctx.db
     .query("users")
-    .filter((q: any) => q.eq(q.field("email"), identity.email))
+    .withIndex("email", (q) => q.eq("email", identity.email))
     .first();
     
   if (!user || !user.is_admin) {
@@ -31,7 +32,7 @@ export const createAdmin = internalMutation({
     // Vérifier si l'utilisateur existe déjà
     const existing = await ctx.db
       .query("users")
-      .filter(q => q.eq(q.field("email"), args.email))
+      .withIndex("email", (q) => q.eq("email", args.email))
       .first();
 
     const now = new Date().toISOString();
@@ -93,6 +94,18 @@ export const approveSupplier = mutation({
       updated_at: now,
     });
     
+    // Update stats: decrement pending, increment approved
+    await ctx.scheduler.runAfter(0, internal.stats.decrementStat, {
+      key: "pendingSuppliers",
+      amount: 1,
+      category: "global",
+    });
+    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
+      key: "approvedSuppliers",
+      amount: 1,
+      category: "global",
+    });
+    
     // Send notification to supplier
     await ctx.db.insert('notifications', {
       userId: supplier.userId,
@@ -125,7 +138,45 @@ export const deleteSupplier = mutation({
     }
     
     // Delete the supplier
+    const wasApproved = supplier.approved;
+    const wasFeatured = supplier.featured;
+    const category = supplier.category;
     await ctx.db.delete(args.supplierId);
+    
+    // Update stats
+    await ctx.scheduler.runAfter(0, internal.stats.decrementStat, {
+      key: "totalSuppliers",
+      amount: 1,
+      category: "global",
+    });
+    if (!wasApproved) {
+      await ctx.scheduler.runAfter(0, internal.stats.decrementStat, {
+        key: "pendingSuppliers",
+        amount: 1,
+        category: "global",
+      });
+    } else {
+      await ctx.scheduler.runAfter(0, internal.stats.decrementStat, {
+        key: "approvedSuppliers",
+        amount: 1,
+        category: "global",
+      });
+    }
+    if (wasFeatured) {
+      await ctx.scheduler.runAfter(0, internal.stats.decrementStat, {
+        key: "featuredSuppliers",
+        amount: 1,
+        category: "global",
+      });
+    }
+    if (category) {
+      await ctx.scheduler.runAfter(0, internal.stats.decrementStat, {
+        key: "suppliersInCategory",
+        amount: 1,
+        category: "category",
+        metadata: { categoryName: category },
+      });
+    }
     
     return { success: true };
   }
@@ -152,6 +203,13 @@ export const setSupplierFeatured = mutation({
     await ctx.db.patch(args.supplierId, {
       featured: args.featured,
       updated_at: now,
+    });
+    
+    // Update stats
+    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
+      key: "featuredSuppliers",
+      amount: args.featured ? 1 : -1,
+      category: "global",
     });
     
     return { success: true };
@@ -208,7 +266,7 @@ export const getPendingSuppliers = query({
     const limit = Math.min(args.limit ?? 100, 500);
     const suppliers = await ctx.db
       .query("suppliers")
-      .filter((q: any) => q.eq(q.field("approved"), false))
+      .withIndex("approved", (q) => q.eq("approved", false))
       .take(limit);
     
     return suppliers;

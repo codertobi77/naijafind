@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import * as XLSX from 'xlsx';
-import { api } from '../../../convex/_generated/api';
-import { useToast } from '../../hooks/useToast';
-import { Id } from '../../../convex/_generated/dataModel';
+import { api } from '../../../../convex/_generated/api';
+import { useToast } from '../../../hooks/useToast';
+import { Id } from '../../../../convex/_generated/dataModel';
 
 interface JobStatus {
   _id: Id<'importJobs'>;

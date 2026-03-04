@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 
 // Helper function to ensure user exists
 async function ensureUserHelper(ctx: any, args: any) {
@@ -11,7 +12,7 @@ async function ensureUserHelper(ctx: any, args: any) {
   
   const existing = await ctx.db
     .query("users")
-    .filter((q: any) => q.eq(q.field("email"), userEmail ?? ""))
+    .withIndex("email", (q) => q.eq("email", userEmail ?? ""))
     .first();
 
   const now = new Date().toISOString();
@@ -57,7 +58,7 @@ async function ensureUserHelper(ctx: any, args: any) {
     const updatedUser = await ctx.db.get(existing._id);
     const supplier = await ctx.db
       .query("suppliers")
-      .filter((q: any) => q.eq(q.field("userId"), identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.subject))
       .first();
     
     return { user: updatedUser, supplier };
@@ -149,7 +150,7 @@ export const signUpSupplier = mutation({
     // Application-level enforcement: Check for existing supplier profile for this user
     const existingSupplier = await ctx.db
       .query("suppliers")
-      .filter((q: any) => q.eq(q.field("userId"), identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.subject))
       .first();
     
     // If supplier already exists, throw an error to prevent duplicate creation
@@ -197,6 +198,24 @@ export const signUpSupplier = mutation({
       updated_at: now,
     });
 
+    // Update stats counters
+    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
+      key: "totalSuppliers",
+      amount: 1,
+      category: "global",
+    });
+    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
+      key: "pendingSuppliers",
+      amount: 1,
+      category: "global",
+    });
+    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
+      key: "suppliersInCategory",
+      amount: 1,
+      category: "category",
+      metadata: { categoryName: args.category },
+    });
+
     return { id };
   }
 });
@@ -225,12 +244,12 @@ export const me = query({
     
     const user = await ctx.db
       .query("users")
-      .filter((q: any) => q.eq(q.field("email"), userEmail ?? ""))
+      .withIndex("email", (q) => q.eq("email", userEmail ?? ""))
       .first();
 
     const supplier = await ctx.db
       .query("suppliers")
-      .filter((q: any) => q.eq(q.field("userId"), identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.subject))
       .first();
 
     return { user, supplier };

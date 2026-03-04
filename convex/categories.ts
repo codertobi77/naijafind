@@ -8,7 +8,7 @@ async function isAdmin(ctx: any) {
 
   const user = await ctx.db
     .query("users")
-    .filter((q: any) => q.eq(q.field("email"), identity.email ?? ""))
+    .withIndex("email", (q) => q.eq("email", identity.email ?? ""))
     .first();
 
   return user?.is_admin === true || user?.user_type === 'admin';
@@ -81,7 +81,7 @@ export const addCategory = mutation({
     // Check if category already exists
     const existing = await ctx.db
       .query("categories")
-      .filter(q => q.eq(q.field("name"), args.name))
+      .withIndex("name", (q) => q.eq("name", args.name))
       .first();
 
     if (existing) {
@@ -133,7 +133,7 @@ export const updateCategory = mutation({
     if (updates.name && updates.name !== category.name) {
       const existing = await ctx.db
         .query("categories")
-        .filter(q => q.eq(q.field("name"), updates.name))
+        .withIndex("name", (q) => q.eq("name", updates.name))
         .first();
 
       if (existing) {

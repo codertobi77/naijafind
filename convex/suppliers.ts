@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 
 export const getAllSuppliers = query({
   args: {
@@ -12,13 +13,12 @@ export const getAllSuppliers = query({
     
     const user = await ctx.db
       .query("users")
-      .filter(q => q.eq(q.field("email"), identity.email))
+      .withIndex("email", (q) => q.eq("email", identity.email))
       .first();
       
     if (!user || !user.is_admin) {
       throw new Error("Accès refusé. Seuls les administrateurs peuvent effectuer cette action.");
     }
-    
     // Limit to prevent bandwidth issues (default 100, max 500)
     const limit = Math.min(args.limit ?? 100, 500);
     const suppliers = await ctx.db
@@ -78,8 +78,8 @@ export const searchSuppliers = query({
     const offset = Number(args.offset ?? 0);
     const sortBy = args.sortBy || 'relevance';
 
-    // Only show approved suppliers - filter at database level
-    let query = ctx.db.query("suppliers").filter(q => q.eq(q.field("approved"), true));
+    // Only show approved suppliers - use index at database level
+    let query = ctx.db.query("suppliers").withIndex("approved", (q) => q.eq("approved", true));
     let all = await query.collect();
 
     if (args.q && args.q.trim()) {
@@ -179,12 +179,12 @@ export const getSupplierDetails = query({
       return byFilter ?? null;
     });
 
-    const s = supplier ?? await ctx.db.query("suppliers").filter(q => q.eq(q.field("_id"), id as any)).first();
+    const s = supplier ?? await ctx.db.get(id as any);
     if (!s) {
       return { supplier: null, reviews: [] };
     }
 
-    const reviews = await ctx.db.query("reviews").filter(q => q.eq(q.field("supplierId"), s._id as unknown as string)).collect();
+    const reviews = await ctx.db.query("reviews").withIndex("supplierId", (q) => q.eq("supplierId", s._id as unknown as string)).collect();
     return { supplier: s, reviews };
   }
 });
@@ -215,7 +215,7 @@ export const updateSupplierProfile = mutation({
 
     const userId = identity.subject;
     // Application-level enforcement: Check for existing supplier profile for this user
-    const supplier = await ctx.db.query("suppliers").filter(q => q.eq(q.field("userId"), userId)).first();
+    const supplier = await ctx.db.query("suppliers").withIndex("userId", (q) => q.eq("userId", userId)).first();
     if (!supplier) throw new Error("Profil fournisseur non trouvé");
 
     // Ensure we're not trying to change the userId (which should be immutable)
@@ -288,7 +288,7 @@ export const claimSupplier = mutation({
     // Find the user in our database
     const user = await ctx.db
       .query("users")
-      .filter(q => q.eq(q.field("email"), identity.email))
+      .withIndex("email", (q) => q.eq("email", identity.email))
       .first();
     
     if (!user) {
@@ -296,10 +296,7 @@ export const claimSupplier = mutation({
     }
     
     // Get the supplier
-    const supplier = await ctx.db
-      .query("suppliers")
-      .filter(q => q.eq(q.field("_id"), args.supplierId))
-      .first();
+    const supplier = await ctx.db.get(args.supplierId);
     
     if (!supplier) {
       throw new Error("Fournisseur non trouvé");
@@ -351,7 +348,7 @@ export const getPendingClaims = query({
     
     const user = await ctx.db
       .query("users")
-      .filter(q => q.eq(q.field("email"), identity.email))
+      .withIndex("email", (q) => q.eq("email", identity.email))
       .first();
       
     if (!user || !user.is_admin) {
@@ -361,21 +358,15 @@ export const getPendingClaims = query({
     // Get all pending claims
     const claims = await ctx.db
       .query("supplierClaims")
-      .filter(q => q.eq(q.field("status"), "pending"))
+      .withIndex("status", (q) => q.eq("status", "pending"))
       .collect();
     
     // Get supplier details for each claim
     const claimsWithDetails = await Promise.all(
       claims.map(async (claim) => {
-        const supplier = await ctx.db
-          .query("suppliers")
-          .filter(q => q.eq(q.field("_id"), claim.supplierId))
-          .first();
+        const supplier = await ctx.db.get(claim.supplierId);
           
-        const claimant = await ctx.db
-          .query("users")
-          .filter(q => q.eq(q.field("_id"), claim.userId))
-          .first();
+        const claimant = await ctx.db.get(claim.userId as Id<"users">);
           
         return {
           ...claim,
@@ -414,7 +405,7 @@ export const approveClaim = mutation({
     
     const admin = await ctx.db
       .query("users")
-      .filter(q => q.eq(q.field("email"), identity.email))
+      .withIndex("email", (q) => q.eq("email", identity.email))
       .first();
       
     if (!admin || !admin.is_admin) {
@@ -422,10 +413,7 @@ export const approveClaim = mutation({
     }
     
     // Get the claim
-    const claim = await ctx.db
-      .query("supplierClaims")
-      .filter(q => q.eq(q.field("_id"), args.claimId))
-      .first();
+    const claim = await ctx.db.get(args.claimId);
       
     if (!claim) {
       throw new Error("Demande de réclamation non trouvée");
@@ -473,7 +461,7 @@ export const rejectClaim = mutation({
     
     const admin = await ctx.db
       .query("users")
-      .filter(q => q.eq(q.field("email"), identity.email))
+      .withIndex("email", (q) => q.eq("email", identity.email))
       .first();
       
     if (!admin || !admin.is_admin) {
@@ -481,10 +469,7 @@ export const rejectClaim = mutation({
     }
     
     // Get the claim
-    const claim = await ctx.db
-      .query("supplierClaims")
-      .filter(q => q.eq(q.field("_id"), args.claimId))
-      .first();
+    const claim = await ctx.db.get(args.claimId);
       
     if (!claim) {
       throw new Error("Demande de réclamation non trouvée");
