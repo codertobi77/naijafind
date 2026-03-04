@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SignIn, useAuth, SignedIn, SignedOut } from '@clerk/clerk-react';
 import { useQuery } from 'convex/react';
-import { api } from '../../../convex/_generated/api';
+import { api } from '@convex/_generated/api';
 import { useTranslation } from 'react-i18next';
 import { AuthLayout } from '../../components/layout';
 import { Link } from 'react-router-dom';

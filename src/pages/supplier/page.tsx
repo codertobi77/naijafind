@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useMutation } from 'convex/react';
-import { api } from '../../../convex/_generated/api';
+import { api } from '@convex/_generated/api';
 import { useConvexQuerySkippable, useConvexQuery } from '../../hooks/useConvexQuery';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
@@ -593,7 +593,7 @@ export default function SupplierDetail() {
                     className="bg-orange-500 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-orange-600 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base"
                   >
                     <i className="ri-shield-user-line mr-1 sm:mr-2"></i>
-                    Vous possédez cette entreprise ?
+                    {t('supplier.claim_business')}
                   </Link>
                 </SignedOut>
                 <SignedIn>
@@ -602,7 +602,7 @@ export default function SupplierDetail() {
                     className="bg-orange-500 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg hover:bg-orange-600 transition-colors whitespace-nowrap flex items-center text-xs sm:text-sm lg:text-base"
                   >
                     <i className="ri-shield-user-line mr-1 sm:mr-2"></i>
-                    Vous possédez cette entreprise ?
+                    {t('supplier.claim_business')}
                   </button>
                 </SignedIn>
               </div>

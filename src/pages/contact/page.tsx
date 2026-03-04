@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'convex/react';
-import { api } from '../../../convex/_generated/api';
+import { api } from '@convex/_generated/api';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
 import { contactFormSchema, validateForm } from '../../lib/validation';

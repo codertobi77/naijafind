@@ -17,9 +17,9 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { useConvexAuth, useMutation } from 'convex/react';
-import { api } from '../../../convex/_generated/api';
+import { api } from '@convex/_generated/api';
 import { useTranslation } from 'react-i18next';
-import type { Id } from '../../../convex/_generated/dataModel';
+import type { Id } from 'convex/values';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import ComingSoon from '../../components/base/ComingSoon';
 import DashboardTour from '../../components/base/DashboardTour';

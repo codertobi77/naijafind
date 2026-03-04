@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation } from 'convex/react';
-import { api } from '../../../convex/_generated/api';
+import { api } from '@convex/_generated/api';
 import { useConvexAuth } from 'convex/react';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { useTranslation } from 'react-i18next';
 import useCurrency from '../../hooks/useCurrency';
-import type { Id } from '../../../convex/_generated/dataModel';
-import type { Doc } from '../../../convex/_generated/dataModel';
+import type { Id } from 'convex/values';
+import type { Doc } from 'convex/values';
 import { SupplierBulkImport } from '../../components/admin';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useToast } from '../../hooks/useToast';

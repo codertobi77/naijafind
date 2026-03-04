@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
-import { api } from '../../../convex/_generated/api';
+import { api } from '@convex/_generated/api';
 import { HeroSection, Section, Container, Footer } from '../../components/layout';
 import { SectionTitle, CTASection, ValueCard, TeamGrid } from '../../components/ui';
 

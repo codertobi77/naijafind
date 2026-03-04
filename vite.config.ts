@@ -88,7 +88,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, './src')
+      '@': resolve(__dirname, './src'),
+      '@convex': resolve(__dirname, './convex')
     },
     dedupe: ['react', 'react-dom']
   },

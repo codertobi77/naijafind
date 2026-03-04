@@ -89,7 +89,8 @@ export const supplier = {
   "supplier.message_sent_error": "Une erreur s'est produite lors de l'envoi de votre message. Veuillez réessayer.",
   "supplier.no_email": "Le fournisseur n'a pas d'email",
   "supplier.no_phone": "Le fournisseur n'a pas de numéro de téléphone",
-  "supplier.location_not_available": "Localisation non disponible"
+  "supplier.location_not_available": "Localisation non disponible",
+  "supplier.claim_business": "Vous possédez cette entreprise ?"
 };
 
 export default supplier;

@@ -10,7 +10,7 @@
 // ============================================================================
 /*
 import { useQuery } from 'convex/react';
-import { api } from '../../../convex/_generated/api';
+import { api } from '@convex/_generated/api';
 
 function MyComponent() {
   const data = useQuery(api.myFunction, { arg1: 'value' });
@@ -25,7 +25,7 @@ function MyComponent() {
 // ============================================================================
 /*
 import { useConvexQuery } from '../../hooks/useConvexQuery';
-import { api } from '../../../convex/_generated/api';
+import { api } from '@convex/_generated/api';
 
 function MyComponent() {
   const { data, isLoading } = useConvexQuery(

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
 import LanguageSelector from './LanguageSelector';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
-import { api } from '../../../convex/_generated/api';
+import { api } from '@convex/_generated/api';
 
 export default function Header() {
   const { t } = useTranslation();
