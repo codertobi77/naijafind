@@ -631,7 +631,7 @@ export function SupplierBulkImport() {
 
     setIsUploading(true);
     setCurrentStep('importing');
-    setImportProgress({ current: 0, total: rowsToImport.length });
+    setImportProgress({ current: 0, total: rowsToImport.length, success: 0, failed: 0 });
 
     const results: ImportResult = {
       success: [],
@@ -641,28 +641,69 @@ export function SupplierBulkImport() {
       failed: 0,
     };
 
-    // Process in batches of 5 for better progress visibility
-    const batchSize = 5;
-    for (let i = 0; i < rowsToImport.length; i += batchSize) {
+    // Track partial progress within current batch
+    let processedCount = 0;
+    let successCount = 0;
+    let failCount = 0;
+
+    // Process in batches of 25 (half of backend limit for safety margin)
+    const batchSize = 25;
+    const totalBatches = Math.ceil(rowsToImport.length / batchSize);
+    
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+      const i = batchIndex * batchSize;
       const batch = rowsToImport.slice(i, i + batchSize);
+      
       try {
-        const batchResult = await bulkImportSuppliers({ suppliers: batch });
+        const batchResult = await bulkImportSuppliers({ 
+          suppliers: batch,
+          skipNotifications: true  // Skip notifications for bulk imports to save bandwidth
+        });
+        
+        // Handle partial results - some may succeed, some may fail
         results.success.push(...batchResult.success);
         results.errors.push(...batchResult.errors);
         results.created += batchResult.created;
         results.failed += batchResult.failed;
-        setImportProgress({ current: Math.min(i + batch.length, rowsToImport.length), total: rowsToImport.length });
-      } catch (error: any) {
-        // If batch fails, mark all items in batch as failed
-        batch.forEach((row: any) => {
-          results.errors.push({
-            supplier: row.supplier_business_name,
-            email: row.user_email,
-            error: error.message,
-          });
-          results.failed++;
+        
+        successCount += batchResult.created;
+        failCount += batchResult.failed;
+        processedCount += batch.length;
+        
+        // Update progress with detailed counts
+        setImportProgress({ 
+          current: processedCount, 
+          total: rowsToImport.length,
+          success: successCount,
+          failed: failCount,
+          batch: batchIndex + 1,
+          totalBatches: totalBatches
         });
-        setImportProgress({ current: Math.min(i + batch.length, rowsToImport.length), total: rowsToImport.length });
+        
+      } catch (error: any) {
+        // Network/server error - entire batch failed
+        const batchErrors = batch.map((row: any) => ({
+          supplier: row.supplier_business_name,
+          email: row.user_email,
+          error: error.message || 'Erreur réseau lors de l\'import',
+        }));
+        
+        results.errors.push(...batchErrors);
+        results.failed += batch.length;
+        failCount += batch.length;
+        processedCount += batch.length;
+        
+        setImportProgress({ 
+          current: processedCount, 
+          total: rowsToImport.length,
+          success: successCount,
+          failed: failCount,
+          batch: batchIndex + 1,
+          totalBatches: totalBatches
+        });
+        
+        // Continue with next batch despite error (don't stop entire import)
+        console.error(`Batch ${batchIndex + 1}/${totalBatches} failed:`, error);
       }
     }
 
@@ -670,11 +711,13 @@ export function SupplierBulkImport() {
     setCurrentStep('results');
     setImportProgress(null);
     
-    if (results.created > 0) {
+    // Summary toast with detailed counts
+    if (results.created > 0 && results.failed === 0) {
       showToast('success', `${results.created} fournisseurs importés avec succès`);
-    }
-    if (results.failed > 0) {
-      showToast('warning', `${results.failed} erreurs lors de l'import`);
+    } else if (results.created > 0 && results.failed > 0) {
+      showToast('warning', `${results.created} importés, ${results.failed} échecs (${Math.round((results.failed / results.total) * 100)}% erreurs)`);
+    } else if (results.failed > 0) {
+      showToast('error', `Échec total: ${results.failed} fournisseurs n'ont pas pu être importés`);
     }
     
     setIsUploading(false);
@@ -837,7 +880,7 @@ jane@example.com,Jane,Smith,+2348098765432,XYZ Services,info@xyzservices.com,+23
                 <div>
                   <h4 className="font-medium text-blue-800">Importation en cours...</h4>
                   <p className="text-sm text-blue-600">
-                    {importProgress.current} / {importProgress.total} fournisseurs traités
+                    Batch {importProgress.batch} / {importProgress.totalBatches} • {importProgress.current} / {importProgress.total} traités
                   </p>
                 </div>
               </div>
@@ -845,11 +888,27 @@ jane@example.com,Jane,Smith,+2348098765432,XYZ Services,info@xyzservices.com,+23
                 {Math.round((importProgress.current / importProgress.total) * 100)}%
               </span>
             </div>
-            <div className="w-full bg-blue-200 rounded-full h-3 overflow-hidden">
+            
+            {/* Progress bar */}
+            <div className="w-full bg-blue-200 rounded-full h-3 overflow-hidden mb-3">
               <div 
                 className="bg-blue-600 h-full rounded-full transition-all duration-300 ease-out"
                 style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
               ></div>
+            </div>
+            
+            {/* Success/Failed counts */}
+            <div className="flex gap-4 text-sm">
+              <span className="inline-flex items-center gap-1 text-green-700">
+                <i className="ri-check-line"></i>
+                {importProgress.success || 0} succès
+              </span>
+              {importProgress.failed > 0 && (
+                <span className="inline-flex items-center gap-1 text-red-600">
+                  <i className="ri-error-warning-line"></i>
+                  {importProgress.failed} échecs
+                </span>
+              )}
             </div>
           </div>
         )}

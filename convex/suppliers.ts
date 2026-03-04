@@ -2,8 +2,13 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const getAllSuppliers = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    paginationOpts: v.optional(v.object({
+      numItems: v.number(),
+      cursor: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
     // Check if user is admin
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Non autorisé");
@@ -17,19 +22,25 @@ export const getAllSuppliers = query({
       throw new Error("Accès refusé. Seuls les administrateurs peuvent effectuer cette action.");
     }
     
-    // Get all suppliers for admin panel
-    const allSuppliers = await ctx.db
+    // Use pagination to limit data transfer (max 100 items per request)
+    const paginationOpts = args.paginationOpts || { numItems: 100 };
+    const result = await ctx.db
       .query("suppliers")
-      .collect();
+      .paginate(paginationOpts);
     
-    return allSuppliers;
+    return result;
   }
 });
 
 // Query admin : lister toutes les galeries (imageGallery de chaque fournisseur)
 export const listAllGalleriesAdmin = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    paginationOpts: v.optional(v.object({
+      numItems: v.number(),
+      cursor: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
     // Check if user is admin
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Non autorisé");
@@ -40,16 +51,20 @@ export const listAllGalleriesAdmin = query({
     if (!user || !user.is_admin) {
       throw new Error("Accès refusé. Seuls les administrateurs peuvent effectuer cette action.");
     }
-    // Get all suppliers with their galleries
-    const allSuppliers = await ctx.db
+    // Use pagination to limit data transfer (max 100 items per request)
+    const paginationOpts = args.paginationOpts || { numItems: 100 };
+    const result = await ctx.db
       .query("suppliers")
-      .collect();
-    // Ne retourner que l’id, le nom, et la galerie
-    return allSuppliers.map(s => ({
-      _id: s._id,
-      business_name: s.business_name,
-      imageGallery: s.imageGallery || [],
-    }));
+      .paginate(paginationOpts);
+    // Map to only return needed fields
+    return {
+      ...result,
+      page: result.page.map(s => ({
+        _id: s._id,
+        business_name: s.business_name,
+        imageGallery: s.imageGallery || [],
+      })),
+    };
   }
 });
 

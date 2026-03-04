@@ -1,5 +1,9 @@
 import { query } from "./_generated/server";
 
+// Pagination constants to stay under 1GB bandwidth
+const DEFAULT_PAGE_SIZE = 100;
+const MAX_PAGE_SIZE = 500;
+
 export const supplierDashboard = query({
   args: {},
   handler: async (ctx) => {
@@ -12,9 +16,23 @@ export const supplierDashboard = query({
       .first();
     if (!supplier) throw new Error("Profil fournisseur non trouvé");
 
-    const orders = await ctx.db.query("orders").filter(q => q.eq(q.field("supplierId"), supplier._id as unknown as string)).collect();
-    const products = await ctx.db.query("products").filter(q => q.eq(q.field("supplierId"), supplier._id as unknown as string)).collect();
-    const reviews = await ctx.db.query("reviews").filter(q => q.eq(q.field("supplierId"), supplier._id as unknown as string)).collect();
+    const ordersResult = await ctx.db
+      .query("orders")
+      .filter(q => q.eq(q.field("supplierId"), supplier._id as unknown as string))
+      .paginate({ cursor: null, numItems: MAX_PAGE_SIZE });
+    const orders = ordersResult.page;
+    
+    const productsResult = await ctx.db
+      .query("products")
+      .filter(q => q.eq(q.field("supplierId"), supplier._id as unknown as string))
+      .paginate({ cursor: null, numItems: MAX_PAGE_SIZE });
+    const products = productsResult.page;
+    
+    const reviewsResult = await ctx.db
+      .query("reviews")
+      .filter(q => q.eq(q.field("supplierId"), supplier._id as unknown as string))
+      .paginate({ cursor: null, numItems: MAX_PAGE_SIZE });
+    const reviews = reviewsResult.page;
 
     const totalOrders = orders.length;
     const totalProducts = products.length;

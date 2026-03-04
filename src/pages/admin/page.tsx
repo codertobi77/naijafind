@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useMutation } from 'convex/react';
+import { usePaginateQuery, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useConvexAuth } from 'convex/react';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
@@ -468,14 +468,33 @@ export default function AdminPage(){
     {},
     { staleTime: 5 * 60 * 1000 } // Cache categories for 5 minutes
   );
-  const { data: pendingSuppliers, refetch: refetchPendingSuppliers } = useConvexQuery(api.admin.getPendingSuppliers, {}, { staleTime: 2 * 60 * 1000 });
-  const { data: allSuppliers, refetch: refetchAllSuppliers } = useConvexQuery(api.suppliers.getAllSuppliers, {}, { staleTime: 2 * 60 * 1000 });
-const { data: allProducts } = useConvexQuery(api.products.listAllProductsAdmin, {}, { staleTime: 2 * 60 * 1000 });
-const { data: allGalleries } = useConvexQuery(api.suppliers.listAllGalleriesAdmin, {}, { staleTime: 2 * 60 * 1000 });
+  const {
+    results: pendingSuppliers,
+    status: pendingStatus,
+    loadMore: loadMorePending
+  } = usePaginateQuery(api.admin.getPendingSuppliers, {}, { initialNumItems: 50 });
+  const {
+    results: allSuppliers,
+    status,
+    loadMore,
+    isLoading
+  } = usePaginateQuery(api.suppliers.getAllSuppliers, {}, { initialNumItems: 100 });
+  const {
+    results: allProducts,
+    status: productsStatus,
+    loadMore: loadMoreProducts
+  } = usePaginateQuery(api.products.listAllProductsAdmin, {}, { initialNumItems: 100 });
+  const {
+    results: allGalleries,
+    status: galleriesStatus,
+    loadMore: loadMoreGalleries
+  } = usePaginateQuery(api.suppliers.listAllGalleriesAdmin, {}, { initialNumItems: 100 });
 
 // Statistiques dynamiques
 const usersCount = allSuppliers ? allSuppliers.length : 0;
 const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number(s.reviews_count || 0), 0) : 0;
+const refetchAllSuppliers = () => {};
+const refetchPendingSuppliers = () => {};
   
   const addCategory = useMutation(api.categories.addCategory);
   const updateCategory = useMutation(api.categories.updateCategory);
@@ -485,7 +504,12 @@ const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number
   const rejectSupplier = useMutation(api.admin.rejectSupplier);
   const deleteSupplier = useMutation(api.admin.deleteSupplier);
   const setSupplierFeatured = useMutation(api.admin.setSupplierFeatured);
-  const { data: featuredSuppliers, refetch: refetchFeaturedSuppliers } = useConvexQuery(api.admin.getFeaturedSuppliers, {}, { staleTime: 2 * 60 * 1000 });
+  const {
+    results: featuredSuppliers,
+    status: featuredStatus,
+    loadMore: loadMoreFeatured
+  } = usePaginateQuery(api.admin.getFeaturedSuppliers, {}, { initialNumItems: 50 });
+  const refetchFeaturedSuppliers = () => {};
   const sendAdminNotification = useMutation(api.notifications.sendAdminNotification);
   const sendBulkNotification = useMutation(api.notifications.sendBulkNotification);
   

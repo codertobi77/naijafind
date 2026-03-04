@@ -1,6 +1,16 @@
 import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+// Helper function to normalize strings for category matching
+function normalizeString(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+}
+
 // Helper function to require admin authentication
 async function requireAdmin(ctx: any) {
   const identity = await ctx.auth.getUserIdentity();
@@ -46,6 +56,162 @@ interface SupplierImportData {
   supplier_longitude?: number;
 }
 
+// Helper function to import a single supplier with shared category cache
+async function importSingleSupplierInternal(
+  ctx: any, 
+  args: SupplierImportData, 
+  allCategories: any[], 
+  now: string,
+  skipNotification: boolean = false
+) {
+  const userEmail = args.user_email || (args.user_phone ? `${args.user_phone.replace(/\D/g, '')}@phone.local` : `supplier-${Date.now()}-${Math.random().toString(36).substring(2, 9)}@import.local`);
+  const supplierEmail = args.supplier_email || userEmail;
+
+  let user = await ctx.db
+    .query("users")
+    .filter((q: any) => q.eq(q.field("email"), userEmail))
+    .first();
+
+  let userId: string;
+
+  if (user) {
+    userId = user._id;
+    if (user.user_type !== 'supplier') {
+      await ctx.db.patch(userId, {
+        user_type: 'supplier',
+        firstName: args.user_firstName || user.firstName,
+        lastName: args.user_lastName || user.lastName,
+        phone: args.user_phone || user.phone,
+      });
+    }
+  } else {
+    userId = await ctx.db.insert("users", {
+      email: userEmail,
+      firstName: args.user_firstName,
+      lastName: args.user_lastName,
+      phone: args.user_phone,
+      user_type: 'supplier',
+      is_admin: false,
+      created_at: now,
+    });
+  }
+
+  const existingSupplier = await ctx.db
+    .query("suppliers")
+    .filter((q: any) => q.eq(q.field("userId"), userId))
+    .first();
+
+  if (existingSupplier) {
+    throw new Error(`Un fournisseur existe déjà pour l'utilisateur ${userEmail}`);
+  }
+
+  let categoryName = args.supplier_category?.trim() || '';
+  
+  if (categoryName) {
+    const normalizedInput = normalizeString(categoryName);
+    
+    let matchedCategory = allCategories.find(
+      cat => cat.name.toLowerCase().trim() === categoryName.toLowerCase()
+    );
+    
+    if (!matchedCategory) {
+      matchedCategory = allCategories.find(
+        cat => normalizeString(cat.name) === normalizedInput
+      );
+    }
+    
+    if (!matchedCategory) {
+      matchedCategory = allCategories.find(cat => {
+        const normalizedCat = normalizeString(cat.name);
+        return normalizedInput.includes(normalizedCat) || 
+               normalizedCat.includes(normalizedInput);
+      });
+    }
+    
+    if (matchedCategory) {
+      categoryName = matchedCategory.name;
+    } else {
+      const defaultCategory = allCategories.find(cat => 
+        normalizeString(cat.name) === 'autre' || normalizeString(cat.name) === 'other'
+      );
+      
+      if (defaultCategory) {
+        categoryName = defaultCategory.name;
+      } else {
+        await ctx.db.insert("categories", {
+          name: "Autre",
+          description: "Catégorie par défaut pour les fournisseurs",
+          icon: "ri-store-line",
+          is_active: true,
+          created_at: now,
+        });
+        categoryName = "Autre";
+        allCategories.push({ name: "Autre", is_active: true });
+      }
+    }
+  } else {
+    categoryName = "Autre";
+  }
+
+  const defaultBusinessHours = {
+    monday: "08:00-18:00",
+    tuesday: "08:00-18:00",
+    wednesday: "08:00-18:00",
+    thursday: "08:00-18:00",
+    friday: "08:00-18:00",
+    saturday: "09:00-17:00",
+    sunday: "closed"
+  };
+
+  const supplierId = await ctx.db.insert("suppliers", {
+    userId: userId,
+    business_name: args.supplier_business_name,
+    email: supplierEmail,
+    phone: args.supplier_phone,
+    description: args.supplier_description,
+    category: categoryName,
+    address: args.supplier_address,
+    city: args.supplier_city,
+    state: args.supplier_state,
+    country: args.supplier_country,
+    location: `${args.supplier_city}, ${args.supplier_state}`,
+    website: args.supplier_website,
+    business_type: args.supplier_business_type || 'products',
+    verified: args.supplier_verified ?? false,
+    approved: args.supplier_approved ?? true,
+    featured: args.supplier_featured ?? false,
+    image: args.supplier_image,
+    imageGallery: args.supplier_imageGallery,
+    business_hours: args.supplier_business_hours || defaultBusinessHours,
+    rating: args.supplier_rating ?? 0,
+    reviews_count: args.supplier_reviews ? BigInt(args.supplier_reviews) : 0n,
+    latitude: args.supplier_latitude,
+    longitude: args.supplier_longitude,
+    created_at: now,
+    updated_at: now,
+  });
+
+  if (!skipNotification) {
+    await ctx.db.insert('notifications', {
+      userId: userId,
+      type: 'system',
+      title: 'Bienvenue sur Suji !',
+      message: `Votre entreprise "${args.supplier_business_name}" a été créée avec succès.`,
+      data: { supplierId, type: 'supplier_created' },
+      read: false,
+      actionUrl: '/dashboard',
+      createdAt: now,
+    });
+  }
+
+  return {
+    success: true,
+    userId,
+    supplierId,
+    message: `Fournisseur "${args.supplier_business_name}" créé avec succès`,
+  };
+}
+
 // Import a single supplier with user
 export const importSupplier = internalMutation({
   args: {
@@ -80,187 +246,18 @@ export const importSupplier = internalMutation({
   },
   handler: async (ctx, args) => {
     const now = new Date().toISOString();
-
-    // Generate a placeholder email if none provided
-    const userEmail = args.user_email || (args.user_phone ? `${args.user_phone.replace(/\D/g, '')}@phone.local` : `supplier-${Date.now()}-${Math.random().toString(36).substring(2, 9)}@import.local`);
-    const supplierEmail = args.supplier_email || userEmail;
-
-    // Check if user exists by email
-    let user = await ctx.db
-      .query("users")
-      .filter((q: any) => q.eq(q.field("email"), userEmail))
-      .first();
-
-    let userId: string;
-
-    if (user) {
-      // Update existing user to supplier type if needed
-      userId = user._id;
-      if (user.user_type !== 'supplier') {
-        await ctx.db.patch(userId, {
-          user_type: 'supplier',
-          firstName: args.user_firstName || user.firstName,
-          lastName: args.user_lastName || user.lastName,
-          phone: args.user_phone || user.phone,
-        });
-      }
-    } else {
-      // Create new user
-      userId = await ctx.db.insert("users", {
-        email: userEmail,
-        firstName: args.user_firstName,
-        lastName: args.user_lastName,
-        phone: args.user_phone,
-        user_type: 'supplier',
-        is_admin: false,
-        created_at: now,
-      });
-    }
-
-    // Check if supplier already exists for this user
-    const existingSupplier = await ctx.db
-      .query("suppliers")
-      .filter((q: any) => q.eq(q.field("userId"), userId))
-      .first();
-
-    if (existingSupplier) {
-      throw new Error(`Un fournisseur existe déjà pour l'utilisateur ${userEmail}`);
-    }
-
-    // Infer/validate category from database
-    let categoryName = args.supplier_category?.trim() || '';
     
-    if (categoryName) {
-      // Get all active categories from database
-      const allCategories = await ctx.db
-        .query("categories")
-        .filter(q => q.eq(q.field("is_active"), true))
-        .collect();
-      
-      // Normalize function: lowercase, remove accents, trim
-      const normalize = (str: string) => {
-        return str
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-          .replace(/[^a-z0-9]/g, '') // Keep only alphanumeric
-          .trim();
-      };
-      
-      const normalizedInput = normalize(categoryName);
-      
-      // Try exact match first (case-insensitive)
-      let matchedCategory = allCategories.find(
-        cat => cat.name.toLowerCase().trim() === categoryName.toLowerCase()
-      );
-      
-      // If no exact match, try normalized match (ignoring accents, punctuation, spacing)
-      if (!matchedCategory) {
-        matchedCategory = allCategories.find(
-          cat => normalize(cat.name) === normalizedInput
-        );
-      }
-      
-      // If still no match, try partial match (input contains category name or vice versa)
-      if (!matchedCategory) {
-        matchedCategory = allCategories.find(cat => {
-          const normalizedCat = normalize(cat.name);
-          return normalizedInput.includes(normalizedCat) || 
-                 normalizedCat.includes(normalizedInput);
-        });
-      }
-      
-      // If we found a match, use the official category name from database
-      if (matchedCategory) {
-        categoryName = matchedCategory.name;
-      } else {
-        // No match found - check if we should create new category or use default
-        // For now, default to "Autre" if category doesn't exist
-        const defaultCategory = allCategories.find(cat => 
-          normalize(cat.name) === 'autre' || normalize(cat.name) === 'other'
-        );
-        
-        if (defaultCategory) {
-          categoryName = defaultCategory.name;
-        } else {
-          // Create "Autre" category if it doesn't exist
-          const newCategoryId = await ctx.db.insert("categories", {
-            name: "Autre",
-            description: "Catégorie par défaut pour les fournisseurs",
-            icon: "ri-store-line",
-            is_active: true,
-            created_at: now,
-          });
-          categoryName = "Autre";
-        }
-      }
-    } else {
-      // Empty category - set to default "Autre"
-      categoryName = "Autre";
-    }
-
-    // Default business hours if not provided
-    const defaultBusinessHours = {
-      monday: "08:00-18:00",
-      tuesday: "08:00-18:00",
-      wednesday: "08:00-18:00",
-      thursday: "08:00-18:00",
-      friday: "08:00-18:00",
-      saturday: "09:00-17:00",
-      sunday: "closed"
-    };
-
-    // Create supplier with validated category
-    const supplierId = await ctx.db.insert("suppliers", {
-      userId: userId,
-      business_name: args.supplier_business_name,
-      email: supplierEmail,
-      phone: args.supplier_phone,
-      description: args.supplier_description,
-      category: categoryName,
-      address: args.supplier_address,
-      city: args.supplier_city,
-      state: args.supplier_state,
-      country: args.supplier_country,
-      location: `${args.supplier_city}, ${args.supplier_state}`,
-      website: args.supplier_website,
-      business_type: args.supplier_business_type || 'products',
-      verified: args.supplier_verified ?? false,
-      approved: args.supplier_approved ?? true,
-      featured: args.supplier_featured ?? false,
-      image: args.supplier_image,
-      imageGallery: args.supplier_imageGallery,
-      business_hours: args.supplier_business_hours || defaultBusinessHours,
-      rating: args.supplier_rating ?? 0,
-      reviews_count: args.supplier_reviews ? BigInt(args.supplier_reviews) : 0n,
-      latitude: args.supplier_latitude,
-      longitude: args.supplier_longitude,
-      created_at: now,
-      updated_at: now,
-    });
-
-    // Send welcome notification
-    await ctx.db.insert('notifications', {
-      userId: userId,
-      type: 'system',
-      title: 'Bienvenue sur Suji !',
-      message: `Votre entreprise "${args.supplier_business_name}" a été créée avec succès. Complétez votre profil pour commencer à recevoir des clients.`,
-      data: { supplierId, type: 'supplier_created' },
-      read: false,
-      actionUrl: '/dashboard',
-      createdAt: now,
-    });
-
-    return {
-      success: true,
-      userId,
-      supplierId,
-      message: `Fournisseur "${args.supplier_business_name}" créé avec succès`,
-    };
+    // Fetch categories once for single import
+    const allCategories = await ctx.db
+      .query("categories")
+      .filter(q => q.eq(q.field("is_active"), true))
+      .take(100);
+    
+    return await importSingleSupplierInternal(ctx, args, allCategories, now, false);
   },
 });
 
-// Bulk import suppliers (admin only)
+// Bulk import suppliers (admin only) - OPTIMIZED with bandwidth limits
 export const bulkImportSuppliers = mutation({
   args: {
     suppliers: v.array(v.object({
@@ -293,10 +290,27 @@ export const bulkImportSuppliers = mutation({
       supplier_google_place_id: v.optional(v.string()),
       supplier_source: v.optional(v.string()),
     })),
+    skipNotifications: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     // Verify admin
     await requireAdmin(ctx);
+
+    const BATCH_SIZE_LIMIT = 50;
+    
+    // Enforce batch size limit to prevent bandwidth issues
+    if (args.suppliers.length > BATCH_SIZE_LIMIT) {
+      throw new Error(`Trop de fournisseurs à importer. Limite: ${BATCH_SIZE_LIMIT} par batch. Reçu: ${args.suppliers.length}`);
+    }
+
+    const now = new Date().toISOString();
+    const skipNotifications = args.skipNotifications ?? true; // Default to skipping for bulk
+    
+    // Cache categories once for all imports in this batch (reduces bandwidth)
+    const allCategories = await ctx.db
+      .query("categories")
+      .filter(q => q.eq(q.field("is_active"), true))
+      .take(100);
 
     const results = {
       success: [] as any[],
@@ -306,10 +320,16 @@ export const bulkImportSuppliers = mutation({
       failed: 0,
     };
 
+    // Process suppliers sequentially but with shared category cache
     for (const supplierData of args.suppliers) {
       try {
-        // Call internal mutation for each supplier
-        const result = await ctx.runMutation(api.adminImport.importSupplier, supplierData);
+        const result = await importSingleSupplierInternal(
+          ctx, 
+          supplierData, 
+          allCategories, 
+          now, 
+          skipNotifications
+        );
         results.success.push(result);
         results.created++;
       } catch (error: any) {
@@ -326,7 +346,7 @@ export const bulkImportSuppliers = mutation({
   },
 });
 
-// Import single supplier via admin API (with admin auth)
+// Import single supplier via admin API (with admin auth and notification)
 export const importSingleSupplier = mutation({
   args: {
     user_email: v.optional(v.string()),
@@ -360,7 +380,14 @@ export const importSingleSupplier = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    return await ctx.runMutation(api.adminImport.importSupplier, args);
+    
+    const now = new Date().toISOString();
+    const allCategories = await ctx.db
+      .query("categories")
+      .filter(q => q.eq(q.field("is_active"), true))
+      .take(100);
+    
+    return await importSingleSupplierInternal(ctx, args, allCategories, now, false);
   },
 });
 
