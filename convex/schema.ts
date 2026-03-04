@@ -10,9 +10,11 @@ export default defineSchema({
     user_type: v.optional(v.string()), // 'user' | 'supplier' | 'admin'
     is_admin: v.optional(v.boolean()),
     created_at: v.optional(v.string()),
+    tokenIdentifier: v.optional(v.string()), // Auth provider ID (e.g., auth0|...)
   })
     .index("email", ["email"]) 
-    .index("phone", ["phone"]),
+    .index("phone", ["phone"])
+    .index("tokenIdentifier", ["tokenIdentifier"]),
   suppliers: defineTable({
     userId: v.string(), // id de l'utilisateur propriétaire
     business_name: v.string(),

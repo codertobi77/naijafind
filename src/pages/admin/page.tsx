@@ -491,8 +491,8 @@ export default function AdminPage(){
   } = usePaginateQuery(api.suppliers.listAllGalleriesAdmin, {}, { initialNumItems: 100 });
 
 // Statistiques dynamiques
-const usersCount = allSuppliers ? allSuppliers.length : 0;
-const reviewsCount = allSuppliers ? allSuppliers.reduce((acc, s) => acc + Number(s.reviews_count || 0), 0) : 0;
+const usersCount = Array.isArray(allSuppliers) ? allSuppliers.length : 0;
+const reviewsCount = Array.isArray(allSuppliers) ? allSuppliers.reduce((acc, s) => acc + Number(s.reviews_count || 0), 0) : 0;
 const refetchAllSuppliers = () => {};
 const refetchPendingSuppliers = () => {};
   

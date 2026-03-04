@@ -14,17 +14,29 @@ export const getNotifications = query({
       throw new Error('Not authenticated');
     }
 
+    // Look up the user to get their Convex document ID
+    const user = await ctx.db
+      .query('users')
+      .filter(q => q.eq(q.field('tokenIdentifier'), userId))
+      .first();
+    
+    if (!user) {
+      return []; // No user found, return empty array
+    }
+
+    const convexUserId = user._id;
+
     let notifications;
     if (args.onlyUnread) {
       notifications = await ctx.db
         .query('notifications')
-        .withIndex('userId_read', (q) => q.eq('userId', userId).eq('read', false))
+        .withIndex('userId_read', (q) => q.eq('userId', convexUserId).eq('read', false))
         .order('desc')
         .take(args.limit ?? 50);
     } else {
       notifications = await ctx.db
         .query('notifications')
-        .withIndex('userId', (q) => q.eq('userId', userId))
+        .withIndex('userId', (q) => q.eq('userId', convexUserId))
         .order('desc')
         .take(args.limit ?? 50);
     }
@@ -41,9 +53,21 @@ export const getUnreadCount = query({
       return 0;
     }
 
+    // Look up the user to get their Convex document ID
+    const user = await ctx.db
+      .query('users')
+      .filter(q => q.eq(q.field('tokenIdentifier'), userId))
+      .first();
+    
+    if (!user) {
+      return 0;
+    }
+
+    const convexUserId = user._id;
+
     const notifications = await ctx.db
       .query('notifications')
-      .withIndex('userId_read', (q) => q.eq('userId', userId).eq('read', false))
+      .withIndex('userId_read', (q) => q.eq('userId', convexUserId).eq('read', false))
       .collect();
 
     return notifications.length;

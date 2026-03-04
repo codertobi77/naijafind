@@ -71,6 +71,7 @@ async function ensureUserHelper(ctx: any, args: any) {
     firstName: args.firstName,
     lastName: args.lastName,
     created_at: now,
+    tokenIdentifier: identity.subject, // Store auth provider ID for notification lookups
   });
   
   // Send welcome notification for new users
