@@ -1,8 +1,21 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import * as XLSX from 'xlsx';
 import { api } from '../../../convex/_generated/api';
 import { useToast } from '../../hooks/useToast';
+import { Id } from '../../../convex/_generated/dataModel';
+
+interface JobStatus {
+  _id: Id<'importJobs'>;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  totalSuppliers: number;
+  processedSuppliers: number;
+  successCount: number;
+  errorCount: number;
+  errors: Array<{ supplier: string; error: string }>;
+  startedAt: string;
+  completedAt?: string;
+}
 
 interface ImportResult {
   success: Array<{
@@ -19,6 +32,7 @@ interface ImportResult {
   total: number;
   created: number;
   failed: number;
+  jobId?: string;
 }
 
 interface ValidationError {
@@ -44,11 +58,18 @@ export function SupplierBulkImport() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   
-  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number; jobId?: Id<'importJobs'> } | null>(null);
+  const [activeJobId, setActiveJobId] = useState<Id<'importJobs'> | null>(null);
   
   const { showToast } = useToast();
-  const bulkImportSuppliers = useMutation(api.adminImport.bulkImportSuppliers);
+  const startBulkImport = useMutation(api.adminImport.startBulkImport);
   const dbCategories = useQuery(api.categories.getAllCategories) || [];
+  
+  // Poll for job status when importing
+  const jobStatus = useQuery(
+    api.adminImport.getImportJobStatus,
+    activeJobId ? { jobId: activeJobId } : 'skip'
+  );
 
   // Validate data - category comes from user selection, not file
   const validateData = useCallback((data: any[]): ValidatedRow[] => {
@@ -609,6 +630,53 @@ export function SupplierBulkImport() {
     }
   }, [parseCSV, parseExcel, showToast]);
 
+  // Effect to poll job status updates
+  useEffect(() => {
+    if (jobStatus && activeJobId) {
+      const total = jobStatus.totalSuppliers;
+      const processed = jobStatus.processedSuppliers;
+      const success = jobStatus.successCount;
+      const failed = jobStatus.errorCount;
+      
+      setImportProgress(prev => ({
+        current: processed,
+        total: total,
+        success: success,
+        failed: failed,
+        jobId: activeJobId,
+        batch: prev?.batch || 1,
+        totalBatches: prev?.totalBatches || 1
+      }));
+      
+      // If job is complete, show results
+      if (jobStatus.status === 'completed' || jobStatus.status === 'failed') {
+        const results: ImportResult = {
+          success: [],
+          errors: jobStatus.errors || [],
+          total: total,
+          created: success,
+          failed: failed,
+          jobId: activeJobId
+        };
+        
+        setImportResult(results);
+        setCurrentStep('results');
+        setImportProgress(null);
+        setActiveJobId(null);
+        setIsUploading(false);
+        
+        // Show summary toast
+        if (success > 0 && failed === 0) {
+          showToast('success', `${success} fournisseurs importés avec succès`);
+        } else if (success > 0 && failed > 0) {
+          showToast('warning', `${success} importés, ${failed} échecs (${Math.round((failed / total) * 100)}% erreurs)`);
+        } else if (failed > 0) {
+          showToast('error', `Échec total: ${failed} fournisseurs n'ont pas pu être importés`);
+        }
+      }
+    }
+  }, [jobStatus, activeJobId, showToast]);
+
   const handleImport = async () => {
     // Validate that a category is selected
     if (!selectedCategory) {
@@ -621,7 +689,7 @@ export function SupplierBulkImport() {
       .filter(row => row.isValid)
       .map(row => ({
         ...row.data,
-        supplier_category: selectedCategory // Use the user-selected category
+        supplier_category: selectedCategory
       }));
     
     if (rowsToImport.length === 0) {
@@ -631,96 +699,36 @@ export function SupplierBulkImport() {
 
     setIsUploading(true);
     setCurrentStep('importing');
-    setImportProgress({ current: 0, total: rowsToImport.length, success: 0, failed: 0 });
-
-    const results: ImportResult = {
-      success: [],
-      errors: [],
-      total: rowsToImport.length,
-      created: 0,
-      failed: 0,
-    };
-
-    // Track partial progress within current batch
-    let processedCount = 0;
-    let successCount = 0;
-    let failCount = 0;
-
-    // Process in batches of 25 (half of backend limit for safety margin)
-    const batchSize = 25;
+    
+    const batchSize = 15; // Backend processes 15 at a time
     const totalBatches = Math.ceil(rowsToImport.length / batchSize);
     
-    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-      const i = batchIndex * batchSize;
-      const batch = rowsToImport.slice(i, i + batchSize);
-      
-      try {
-        const batchResult = await bulkImportSuppliers({ 
-          suppliers: batch,
-          skipNotifications: true  // Skip notifications for bulk imports to save bandwidth
-        });
-        
-        // Handle partial results - some may succeed, some may fail
-        results.success.push(...batchResult.success);
-        results.errors.push(...batchResult.errors);
-        results.created += batchResult.created;
-        results.failed += batchResult.failed;
-        
-        successCount += batchResult.created;
-        failCount += batchResult.failed;
-        processedCount += batch.length;
-        
-        // Update progress with detailed counts
-        setImportProgress({ 
-          current: processedCount, 
-          total: rowsToImport.length,
-          success: successCount,
-          failed: failCount,
-          batch: batchIndex + 1,
-          totalBatches: totalBatches
-        });
-        
-      } catch (error: any) {
-        // Network/server error - entire batch failed
-        const batchErrors = batch.map((row: any) => ({
-          supplier: row.supplier_business_name,
-          email: row.user_email,
-          error: error.message || 'Erreur réseau lors de l\'import',
-        }));
-        
-        results.errors.push(...batchErrors);
-        results.failed += batch.length;
-        failCount += batch.length;
-        processedCount += batch.length;
-        
-        setImportProgress({ 
-          current: processedCount, 
-          total: rowsToImport.length,
-          success: successCount,
-          failed: failCount,
-          batch: batchIndex + 1,
-          totalBatches: totalBatches
-        });
-        
-        // Continue with next batch despite error (don't stop entire import)
-        console.error(`Batch ${batchIndex + 1}/${totalBatches} failed:`, error);
-      }
-    }
+    setImportProgress({ 
+      current: 0, 
+      total: rowsToImport.length,
+      success: 0,
+      failed: 0,
+      batch: 1,
+      totalBatches: totalBatches
+    });
 
-    setImportResult(results);
-    setCurrentStep('results');
-    setImportProgress(null);
-    
-    // Summary toast with detailed counts
-    if (results.created > 0 && results.failed === 0) {
-      showToast('success', `${results.created} fournisseurs importés avec succès`);
-    } else if (results.created > 0 && results.failed > 0) {
-      showToast('warning', `${results.created} importés, ${results.failed} échecs (${Math.round((results.failed / results.total) * 100)}% erreurs)`);
-    } else if (results.failed > 0) {
-      showToast('error', `Échec total: ${results.failed} fournisseurs n'ont pas pu être importés`);
+    try {
+      // Start the scheduler-based import
+      const result = await startBulkImport({ 
+        suppliers: rowsToImport
+      });
+      
+      if (result.success && result.jobId) {
+        setActiveJobId(result.jobId);
+        setImportProgress(prev => prev ? { ...prev, jobId: result.jobId } : null);
+      } else {
+        throw new Error('Failed to start import job');
+      }
+    } catch (error: any) {
+      showToast('error', `Erreur lors du démarrage de l'import: ${error.message}`);
+      setIsUploading(false);
+      setCurrentStep('preview');
     }
-    
-    setIsUploading(false);
   };
 
   const toggleRowSelection = (index: number) => {

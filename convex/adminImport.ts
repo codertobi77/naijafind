@@ -14,17 +14,16 @@ function normalizeString(str: string): string {
 // Helper function to require admin authentication
 async function requireAdmin(ctx: any) {
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new Error("Non autorisé");
-  
+  if (!identity?.email) throw new Error("Non autorisé");
+
   const user = await ctx.db
     .query("users")
-    .filter((q: any) => q.eq(q.field("email"), identity.email))
+    .withIndex("email", (q: any) => q.eq("email", identity.email))
     .first();
-    
+
   if (!user || !user.is_admin) {
     throw new Error("Accès refusé. Seuls les administrateurs peuvent effectuer cette action.");
   }
-  
   return user;
 }
 
@@ -62,14 +61,15 @@ async function importSingleSupplierInternal(
   args: SupplierImportData, 
   allCategories: any[], 
   now: string,
-  skipNotification: boolean = false
+  skipNotification: boolean = false,
+  categoryMaps?: { exact: Map<string, any>, normalized: Map<string, any> }
 ) {
   const userEmail = args.user_email || (args.user_phone ? `${args.user_phone.replace(/\D/g, '')}@phone.local` : `supplier-${Date.now()}-${Math.random().toString(36).substring(2, 9)}@import.local`);
   const supplierEmail = args.supplier_email || userEmail;
 
   let user = await ctx.db
     .query("users")
-    .filter((q: any) => q.eq(q.field("email"), userEmail))
+    .withIndex("email", (q: any) => q.eq("email", userEmail))
     .first();
 
   let userId: string;
@@ -98,56 +98,39 @@ async function importSingleSupplierInternal(
 
   const existingSupplier = await ctx.db
     .query("suppliers")
-    .filter((q: any) => q.eq(q.field("userId"), userId))
+    .withIndex("userId", (q: any) => q.eq("userId", userId))
     .first();
 
   if (existingSupplier) {
     throw new Error(`Un fournisseur existe déjà pour l'utilisateur ${userEmail}`);
   }
 
-  let categoryName = args.supplier_category?.trim() || '';
+  // Build category maps if not provided (for single imports or backward compatibility)
+  const categoryByExact = categoryMaps?.exact ?? new Map<string, any>();
+  const categoryByNormalized = categoryMaps?.normalized ?? new Map<string, any>();
   
-  if (categoryName) {
-    const normalizedInput = normalizeString(categoryName);
-    
-    let matchedCategory = allCategories.find(
-      cat => cat.name.toLowerCase().trim() === categoryName.toLowerCase()
-    );
-    
-    if (!matchedCategory) {
-      matchedCategory = allCategories.find(
-        cat => normalizeString(cat.name) === normalizedInput
-      );
+  // If maps not provided, populate them from allCategories
+  if (!categoryMaps) {
+    for (const cat of allCategories) {
+      categoryByExact.set(cat.name.toLowerCase().trim(), cat);
+      categoryByNormalized.set(normalizeString(cat.name), cat);
     }
-    
-    if (!matchedCategory) {
-      matchedCategory = allCategories.find(cat => {
-        const normalizedCat = normalizeString(cat.name);
-        return normalizedInput.includes(normalizedCat) || 
-               normalizedCat.includes(normalizedInput);
-      });
-    }
-    
+  }
+
+  const input = (args.supplier_category ?? "").trim();
+  let categoryName = input || "Autre";
+
+  if (input) {
+    const exact = categoryByExact.get(input.toLowerCase());
+    const norm = categoryByNormalized.get(normalizeString(input));
+    const matchedCategory = exact ?? norm;
+
     if (matchedCategory) {
       categoryName = matchedCategory.name;
     } else {
-      const defaultCategory = allCategories.find(cat => 
-        normalizeString(cat.name) === 'autre' || normalizeString(cat.name) === 'other'
-      );
-      
-      if (defaultCategory) {
-        categoryName = defaultCategory.name;
-      } else {
-        await ctx.db.insert("categories", {
-          name: "Autre",
-          description: "Catégorie par défaut pour les fournisseurs",
-          icon: "ri-store-line",
-          is_active: true,
-          created_at: now,
-        });
-        categoryName = "Autre";
-        allCategories.push({ name: "Autre", is_active: true });
-      }
+      // Fallback: use "Autre" category if it exists, otherwise default to "Autre" string
+      const autreCategory = categoryByNormalized.get("autre") || categoryByNormalized.get("other");
+      categoryName = autreCategory?.name || "Autre";
     }
   } else {
     categoryName = "Autre";
@@ -250,7 +233,7 @@ export const importSupplier = internalMutation({
     // Fetch categories once for single import
     const allCategories = await ctx.db
       .query("categories")
-      .filter(q => q.eq(q.field("is_active"), true))
+      .withIndex("is_active", (q: any) => q.eq("is_active", true))
       .take(100);
     
     return await importSingleSupplierInternal(ctx, args, allCategories, now, false);
@@ -305,12 +288,20 @@ export const bulkImportSuppliers = mutation({
 
     const now = new Date().toISOString();
     const skipNotifications = args.skipNotifications ?? true; // Default to skipping for bulk
-    
+
     // Cache categories once for all imports in this batch (reduces bandwidth)
     const allCategories = await ctx.db
       .query("categories")
-      .filter(q => q.eq(q.field("is_active"), true))
+      .withIndex("is_active", (q: any) => q.eq("is_active", true))
       .take(100);
+
+    const categoryByExact = new Map<string, any>();
+    const categoryByNormalized = new Map<string, any>();
+
+    for (const cat of allCategories) {
+      categoryByExact.set(cat.name.toLowerCase().trim(), cat);
+      categoryByNormalized.set(normalizeString(cat.name), cat);
+    }
 
     const results = {
       success: [] as any[],
@@ -318,6 +309,12 @@ export const bulkImportSuppliers = mutation({
       total: args.suppliers.length,
       created: 0,
       failed: 0,
+    };
+
+    // Pass category maps to avoid rebuilding for each supplier
+    const categoryMaps = {
+      exact: categoryByExact,
+      normalized: categoryByNormalized
     };
 
     // Process suppliers sequentially but with shared category cache
@@ -328,7 +325,8 @@ export const bulkImportSuppliers = mutation({
           supplierData, 
           allCategories, 
           now, 
-          skipNotifications
+          skipNotifications,
+          categoryMaps
         );
         results.success.push(result);
         results.created++;
@@ -393,3 +391,213 @@ export const importSingleSupplier = mutation({
 
 // Generated API reference for internal calls
 import { api } from "./_generated/api";
+
+// Scheduler-based bulk import: Start the import job and schedule chunks
+export const startBulkImport = mutation({
+  args: {
+    suppliers: v.array(v.object({
+      user_email: v.optional(v.string()),
+      user_firstName: v.optional(v.string()),
+      user_lastName: v.optional(v.string()),
+      user_phone: v.optional(v.string()),
+      supplier_business_name: v.string(),
+      supplier_email: v.optional(v.string()),
+      supplier_phone: v.optional(v.string()),
+      supplier_category: v.string(),
+      supplier_description: v.optional(v.string()),
+      supplier_address: v.optional(v.string()),
+      supplier_city: v.string(),
+      supplier_state: v.string(),
+      supplier_country: v.optional(v.string()),
+      supplier_website: v.optional(v.string()),
+      supplier_business_type: v.optional(v.string()),
+      supplier_verified: v.optional(v.boolean()),
+      supplier_approved: v.optional(v.boolean()),
+      supplier_featured: v.optional(v.boolean()),
+      supplier_image: v.optional(v.string()),
+      supplier_imageGallery: v.optional(v.array(v.string())),
+      supplier_business_hours: v.optional(v.record(v.string(), v.string())),
+      supplier_social_links: v.optional(v.record(v.string(), v.string())),
+      supplier_latitude: v.optional(v.float64()),
+      supplier_longitude: v.optional(v.float64()),
+      supplier_rating: v.optional(v.float64()),
+      supplier_reviews: v.optional(v.number()),
+      supplier_google_place_id: v.optional(v.string()),
+      supplier_source: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireAdmin(ctx);
+    const now = new Date().toISOString();
+
+    // Create import job record
+    const jobId = await ctx.db.insert("importJobs", {
+      status: "processing",
+      totalSuppliers: args.suppliers.length,
+      processedSuppliers: 0,
+      successCount: 0,
+      errorCount: 0,
+      errors: [],
+      startedAt: now,
+      scheduledBy: user._id,
+    });
+
+    const CHUNK_SIZE = 15; // Process 15 suppliers at a time
+    const chunks: any[][] = [];
+    
+    for (let i = 0; i < args.suppliers.length; i += CHUNK_SIZE) {
+      chunks.push(args.suppliers.slice(i, i + CHUNK_SIZE));
+    }
+
+    // Schedule each chunk with runAfter
+    for (let index = 0; index < chunks.length; index++) {
+      await ctx.scheduler.runAfter(0, api.adminImport.processImportChunk, {
+        jobId,
+        chunkIndex: index,
+        totalChunks: chunks.length,
+        suppliers: chunks[index],
+      });
+    }
+
+    return {
+      success: true,
+      jobId,
+      message: `Import scheduled: ${args.suppliers.length} suppliers in ${chunks.length} chunks`,
+    };
+  },
+});
+
+// Internal mutation to process a chunk of suppliers
+export const processImportChunk = internalMutation({
+  args: {
+    jobId: v.id("importJobs"),
+    chunkIndex: v.number(),
+    totalChunks: v.number(),
+    suppliers: v.array(v.object({
+      user_email: v.optional(v.string()),
+      user_firstName: v.optional(v.string()),
+      user_lastName: v.optional(v.string()),
+      user_phone: v.optional(v.string()),
+      supplier_business_name: v.string(),
+      supplier_email: v.optional(v.string()),
+      supplier_phone: v.optional(v.string()),
+      supplier_category: v.string(),
+      supplier_description: v.optional(v.string()),
+      supplier_address: v.optional(v.string()),
+      supplier_city: v.string(),
+      supplier_state: v.string(),
+      supplier_country: v.optional(v.string()),
+      supplier_website: v.optional(v.string()),
+      supplier_business_type: v.optional(v.string()),
+      supplier_verified: v.optional(v.boolean()),
+      supplier_approved: v.optional(v.boolean()),
+      supplier_featured: v.optional(v.boolean()),
+      supplier_image: v.optional(v.string()),
+      supplier_imageGallery: v.optional(v.array(v.string())),
+      supplier_business_hours: v.optional(v.record(v.string(), v.string())),
+      supplier_social_links: v.optional(v.record(v.string(), v.string())),
+      supplier_latitude: v.optional(v.float64()),
+      supplier_longitude: v.optional(v.float64()),
+      supplier_rating: v.optional(v.float64()),
+      supplier_reviews: v.optional(v.number()),
+      supplier_google_place_id: v.optional(v.string()),
+      supplier_source: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const now = new Date().toISOString();
+    
+    // Fetch all categories once per chunk
+    const allCategories = await ctx.db
+      .query("categories")
+      .filter(q => q.eq(q.field("is_active"), true))
+      .take(100);
+
+    // Build category maps for O(1) lookups
+    const categoryByExact = new Map<string, any>();
+    const categoryByNormalized = new Map<string, any>();
+    for (const cat of allCategories) {
+      categoryByExact.set(cat.name.toLowerCase().trim(), cat);
+      categoryByNormalized.set(normalizeString(cat.name), cat);
+    }
+
+    const categoryMaps = { exact: categoryByExact, normalized: categoryByNormalized };
+
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: { supplier: string; error: string }[] = [];
+
+    // Process each supplier in the chunk
+    for (const supplierData of args.suppliers) {
+      try {
+        await importSingleSupplierInternal(
+          ctx,
+          supplierData,
+          allCategories,
+          now,
+          true, // skipNotifications
+          categoryMaps
+        );
+        successCount++;
+      } catch (error: any) {
+        errorCount++;
+        errors.push({
+          supplier: supplierData.supplier_business_name,
+          error: error.message,
+        });
+      }
+    }
+
+    // Update job progress
+    const job = await ctx.db.get(args.jobId);
+    if (job) {
+      const updatedErrors = [...(job.errors || []), ...errors];
+      const isComplete = args.chunkIndex === args.totalChunks - 1;
+      
+      await ctx.db.patch(args.jobId, {
+        processedSuppliers: job.processedSuppliers + args.suppliers.length,
+        successCount: job.successCount + successCount,
+        errorCount: job.errorCount + errorCount,
+        errors: updatedErrors.slice(0, 100), // Keep last 100 errors
+        status: isComplete ? "completed" : "processing",
+        completedAt: isComplete ? now : undefined,
+      });
+    }
+
+    return {
+      success: true,
+      chunkIndex: args.chunkIndex,
+      processed: args.suppliers.length,
+      successCount,
+      errorCount,
+    };
+  },
+});
+
+// Query to get import job status
+export const getImportJobStatus = query({
+  args: {
+    jobId: v.id("importJobs"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const job = await ctx.db.get(args.jobId);
+    if (!job) throw new Error("Job not found");
+    return job;
+  },
+});
+
+// Query to list all import jobs
+export const listImportJobs = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const jobs = await ctx.db
+      .query("importJobs")
+      .order("desc")
+      .take(args.limit ?? 20);
+    return jobs;
+  },
+});

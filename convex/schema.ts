@@ -208,4 +208,18 @@ export default defineSchema({
     .index("supplierId", ["supplierId"])
     .index("userId", ["userId"])
     .index("status", ["status"]),
+  // Bulk import jobs for tracking scheduled imports
+  importJobs: defineTable({
+    status: v.string(), // 'pending', 'processing', 'completed', 'failed'
+    totalSuppliers: v.number(),
+    processedSuppliers: v.number(),
+    successCount: v.number(),
+    errorCount: v.number(),
+    errors: v.optional(v.array(v.object({ supplier: v.string(), error: v.string() }))),
+    startedAt: v.string(),
+    completedAt: v.optional(v.string()),
+    scheduledBy: v.string(), // admin userId
+  })
+    .index("status", ["status"])
+    .index("scheduledBy", ["scheduledBy"]),
 });
