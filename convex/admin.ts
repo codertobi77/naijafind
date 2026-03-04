@@ -295,3 +295,79 @@ export const getFeaturedSuppliers = query({
     return suppliers;
   }
 });
+
+// Delete all suppliers (admin only) - schedules a background job
+export const deleteAllSuppliers = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Check if user is admin
+    await requireAdmin(ctx);
+    
+    // Schedule the background deletion job
+    await ctx.scheduler.runAfter(0, internal.admin.deleteAllSuppliersInternal, {});
+    
+    return { 
+      success: true, 
+      message: "Suppression de tous les fournisseurs planifiée en arrière-plan" 
+    };
+  }
+});
+
+// Internal mutation to delete all suppliers in background
+export const deleteAllSuppliersInternal = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    // Get all suppliers
+    const suppliers = await ctx.db.query("suppliers").collect();
+    
+    let deletedCount = 0;
+    const now = new Date().toISOString();
+    
+    // Delete suppliers in batches to avoid timeout
+    for (const supplier of suppliers) {
+      await ctx.db.delete(supplier._id);
+      deletedCount++;
+      
+      // Every 50 deletions, yield to prevent timeout
+      if (deletedCount % 50 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+    }
+    
+    // Reset all stats to 0
+    const statsToReset = [
+      "totalSuppliers",
+      "pendingSuppliers", 
+      "approvedSuppliers",
+      "featuredSuppliers",
+      "verifiedSuppliers"
+    ];
+    
+    for (const key of statsToReset) {
+      await ctx.scheduler.runAfter(0, internal.stats.setStat, {
+        key,
+        value: 0,
+        category: "global",
+      });
+    }
+    
+    // Reset category stats
+    const categoryStats = await ctx.db
+      .query("stats")
+      .withIndex("category", (q) => q.eq("category", "category"))
+      .collect();
+    
+    for (const stat of categoryStats) {
+      await ctx.db.patch(stat._id, {
+        value: 0,
+        updatedAt: now,
+      });
+    }
+    
+    return { 
+      success: true, 
+      deletedCount,
+      message: `${deletedCount} fournisseurs supprimés avec succès` 
+    };
+  }
+});

@@ -473,7 +473,7 @@ export default function AdminPage(){
     {},
     { staleTime: 2 * 60 * 1000 }
   );
-  const { data: allSuppliers, isLoading: suppliersLoading } = useConvexQuery(
+  const { data: allSuppliers, isLoading: suppliersLoading, refetch: refetchAllSuppliers } = useConvexQuery(
     api.suppliers.getAllSuppliers,
     {},
     { staleTime: 2 * 60 * 1000 }
@@ -489,10 +489,10 @@ export default function AdminPage(){
     { staleTime: 2 * 60 * 1000 }
   );
 
-  const { data: adminStats } = useConvexQuery(
+  const { data: adminStats, refetch: refetchAdminStats } = useConvexQuery(
     api.stats.getAdminStats,
     {},
-    { staleTime: 30 * 1000 } // Cache stats for 30 seconds
+    { staleTime: 5 * 1000 } // Cache stats for 5 seconds only
   );
 
 // Statistiques depuis la table stats (plus performant)
@@ -507,6 +507,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
   const approveSupplier = useMutation(api.admin.approveSupplier);
   const rejectSupplier = useMutation(api.admin.rejectSupplier);
   const deleteSupplier = useMutation(api.admin.deleteSupplier);
+  const deleteAllSuppliers = useMutation(api.admin.deleteAllSuppliers);
   const setSupplierFeatured = useMutation(api.admin.setSupplierFeatured);
   const { data: featuredSuppliers, refetch: refetchFeaturedSuppliers } = useConvexQuery(
     api.admin.getFeaturedSuppliers,
@@ -689,13 +690,39 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
       case 'suppliers':
         return (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                {t('admin.supplier_management')}
-              </h2>
-              <p className="mt-1 text-gray-600">
-                {t('admin.supplier_management_description')}
-              </p>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {t('admin.supplier_management')}
+                </h2>
+                <p className="mt-1 text-gray-600">
+                  {t('admin.supplier_management_description')}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  showConfirm(
+                    t('admin.delete_all_suppliers'),
+                    t('admin.confirm_delete_all_suppliers'),
+                    async () => {
+                      try {
+                        const result: any = await deleteAllSuppliers({});
+                        showToast('success', result.message || t('admin.delete_all_suppliers_success'));
+                        refetchAllSuppliers();
+                        // Delay refetch to allow scheduler job to complete
+                        setTimeout(() => refetchAdminStats(), 1000);
+                      } catch (error: any) {
+                        console.error('Error deleting all suppliers:', error);
+                        showToast('error', error.message || t('admin.error_delete_all_suppliers'));
+                      }
+                    },
+                    true
+                  );
+                }}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm"
+              >
+                🗑️ {t('admin.delete_all_suppliers')}
+              </button>
             </div>
 
             <div className="bg-white rounded-lg border p-6">
@@ -764,6 +791,8 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                                         try {
                                           await approveSupplier({ supplierId: supplier._id });
                                           refetchAllSuppliers();
+                                          // Delay refetch to allow scheduler job to complete
+                                          setTimeout(() => refetchAdminStats(), 500);
                                           showToast('success', t('admin.supplier_approved'));
                                         } catch (error: any) {
                                           console.error('Error approving supplier:', error);
@@ -794,6 +823,8 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                                       featured: !supplier.featured 
                                     }).then(() => {
                                       refetchAllSuppliers();
+                                      // Delay refetch to allow scheduler job to complete
+                                      setTimeout(() => refetchAdminStats(), 500);
                                       showToast('success', supplier.featured 
                                         ? t('admin.supplier_unfeatured') 
                                         : t('admin.supplier_featured')
@@ -830,6 +861,8 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                                       try {
                                         await deleteSupplier({ supplierId: supplier._id });
                                         refetchAllSuppliers();
+                                        // Delay refetch to allow scheduler job to complete
+                                        setTimeout(() => refetchAdminStats(), 500);
                                         showToast('success', t('admin.supplier_deleted'));
                                       } catch (error: any) {
                                         console.error('Error deleting supplier:', error);
@@ -881,21 +914,9 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => {
-                    showConfirm(
-                      t('admin.init_categories'),
-                      t('admin.confirm_init'),
-                      async () => {
-                        try {
-                          const result: any = await initCategories({});
-                          showToast('success', result.message || t('admin.init_success'));
-                        } catch (error: any) {
-                          showToast('error', error.message || t('admin.error_init_categories'));
-                        }
-                      }
-                    );
-                  }}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  disabled
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg opacity-50 cursor-not-allowed transition-colors text-sm"
+                  title={t('admin.init_categories_disabled')}
                 >
                   🔄 {t('admin.init_categories')}
                 </button>

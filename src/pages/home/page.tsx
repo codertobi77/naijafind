@@ -999,19 +999,15 @@ export default function Home() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Secteur d'activité</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('newsletter.sector')}</label>
                   <select
                     name="sector"
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm bg-white"
                   >
-                    <option value="">Sélectionnez votre secteur</option>
-                    <option value="Agriculture">Agriculture</option>
-                    <option value="Textile">Textile</option>
-                    <option value="Électronique">Électronique</option>
-                    <option value="Alimentation">Alimentation</option>
-                    <option value="Construction">Construction</option>
-                    <option value="Automobile">Automobile</option>
-                    <option value="Autre">Autre</option>
+                    <option value="">{t('newsletter.select_sector')}</option>
+                    {categories?.map((cat) => (
+                      <option key={cat._id} value={cat.name}>{cat.name}</option>
+                    ))}
                   </select>
                 </div>
                 <button

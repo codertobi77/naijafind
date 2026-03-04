@@ -118,7 +118,12 @@ export const admin = {
   "admin.images": "Images",
   "admin.no_products": "No products",
   "admin.order": "Order",
-  "admin.no_orders": "No orders"
+  "admin.no_orders": "No orders",
+  "admin.delete_all_suppliers": "Delete All Suppliers",
+  "admin.confirm_delete_all_suppliers": "Are you sure you want to delete ALL suppliers? This action cannot be undone and will remove all supplier data from the platform.",
+  "admin.delete_all_suppliers_success": "All suppliers deleted successfully",
+  "admin.error_delete_all_suppliers": "Error deleting all suppliers",
+  "admin.init_categories_disabled": "Categories initialization is disabled"
 };
 
 export default admin;
