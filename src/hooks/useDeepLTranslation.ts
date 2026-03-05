@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import i18n, { SupportedLanguageCode } from "../i18n";
 
@@ -83,9 +83,9 @@ const setCachedTranslation = (text: string, targetLang: string, translatedText: 
  * ```
  */
 export const useDeepLTranslation = () => {
-  const translateAction = useMutation(api.translation.translateText);
-  const translateBatchAction = useMutation(api.translation.translateBatch);
-  const detectLanguageAction = useMutation(api.translation.detectLanguage);
+  const translateAction = useAction(api.translation.translateText);
+  const translateBatchAction = useAction(api.translation.translateBatch);
+  const detectLanguageAction = useAction(api.translation.detectLanguage);
 
   const [isTranslating, setIsTranslating] = useState(false);
   const pendingRequests = useRef<Set<string>>(new Set());
