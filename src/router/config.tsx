@@ -10,6 +10,7 @@ const Contact = lazy(() => import('../pages/contact/page'));
 const FAQ = lazy(() => import('../pages/faq/page'));
 const Help = lazy(() => import('../pages/help/page'));
 const Privacy = lazy(() => import('../pages/privacy/page'));
+const Terms = lazy(() => import('../pages/terms/page'));
 const Login = lazy(() => import('../pages/auth/login'));
 const Register = lazy(() => import('../pages/auth/register'));
 const CheckRole = lazy(() => import('../pages/auth/check-role'));
@@ -55,6 +56,10 @@ const routes: RouteObject[] = [
   {
     path: '/privacy',
     element: <Privacy />,
+  },
+  {
+    path: '/terms',
+    element: <Terms />,
   },
   {
     path: '/auth/login',

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-export default function Privacy() {
+export default function Terms() {
   const { t } = useTranslation();
 
   return (
@@ -37,10 +37,10 @@ export default function Privacy() {
       <section className="bg-green-600 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl font-bold text-white mb-4">
-            Privacy Policy – Suji
+            Terms of Service – Suji
           </h1>
           <p className="text-xl text-green-100 max-w-2xl mx-auto">
-            {t('privacy.subtitle')}
+            {t('terms.subtitle')}
           </p>
         </div>
       </section>
@@ -58,181 +58,203 @@ export default function Privacy() {
                 <section>
                   <h2 className="text-2xl font-bold text-gray-900 mb-4">1. Introduction</h2>
                   <p className="text-gray-700 mb-4">
-                    Suji ("we", "our", or "us") is committed to protecting and respecting your privacy. 
-                    This Privacy Policy explains how we collect, use, store, and protect your personal 
-                    information when you use the Suji platform.
+                    Welcome to Suji.
+                  </p>
+                  <p className="text-gray-700 mb-4">
+                    These Terms of Service ("Terms") govern your access to and use of the Suji platform,
+                    including all services, features, and content provided through the website.
                   </p>
                   <p className="text-gray-700">
-                    By accessing or using Suji, you agree to the practices described in this Privacy Policy.
+                    By accessing or using the Suji platform, you agree to comply with these Terms.
+                    If you do not agree with these Terms, you should not use the platform.
                   </p>
                 </section>
 
                 <section>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">2. Information We Collect</h2>
-                  
-                  <h3 className="text-xl font-semibold text-gray-900 mb-3">2.1 Information You Provide to Us</h3>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">2. Description of the Platform</h2>
                   <p className="text-gray-700 mb-4">
-                    When you create an account or interact with our platform, we may collect the following information:
+                    Suji is an online platform designed to connect buyers with suppliers,
+                    particularly suppliers based in Nigeria.
                   </p>
-                  <ul className="list-disc list-inside text-gray-700 mb-6 space-y-2">
-                    <li>Name</li>
-                    <li>Email address</li>
-                    <li>Password</li>
-                    <li>Company name (for suppliers)</li>
-                    <li>Business description</li>
-                    <li>Phone number</li>
-                    <li>Address or business location</li>
-                    <li>Any content you publish such as reviews, comments, or photos</li>
-                  </ul>
-
-                  <h3 className="text-xl font-semibold text-gray-900 mb-3">2.2 Information Collected Automatically</h3>
                   <p className="text-gray-700 mb-4">
-                    When you use Suji, we may automatically collect certain information including:
-                  </p>
-                  <ul className="list-disc list-inside text-gray-700 mb-6 space-y-2">
-                    <li>IP address</li>
-                    <li>Browser type</li>
-                    <li>Device information</li>
-                    <li>Pages visited</li>
-                    <li>Time spent on pages</li>
-                    <li>Referring websites</li>
-                    <li>Cookies and similar technologies</li>
-                  </ul>
-
-                  <h3 className="text-xl font-semibold text-gray-900 mb-3">2.3 Location Information</h3>
-                  <p className="text-gray-700">
-                    With your consent, we may collect geolocation data to help users discover suppliers near their location.
-                  </p>
-                </section>
-
-                <section>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">3. How We Use Your Information</h2>
-                  <p className="text-gray-700 mb-4">
-                    We use the information we collect to:
+                    Suji provides tools that allow users to:
                   </p>
                   <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
-                    <li>Provide and operate the Suji platform</li>
-                    <li>Improve our services and platform performance</li>
-                    <li>Personalize your user experience</li>
-                    <li>Facilitate connections between buyers and suppliers</li>
-                    <li>Send important updates and notifications</li>
-                    <li>Detect and prevent fraud or misuse</li>
-                    <li>Comply with legal and regulatory obligations</li>
-                  </ul>
-                </section>
-
-                <section>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">4. Sharing Your Information</h2>
-                  <p className="text-gray-700 mb-4">
-                    We do not sell your personal information.
-                  </p>
-                  <p className="text-gray-700 mb-4">
-                    However, we may share your information in the following situations:
-                  </p>
-                  <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
-                    <li>With your explicit consent</li>
-                    <li>With trusted third‑party service providers who help us operate our platform</li>
-                    <li>To comply with legal obligations or lawful requests from authorities</li>
-                    <li>To protect the rights, property, or safety of Suji and its users</li>
-                    <li>In the event of a merger, acquisition, or business restructuring</li>
-                  </ul>
-                </section>
-
-                <section>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">5. Data Security</h2>
-                  <p className="text-gray-700 mb-4">
-                    We implement appropriate technical and organizational security measures to protect 
-                    your personal information, including:
-                  </p>
-                  <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
-                    <li>Encryption of sensitive data</li>
-                    <li>Secure servers and infrastructure</li>
-                    <li>Restricted access to personal data</li>
-                    <li>Continuous monitoring of our systems</li>
+                    <li>Discover suppliers</li>
+                    <li>View supplier profiles</li>
+                    <li>Contact suppliers directly</li>
+                    <li>Share reviews and feedback</li>
                   </ul>
                   <p className="text-gray-700">
-                    Despite these measures, no system can guarantee absolute security.
+                    Suji does not manufacture, sell, store, or deliver products listed by suppliers.
                   </p>
                 </section>
 
                 <section>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">6. Your Rights</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">3. User Accounts</h2>
                   <p className="text-gray-700 mb-4">
-                    Depending on applicable laws, you may have the right to:
+                    To access certain features of the platform, users may be required to create an account.
+                  </p>
+                  <p className="text-gray-700 mb-4">
+                    You agree to:
                   </p>
                   <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
-                    <li>Access your personal data</li>
-                    <li>Correct inaccurate information</li>
-                    <li>Request deletion of your personal data</li>
-                    <li>Restrict the processing of your information</li>
-                    <li>Request data portability</li>
-                    <li>Object to certain types of data processing</li>
+                    <li>Provide accurate and complete information</li>
+                    <li>Keep your login credentials secure</li>
+                    <li>Notify us immediately of any unauthorized access</li>
                   </ul>
                   <p className="text-gray-700 mb-4">
-                    To exercise these rights, please contact us at:
+                    You are responsible for all activities that occur under your account.
                   </p>
-                  <p className="text-gray-700 font-medium">
-                    privacy@suji.com
+                  <p className="text-gray-700">
+                    Suji reserves the right to suspend or terminate accounts that violate these Terms.
                   </p>
                 </section>
 
                 <section>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">7. Cookies</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">4. Supplier Responsibility</h2>
                   <p className="text-gray-700 mb-4">
-                    Suji uses cookies and similar technologies to improve your experience on the platform.
-                  </p>
-                  <p className="text-gray-700 mb-4">
-                    Cookies may be used for:
+                    Suppliers are solely responsible for:
                   </p>
                   <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
-                    <li>Website functionality</li>
-                    <li>Analytics and performance tracking</li>
-                    <li>Remembering user preferences</li>
+                    <li>The accuracy of their business information</li>
+                    <li>The quality of products or services offered</li>
+                    <li>Product pricing and descriptions</li>
+                    <li>Delivery arrangements</li>
+                    <li>Compliance with applicable laws and regulations</li>
                   </ul>
                   <p className="text-gray-700">
-                    You can manage or disable cookies through your browser settings.
+                    Suppliers must ensure that the information published on the platform is truthful and not misleading.
                   </p>
                 </section>
 
                 <section>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">8. Data Retention</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">5. Buyer Responsibility</h2>
                   <p className="text-gray-700 mb-4">
-                    We retain your personal information only for as long as necessary to:
+                    Buyers using the platform agree to:
                   </p>
                   <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
-                    <li>Provide our services</li>
-                    <li>Maintain your active account</li>
-                    <li>Comply with legal obligations</li>
-                    <li>Resolve disputes</li>
+                    <li>Use the platform in good faith</li>
+                    <li>Verify suppliers before making transactions</li>
+                    <li>Respect suppliers and other users</li>
+                    <li>Avoid fraudulent or abusive behavior</li>
                   </ul>
                   <p className="text-gray-700">
-                    When your data is no longer required, it will be securely deleted.
+                    All commercial transactions occur directly between buyers and suppliers.
                   </p>
                 </section>
 
                 <section>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">9. International Data Transfers</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">6. Platform Role and Limitation of Liability</h2>
                   <p className="text-gray-700 mb-4">
-                    Your personal information may be transferred to and processed in countries outside 
-                    your country of residence, including Nigeria.
+                    Suji acts only as a digital intermediary connecting buyers and suppliers.
+                  </p>
+                  <p className="text-gray-700 mb-4">
+                    Suji does not:
+                  </p>
+                  <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
+                    <li>Guarantee the quality of products</li>
+                    <li>Guarantee supplier reliability</li>
+                    <li>Participate in negotiations or payments</li>
+                    <li>Handle shipping or delivery</li>
+                  </ul>
+                  <p className="text-gray-700 mb-4">
+                    Suji shall not be held responsible for:
+                  </p>
+                  <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
+                    <li>Product quality issues</li>
+                    <li>Delivery delays</li>
+                    <li>Payment disputes</li>
+                    <li>Business losses resulting from transactions</li>
+                  </ul>
+                  <p className="text-gray-700">
+                    Users engage with suppliers at their own risk.
+                  </p>
+                </section>
+
+                <section>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">7. Prohibited Activities</h2>
+                  <p className="text-gray-700 mb-4">
+                    Users are prohibited from:
+                  </p>
+                  <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
+                    <li>Publishing false or misleading information</li>
+                    <li>Uploading illegal or harmful content</li>
+                    <li>Harassing other users</li>
+                    <li>Attempting to hack or disrupt the platform</li>
+                    <li>Using the platform for fraudulent activities</li>
+                  </ul>
+                  <p className="text-gray-700">
+                    Suji reserves the right to remove any content that violates these rules.
+                  </p>
+                </section>
+
+                <section>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">8. Intellectual Property</h2>
+                  <p className="text-gray-700 mb-4">
+                    All content on the Suji platform including:
+                  </p>
+                  <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
+                    <li>Logos</li>
+                    <li>Design</li>
+                    <li>Text</li>
+                    <li>Software</li>
+                    <li>Graphics</li>
+                  </ul>
+                  <p className="text-gray-700">
+                    are the property of Suji or its licensors.
                   </p>
                   <p className="text-gray-700">
-                    We ensure that such transfers comply with appropriate data protection standards.
+                    Users may not copy, distribute, or reproduce platform content without permission.
                   </p>
                 </section>
 
                 <section>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">10. Changes to This Privacy Policy</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">9. Account Suspension or Termination</h2>
                   <p className="text-gray-700 mb-4">
-                    We may update this Privacy Policy from time to time. If significant changes occur, 
-                    we will notify users through the platform or by email.
+                    Suji may suspend or terminate accounts if users:
+                  </p>
+                  <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
+                    <li>Violate these Terms</li>
+                    <li>Engage in fraudulent behavior</li>
+                    <li>Post illegal or misleading content</li>
+                  </ul>
+                  <p className="text-gray-700">
+                    Termination may occur without prior notice in serious cases.
                   </p>
                 </section>
 
                 <section>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">11. Contact Information</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">10. Changes to the Terms</h2>
                   <p className="text-gray-700 mb-4">
-                    If you have any questions regarding this Privacy Policy, please contact us:
+                    Suji may update these Terms of Service at any time.
+                  </p>
+                  <p className="text-gray-700 mb-4">
+                    Users will be notified of significant changes through:
+                  </p>
+                  <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
+                    <li>Email notifications</li>
+                    <li>Notices on the platform</li>
+                  </ul>
+                  <p className="text-gray-700">
+                    Continued use of the platform after updates constitutes acceptance of the revised Terms.
+                  </p>
+                </section>
+
+                <section>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">11. Governing Law</h2>
+                  <p className="text-gray-700 mb-4">
+                    These Terms shall be governed and interpreted according to the laws applicable in Nigeria.
+                  </p>
+                  <p className="text-gray-700">
+                    Any disputes arising from the use of the platform shall be subject to the competent courts.
+                  </p>
+                </section>
+
+                <section>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">12. Contact Information</h2>
+                  <p className="text-gray-700 mb-4">
+                    If you have any questions regarding these Terms, please contact us:
                   </p>
                   <div className="bg-green-50 p-6 rounded-lg">
                     <ul className="space-y-2 text-gray-700">
