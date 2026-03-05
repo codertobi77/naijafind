@@ -110,7 +110,7 @@ export default function LocationPicker({ value, onChange, errors }: LocationPick
         const mapboxgl = await getMapboxgl();
 
         // Set Mapbox token
-        mapboxgl.accessToken = MAPBOX_TOKEN;
+        (mapboxgl as any).accessToken = MAPBOX_TOKEN;
 
         const initialCenter = selectedLocation || mapCenter;
         
