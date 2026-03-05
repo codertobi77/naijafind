@@ -7,9 +7,153 @@ import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
 import { SupplierAvatar } from '../../components/SupplierImage';
 import { SignedIn, SignedOut, useUser } from '@clerk/clerk-react';
-import { useToast } from '../../hooks/useToast';
+import { useDeepLTranslation } from '../../hooks/useDeepLTranslation';
 import { ToastContainer } from '../../components/base';
 import type { Map, Popup } from 'mapbox-gl';
+
+/**
+ * Composant pour afficher du texte traduisible avec DeepL
+ * avec option pour voir l'original
+ */
+function TranslatableDescription({ text, maxLength = 300 }: { text: string; maxLength?: number }) {
+  const { translate, isTranslating } = useDeepLTranslation();
+  const { t, i18n } = useTranslation();
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [showOriginal, setShowOriginal] = useState(false);
+  const currentLanguage = i18n.language;
+
+  useEffect(() => {
+    const loadTranslation = async () => {
+      if (!text || currentLanguage === 'en') {
+        setTranslatedText(null);
+        return;
+      }
+
+      const result = await translate(text, currentLanguage as 'en' | 'fr', 'en');
+      setTranslatedText(result);
+    };
+
+    loadTranslation();
+  }, [text, currentLanguage, translate]);
+
+  if (!text) {
+    return <p className="text-gray-500 italic">{t('msg.no_description')}</p>;
+  }
+
+  const hasTranslation = translatedText && translatedText !== text;
+  const displayText = showOriginal || !hasTranslation ? text : translatedText;
+  const isLong = displayText.length > maxLength;
+  const [expanded, setExpanded] = useState(false);
+
+  const truncatedText = isLong && !expanded 
+    ? displayText.substring(0, maxLength) + '...' 
+    : displayText;
+
+  return (
+    <div className="relative">
+      <p className="text-gray-700 text-sm sm:text-base lg:text-lg leading-relaxed">
+        {truncatedText}
+      </p>
+      
+      {isTranslating && (
+        <span className="inline-flex items-center ml-2">
+          <span className="animate-spin h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full" />
+        </span>
+      )}
+
+      {isLong && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="text-green-600 hover:text-green-800 text-sm mt-2 font-medium"
+        >
+          {expanded ? t('btn.show_less') : t('btn.show_more')}
+        </button>
+      )}
+
+      {hasTranslation && (
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            onClick={() => setShowOriginal(!showOriginal)}
+            className="text-xs text-blue-600 hover:text-blue-800 underline"
+          >
+            {showOriginal ? t('translation.view_translation') : t('translation.view_original')}
+          </button>
+          <span className="text-xs text-gray-400">• {t('translation.translated_by')}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Composant pour afficher un commentaire de review traduisible
+ * Affiche automatiquement dans la langue du navigateur, avec possibilité de voir l'original
+ */
+function TranslatableReviewComment({ 
+  comment, 
+  sourceLanguage 
+}: { 
+  comment: string; 
+  sourceLanguage?: string;
+}) {
+  const { translate, isTranslating } = useDeepLTranslation();
+  const { t, i18n } = useTranslation();
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [showOriginal, setShowOriginal] = useState(false);
+  const currentLanguage = i18n.language;
+
+  useEffect(() => {
+    const loadTranslation = async () => {
+      if (!comment) {
+        setTranslatedText(null);
+        return;
+      }
+
+      // Si on a une langue source et qu'elle est différente de la langue actuelle, traduire
+      const sourceLang = sourceLanguage || 'en';
+      const targetLang = currentLanguage.startsWith('fr') ? 'fr' : 'en';
+      
+      // Ne pas traduire si la langue source est la même que la langue cible
+      if (sourceLang === targetLang) {
+        setTranslatedText(null);
+        return;
+      }
+
+      const result = await translate(comment, targetLang, sourceLang);
+      setTranslatedText(result);
+    };
+
+    loadTranslation();
+  }, [comment, currentLanguage, translate, sourceLanguage]);
+
+  const hasTranslation = translatedText && translatedText !== comment;
+  // Par défaut, afficher la traduction (langue du navigateur), sauf si l'utilisateur clique pour voir l'original
+  const displayText = showOriginal ? comment : (hasTranslation ? translatedText : comment);
+
+  return (
+    <div className="relative">
+      <p className="text-gray-700 leading-relaxed text-sm sm:text-base">{displayText}</p>
+      
+      {isTranslating && (
+        <span className="absolute -right-6 top-0">
+          <span className="animate-spin h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full inline-block" />
+        </span>
+      )}
+
+      {hasTranslation && (
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            onClick={() => setShowOriginal(!showOriginal)}
+            className="text-xs text-blue-600 hover:text-blue-800 underline"
+          >
+            {showOriginal ? t('translation.view_translation') : t('translation.view_original')}
+          </button>
+          <span className="text-xs text-gray-400">• {t('translation.translated_from')} ({sourceLanguage?.toUpperCase() || 'EN'})</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
 
@@ -57,6 +201,7 @@ interface Review {
   created_at: string;
   user_id: string;
   user_name: string;
+  sourceLanguage?: string; // Langue détectée du commentaire
 }
 
 // Supplier Mapbox Map Component
@@ -282,6 +427,7 @@ export default function SupplierDetail() {
     created_at: r.created_at || new Date().toISOString(),
     user_id: r.userId || '',
     user_name: 'Client', // Convex reviews don't include user names by default
+    sourceLanguage: r.sourceLanguage,
   }));
 
   const handleContactSubmit = async (e: React.FormEvent) => {
@@ -475,7 +621,7 @@ export default function SupplierDetail() {
                 </div>
               </div>
 
-              <p className="text-gray-700 text-sm sm:text-base lg:text-lg mb-4 sm:mb-6 leading-relaxed">{transformedSupplier.description}</p>
+              <TranslatableDescription text={transformedSupplier.description} maxLength={300} />
 
               {/* Contact info grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
@@ -672,7 +818,7 @@ export default function SupplierDetail() {
                 <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">{t('supplier.about')}</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
                   <div className="lg:col-span-2">
-                    <p className="text-gray-700 mb-4 sm:mb-6 text-sm sm:text-base lg:text-lg leading-relaxed">{transformedSupplier.description}</p>
+                    <TranslatableDescription text={transformedSupplier.description} maxLength={500} />
 
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4 sm:p-6 mb-4 sm:mb-6">
                       <h4 className="font-semibold text-green-900 mb-3 flex items-center text-sm sm:text-base">
@@ -779,7 +925,7 @@ export default function SupplierDetail() {
                             })}
                           </span>
                         </div>
-                        <p className="text-gray-700 leading-relaxed text-sm sm:text-base">{review.comment}</p>
+                        <TranslatableReviewComment comment={review.comment} sourceLanguage={review.sourceLanguage} />
                       </div>
                     ))}
                   </div>

@@ -55,13 +55,28 @@ export const createReview = mutation({
       throw new Error("Fournisseur non trouvé");
     }
     
-    // Create review
+    // Detect language if comment is provided
+    let detectedLanguage: string | undefined;
+    if (args.comment && args.comment.trim().length > 0) {
+      try {
+        const detectionResult = await ctx.runAction(internal.translation.detectLanguage, {
+          text: args.comment,
+        });
+        detectedLanguage = detectionResult.language;
+      } catch (error) {
+        // Silently fail - language detection is not critical
+        console.error('Language detection failed:', error);
+      }
+    }
+    
+    // Create review with detected language
     const reviewId = await ctx.db.insert("reviews", {
       supplierId: args.supplierId,
       userId: identity.subject,
       rating: args.rating,
       comment: args.comment,
       status: "published",
+      sourceLanguage: detectedLanguage,
       created_at: new Date().toISOString(),
     });
     

@@ -73,6 +73,7 @@ export default defineSchema({
     comment: v.optional(v.string()),
     response: v.optional(v.string()),
     status: v.optional(v.string()),
+    sourceLanguage: v.optional(v.string()), // Langue détectée du commentaire (ex: 'en', 'fr', 'es')
     created_at: v.string(),
   })
     .index("supplierId", ["supplierId"])

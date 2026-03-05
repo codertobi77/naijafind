@@ -153,7 +153,14 @@ export const common = {
   "map.approximate": "approximatif",
   "map.expand": "Agrandir la carte",
   "map.full_map_view": "Vue Carte Complète",
-  "map.suppliers": "fournisseurs"
+  "map.suppliers": "fournisseurs",
+
+  // DeepL Translation
+  "translation.view_original": "Voir l'original",
+  "translation.view_translation": "Voir la traduction",
+  "translation.translated_by": "Traduit par DeepL",
+  "translation.translated_from": "Traduit du",
+  "translation.loading": "Traduction en cours..."
 };
 
 export default common;

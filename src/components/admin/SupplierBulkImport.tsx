@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { useMutation, useQuery } from 'convex/react';
+import { useMutation, useQuery, useAction } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { useToast } from '../../hooks/useToast';
 import { Id } from 'convex/values';
@@ -63,7 +63,7 @@ export function SupplierBulkImport() {
   const [activeJobId, setActiveJobId] = useState<Id<'importJobs'> | null>(null);
   
   const { showToast } = useToast();
-  const startBulkImport = useMutation(api.adminImport.startBulkImport);
+  const startBulkImport = useAction(api.adminImport.startBulkImport);
   const dbCategories = useQuery(api.categories.getAllCategories) || [];
   
   // Poll for job status when importing

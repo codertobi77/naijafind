@@ -27,6 +27,7 @@ import type * as sendEmail from "../sendEmail.js";
 import type * as stats from "../stats.js";
 import type * as statsCron from "../statsCron.js";
 import type * as suppliers from "../suppliers.js";
+import type * as translation from "../translation.js";
 import type * as users from "../users.js";
 import type * as verification from "../verification.js";
 
@@ -64,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   stats: typeof stats;
   statsCron: typeof statsCron;
   suppliers: typeof suppliers;
+  translation: typeof translation;
   users: typeof users;
   verification: typeof verification;
 }>;

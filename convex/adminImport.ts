@@ -1,4 +1,4 @@
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query, action } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
@@ -274,8 +274,9 @@ export const importSupplier = internalMutation({
   },
 });
 
-// Bulk import suppliers (admin only) - OPTIMIZED with bandwidth limits
-export const bulkImportSuppliers = mutation({
+// Bulk import suppliers (admin only) - OPTIMIZED as Action for bandwidth efficiency
+// Actions don't have reactive overhead, perfect for bulk operations
+export const bulkImportSuppliers = action({
   args: {
     suppliers: v.array(v.object({
       user_email: v.optional(v.string()),
@@ -310,8 +311,8 @@ export const bulkImportSuppliers = mutation({
     skipNotifications: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    // Verify admin
-    await requireAdmin(ctx);
+    // Verify admin via internal mutation
+    await ctx.runMutation(internal.adminImport.verifyAdminAction, {});
 
     const BATCH_SIZE_LIMIT = 50;
     
@@ -324,10 +325,7 @@ export const bulkImportSuppliers = mutation({
     const skipNotifications = args.skipNotifications ?? true; // Default to skipping for bulk
 
     // Cache categories once for all imports in this batch (reduces bandwidth)
-    const allCategories = await ctx.db
-      .query("categories")
-      .withIndex("is_active", (q: any) => q.eq("is_active", true))
-      .take(100);
+    const allCategories = await ctx.runQuery(internal.adminImport.getCategoriesForImport, {});
 
     const categoryByExact = new Map<string, any>();
     const categoryByNormalized = new Map<string, any>();
@@ -345,22 +343,31 @@ export const bulkImportSuppliers = mutation({
       failed: 0,
     };
 
-    // Pass category maps to avoid rebuilding for each supplier
-    const categoryMaps = {
-      exact: categoryByExact,
-      normalized: categoryByNormalized
-    };
-
     // Process suppliers sequentially but with shared category cache
     for (const supplierData of args.suppliers) {
       try {
-        const result = await importSingleSupplierInternal(
-          ctx, 
-          supplierData, 
-          allCategories, 
-          now, 
-          skipNotifications,
-          categoryMaps
+        // Convert category maps to record format for serialization
+        const exactRecord: Record<string, string> = {};
+        const normalizedRecord: Record<string, string> = {};
+        
+        categoryByExact.forEach((value, key) => {
+          exactRecord[key] = value.name;
+        });
+        categoryByNormalized.forEach((value, key) => {
+          normalizedRecord[key] = value.name;
+        });
+        
+        const result = await ctx.runMutation(
+          internal.adminImport.importSingleSupplierInternalAction,
+          {
+            ...supplierData,
+            skipNotifications,
+            categoryMaps: {
+              exact: exactRecord,
+              normalized: normalizedRecord,
+            },
+            now,
+          }
         );
         results.success.push(result);
         results.created++;
@@ -427,7 +434,8 @@ export const importSingleSupplier = mutation({
 import { api } from "./_generated/api";
 
 // Scheduler-based bulk import: Start the import job and schedule chunks
-export const startBulkImport = mutation({
+// CONVERTED TO ACTION for better bandwidth handling of large imports
+export const startBulkImport = action({
   args: {
     suppliers: v.array(v.object({
       user_email: v.optional(v.string()),
@@ -461,19 +469,15 @@ export const startBulkImport = mutation({
     })),
   },
   handler: async (ctx, args) => {
-    const user = await requireAdmin(ctx);
+    // Verify admin via internal mutation
+    const user = await ctx.runMutation(internal.adminImport.verifyAdminAction, {});
     const now = new Date().toISOString();
 
-    // Create import job record
-    const jobId = await ctx.db.insert("importJobs", {
-      status: "processing",
+    // Create import job record via internal mutation
+    const jobId = await ctx.runMutation(internal.adminImport.createImportJob, {
       totalSuppliers: args.suppliers.length,
-      processedSuppliers: 0,
-      successCount: 0,
-      errorCount: 0,
-      errors: [],
-      startedAt: now,
       scheduledBy: user._id,
+      now,
     });
 
     const CHUNK_SIZE = 15; // Process 15 suppliers at a time
@@ -483,9 +487,9 @@ export const startBulkImport = mutation({
       chunks.push(args.suppliers.slice(i, i + CHUNK_SIZE));
     }
 
-    // Schedule each chunk with runAfter
+    // Schedule each chunk with runAfter (scheduler still works from actions)
     for (let index = 0; index < chunks.length; index++) {
-      await ctx.scheduler.runAfter(0, api.adminImport.processImportChunk, {
+      await ctx.scheduler.runAfter(0, internal.adminImport.processImportChunk, {
         jobId,
         chunkIndex: index,
         totalChunks: chunks.length,
@@ -633,5 +637,156 @@ export const listImportJobs = query({
       .order("desc")
       .take(args.limit ?? 20);
     return jobs;
+  },
+});
+
+// ============================================================================
+// INTERNAL HELPERS FOR ACTIONS - These support the bandwidth-optimized actions
+// ============================================================================
+
+// Internal mutation to verify admin authentication (called from actions)
+export const verifyAdminAction = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.email) throw new Error("Non autorisé");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", identity.email))
+      .first();
+
+    if (!user || !user.is_admin) {
+      throw new Error("Accès refusé. Seuls les administrateurs peuvent effectuer cette action.");
+    }
+    return { _id: user._id, email: user.email };
+  },
+});
+
+// Internal query to get categories for import (called from actions)
+export const getCategoriesForImport = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("categories")
+      .withIndex("is_active", (q) => q.eq("is_active", true))
+      .take(100);
+  },
+});
+
+// Internal mutation to create import job (called from actions)
+export const createImportJob = internalMutation({
+  args: {
+    totalSuppliers: v.number(),
+    scheduledBy: v.id("users"),
+    now: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("importJobs", {
+      status: "processing",
+      totalSuppliers: args.totalSuppliers,
+      processedSuppliers: 0,
+      successCount: 0,
+      errorCount: 0,
+      errors: [],
+      startedAt: args.now,
+      scheduledBy: args.scheduledBy,
+    });
+  },
+});
+
+// Internal mutation for single supplier import from actions
+export const importSingleSupplierInternalAction = internalMutation({
+  args: {
+    user_email: v.optional(v.string()),
+    user_firstName: v.optional(v.string()),
+    user_lastName: v.optional(v.string()),
+    user_phone: v.optional(v.string()),
+    supplier_business_name: v.string(),
+    supplier_email: v.optional(v.string()),
+    supplier_phone: v.optional(v.string()),
+    supplier_category: v.string(),
+    supplier_description: v.optional(v.string()),
+    supplier_address: v.optional(v.string()),
+    supplier_city: v.string(),
+    supplier_state: v.string(),
+    supplier_country: v.optional(v.string()),
+    supplier_website: v.optional(v.string()),
+    supplier_business_type: v.optional(v.string()),
+    supplier_verified: v.optional(v.boolean()),
+    supplier_approved: v.optional(v.boolean()),
+    supplier_featured: v.optional(v.boolean()),
+    supplier_image: v.optional(v.string()),
+    supplier_imageGallery: v.optional(v.array(v.string())),
+    supplier_business_hours: v.optional(v.record(v.string(), v.string())),
+    supplier_social_links: v.optional(v.record(v.string(), v.string())),
+    supplier_latitude: v.optional(v.float64()),
+    supplier_longitude: v.optional(v.float64()),
+    supplier_rating: v.optional(v.float64()),
+    supplier_reviews: v.optional(v.number()),
+    supplier_google_place_id: v.optional(v.string()),
+    supplier_source: v.optional(v.string()),
+    skipNotifications: v.boolean(),
+    categoryMaps: v.record(v.string(), v.record(v.string(), v.string())),
+    now: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Reconstruct category maps from serialized record
+    const categoryByExact = new Map<string, any>();
+    const categoryByNormalized = new Map<string, any>();
+    
+    // Parse the category maps from the serialized format
+    for (const [key, value] of Object.entries(args.categoryMaps)) {
+      if (key === 'exact') {
+        for (const [catKey, catValue] of Object.entries(value)) {
+          categoryByExact.set(catKey, { name: catValue });
+        }
+      } else if (key === 'normalized') {
+        for (const [catKey, catValue] of Object.entries(value)) {
+          categoryByNormalized.set(catKey, { name: catValue });
+        }
+      }
+    }
+    
+    const allCategories = Array.from(categoryByExact.values());
+    
+    // Build the supplier data object
+    const supplierData: SupplierImportData = {
+      user_email: args.user_email,
+      user_firstName: args.user_firstName,
+      user_lastName: args.user_lastName,
+      user_phone: args.user_phone,
+      supplier_business_name: args.supplier_business_name,
+      supplier_email: args.supplier_email,
+      supplier_phone: args.supplier_phone,
+      supplier_category: args.supplier_category,
+      supplier_description: args.supplier_description,
+      supplier_address: args.supplier_address,
+      supplier_city: args.supplier_city,
+      supplier_state: args.supplier_state,
+      supplier_country: args.supplier_country,
+      supplier_website: args.supplier_website,
+      supplier_business_type: args.supplier_business_type,
+      supplier_verified: args.supplier_verified,
+      supplier_approved: args.supplier_approved,
+      supplier_featured: args.supplier_featured,
+      supplier_image: args.supplier_image,
+      supplier_imageGallery: args.supplier_imageGallery,
+      supplier_business_hours: args.supplier_business_hours,
+      supplier_social_links: args.supplier_social_links,
+      supplier_latitude: args.supplier_latitude,
+      supplier_longitude: args.supplier_longitude,
+    };
+
+    const categoryMaps = { exact: categoryByExact, normalized: categoryByNormalized };
+    
+    return await importSingleSupplierInternal(
+      ctx,
+      supplierData,
+      allCategories,
+      args.now,
+      args.skipNotifications,
+      categoryMaps
+    );
   },
 });

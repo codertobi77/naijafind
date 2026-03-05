@@ -153,7 +153,14 @@ export const common = {
   "map.approximate": "approximate",
   "map.expand": "Expand map",
   "map.full_map_view": "Full Map View",
-  "map.suppliers": "suppliers"
+  "map.suppliers": "suppliers",
+
+  // DeepL Translation
+  "translation.view_original": "View original",
+  "translation.view_translation": "View translation",
+  "translation.translated_by": "Translated by DeepL",
+  "translation.translated_from": "Translated from",
+  "translation.loading": "Translating..."
 };
 
 export default common;
