@@ -9,10 +9,22 @@ import { SupplierAvatar } from '../../components/SupplierImage';
 import { SignedIn, SignedOut, useUser } from '@clerk/clerk-react';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/base';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import type { Map, Popup } from 'mapbox-gl';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
+
+// Dynamically import mapbox-gl only when needed
+let mapboxglPromise: Promise<typeof import('mapbox-gl')> | null = null;
+const getMapboxgl = () => {
+  if (!mapboxglPromise) {
+    mapboxglPromise = import('mapbox-gl').then((mod) => {
+      // Dynamically import CSS
+      import('mapbox-gl/dist/mapbox-gl.css');
+      return mod;
+    });
+  }
+  return mapboxglPromise;
+};
 
 interface Supplier {
   id: string;
@@ -50,73 +62,78 @@ interface Review {
 // Supplier Mapbox Map Component
 function SupplierMapboxMap({ latitude, longitude, name }: { latitude: number; longitude: number; name: string }) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
+  const mapInstanceRef = useRef<Map | null>(null);
 
   useEffect(() => {
-    if (mapRef.current && !mapInstanceRef.current) {
-      mapboxgl.accessToken = MAPBOX_TOKEN;
-      
-      const map = new mapboxgl.Map({
-        container: mapRef.current,
-        style: 'mapbox://styles/mapbox/dark-v11',
-        center: [longitude, latitude],
-        zoom: 15,
-        pitch: 45,
-        bearing: -17.6,
-        antialias: true
-      });
-
-      mapInstanceRef.current = map;
-
-      map.on('load', () => {
-        map.addSource('mapbox-dem', {
-          'type': 'raster-dem',
-          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-          'tileSize': 512,
-          'maxzoom': 14
+    const initMap = async () => {
+      if (mapRef.current && !mapInstanceRef.current) {
+        const mapboxgl = await getMapboxgl();
+        mapboxgl.accessToken = MAPBOX_TOKEN;
+        
+        const map = new mapboxgl.Map({
+          container: mapRef.current,
+          style: 'mapbox://styles/mapbox/dark-v11',
+          center: [longitude, latitude],
+          zoom: 15,
+          pitch: 45,
+          bearing: -17.6,
+          antialias: true
         });
-        
-        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
-        
-        if (!map.getLayer('3d-buildings')) {
-          map.addLayer({
-            'id': '3d-buildings',
-            'source': 'composite',
-            'source-layer': 'building',
-            'filter': ['==', 'extrude', 'true'],
-            'type': 'fill-extrusion',
-            'minzoom': 12,
-            'paint': {
-              'fill-extrusion-color': '#d4a574',
-              'fill-extrusion-height': ['get', 'height'],
-              'fill-extrusion-base': ['get', 'min_height'],
-              'fill-extrusion-opacity': 0.8,
-              'fill-extrusion-vertical-gradient': true,
-              'fill-extrusion-ambient-occlusion-intensity': 0.3
-            }
+
+        mapInstanceRef.current = map;
+
+        map.on('load', () => {
+          map.addSource('mapbox-dem', {
+            'type': 'raster-dem',
+            'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+            'tileSize': 512,
+            'maxzoom': 14
           });
-        }
+          
+          map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+          
+          if (!map.getLayer('3d-buildings')) {
+            map.addLayer({
+              'id': '3d-buildings',
+              'source': 'composite',
+              'source-layer': 'building',
+              'filter': ['==', 'extrude', 'true'],
+              'type': 'fill-extrusion',
+              'minzoom': 12,
+              'paint': {
+                'fill-extrusion-color': '#d4a574',
+                'fill-extrusion-height': ['get', 'height'],
+                'fill-extrusion-base': ['get', 'min_height'],
+                'fill-extrusion-opacity': 0.8,
+                'fill-extrusion-vertical-gradient': true,
+                'fill-extrusion-ambient-occlusion-intensity': 0.3
+              }
+            });
+          }
 
-        const el = document.createElement('div');
-        el.className = 'custom-marker';
-        el.style.width = '40px';
-        el.style.height = '40px';
-        el.innerHTML = `
-          <div class="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center shadow-lg border-3 border-white ring-2 ring-green-400">
-            <i class="ri-store-2-line text-white text-sm"></i>
-          </div>
-        `;
+          const el = document.createElement('div');
+          el.className = 'custom-marker';
+          el.style.width = '40px';
+          el.style.height = '40px';
+          el.innerHTML = `
+            <div class="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center shadow-lg border-3 border-white ring-2 ring-green-400">
+              <i class="ri-store-2-line text-white text-sm"></i>
+            </div>
+          `;
 
-        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
-          `<div class="p-3"><h3 class="font-semibold text-sm text-gray-900">${name}</h3></div>`
-        );
+          const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
+            `<div class="p-3"><h3 class="font-semibold text-sm text-gray-900">${name}</h3></div>`
+          );
 
-        new mapboxgl.Marker(el)
-          .setLngLat([longitude, latitude])
-          .setPopup(popup)
-          .addTo(map);
-      });
-    }
+          new mapboxgl.Marker(el)
+            .setLngLat([longitude, latitude])
+            .setPopup(popup)
+            .addTo(map);
+        });
+      }
+    };
+
+    initMap();
 
     return () => {
       if (mapInstanceRef.current) {
@@ -1480,6 +1497,7 @@ interface ClaimBusinessModalProps {
 }
 
 function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModalProps) {
+  const { t } = useTranslation();
   const { user } = useUser();
   const [step, setStep] = useState<'verify' | 'confirm' | 'success'>('verify');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1522,9 +1540,9 @@ function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModal
         claimedAt: new Date().toISOString()
       });
       setStep('success');
-      showToast('success', 'Votre demande de réclamation a été soumise avec succès');
+      showToast('success', t('claims.notification.claim_submitted'));
     } catch (error) {
-      showToast('error', 'Erreur lors de la soumission de la demande');
+      showToast('error', t('claims.notification.error_submit'));
     } finally {
       setIsSubmitting(false);
     }
@@ -1538,11 +1556,12 @@ function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModal
         <div className="flex justify-between items-center mb-4 sm:mb-6">
           <h3 className="text-base sm:text-lg lg:text-xl font-semibold flex items-center">
             <i className="ri-shield-user-line text-orange-500 mr-2"></i>
-            Réclamer cette entreprise
+            {t('claims.modal.title')}
           </h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 p-1"
+            aria-label={t('claims.modal.close')}
           >
             <i className="ri-close-line text-lg sm:text-xl"></i>
           </button>
@@ -1553,19 +1572,19 @@ function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModal
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800 mb-2">
                 <i className="ri-information-line mr-1"></i>
-                Pour réclamer <strong>{supplier.name}</strong>, vous devez vérifier que vous êtes le propriétaire.
+                {t('claims.modal.verify.description', { businessName: supplier.name })}
               </p>
             </div>
             
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <span className="text-sm text-gray-700">Email de l'entreprise:</span>
-                <span className="text-sm font-medium text-gray-900">{supplier.email || 'Non disponible'}</span>
+                <span className="text-sm text-gray-700">{t('claims.modal.verify.business_email')}</span>
+                <span className="text-sm font-medium text-gray-900">{supplier.email || t('claims.modal.verify.not_available')}</span>
               </div>
               
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <span className="text-sm text-gray-700">Votre email:</span>
-                <span className="text-sm font-medium text-gray-900">{primaryEmail || 'Non disponible'}</span>
+                <span className="text-sm text-gray-700">{t('claims.modal.verify.your_email')}</span>
+                <span className="text-sm font-medium text-gray-900">{primaryEmail || t('claims.modal.verify.not_available')}</span>
               </div>
             </div>
             
@@ -1573,15 +1592,14 @@ function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModal
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <p className="text-sm text-green-800">
                   <i className="ri-check-line mr-1"></i>
-                  Votre email correspond à celui de l'entreprise. Vous pouvez réclamer cette entreprise.
+                  {t('claims.modal.verify.email_match_success')}
                 </p>
               </div>
             ) : (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <p className="text-sm text-yellow-800">
                   <i className="ri-alert-line mr-1"></i>
-                  Votre email ne correspond pas à celui de l'entreprise. 
-                  Veuillez utiliser l'email professionnel de l'entreprise ou contacter le support.
+                  {t('claims.modal.verify.email_match_warning')}
                 </p>
               </div>
             )}
@@ -1591,14 +1609,14 @@ function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModal
                 onClick={onClose}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-xs sm:text-sm"
               >
-                Annuler
+                {t('claims.modal.verify.cancel')}
               </button>
               <button
                 onClick={() => setStep('confirm')}
                 disabled={!hasMatchingEmail}
                 className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
               >
-                Continuer
+                {t('claims.modal.verify.continue')}
               </button>
             </div>
           </div>
@@ -1607,27 +1625,25 @@ function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModal
         {step === 'confirm' && (
           <div className="space-y-4">
             <p className="text-sm text-gray-700">
-              En réclamant <strong>{supplier.name}</strong>, vous confirmez que vous êtes le propriétaire 
-              ou un représentant autorisé de cette entreprise. Vous aurez accès au tableau de bord 
-              pour gérer les informations, les avis et les messages.
+              {t('claims.modal.confirm.description', { businessName: supplier.name })}
             </p>
             
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2">
               <p className="text-xs text-gray-600">
                 <i className="ri-check-line text-green-500 mr-1"></i>
-                Gérer les informations de l'entreprise
+                {t('claims.modal.confirm.benefit_manage')}
               </p>
               <p className="text-xs text-gray-600">
                 <i className="ri-check-line text-green-500 mr-1"></i>
-                Répondre aux avis clients
+                {t('claims.modal.confirm.benefit_reviews')}
               </p>
               <p className="text-xs text-gray-600">
                 <i className="ri-check-line text-green-500 mr-1"></i>
-                Accéder aux statistiques
+                {t('claims.modal.confirm.benefit_stats')}
               </p>
               <p className="text-xs text-gray-600">
                 <i className="ri-check-line text-green-500 mr-1"></i>
-                Gérer les messages et demandes
+                {t('claims.modal.confirm.benefit_messages')}
               </p>
             </div>
             
@@ -1636,7 +1652,7 @@ function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModal
                 onClick={() => setStep('verify')}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-xs sm:text-sm"
               >
-                Retour
+                {t('claims.modal.confirm.back')}
               </button>
               <button
                 onClick={handleSubmitClaim}
@@ -1646,12 +1662,12 @@ function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModal
                 {isSubmitting ? (
                   <>
                     <i className="ri-loader-4-line animate-spin mr-2"></i>
-                    Envoi...
+                    {t('claims.modal.confirm.submitting')}
                   </>
                 ) : (
                   <>
                     <i className="ri-check-double-line mr-2"></i>
-                    Confirmer la réclamation
+                    {t('claims.modal.confirm.submit')}
                   </>
                 )}
               </button>
@@ -1664,16 +1680,15 @@ function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModal
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
               <i className="ri-check-line text-3xl text-green-600"></i>
             </div>
-            <h4 className="text-lg font-semibold text-gray-900">Demande soumise !</h4>
+            <h4 className="text-lg font-semibold text-gray-900">{t('claims.modal.success.title')}</h4>
             <p className="text-sm text-gray-700">
-              Votre demande de réclamation pour <strong>{supplier.name}</strong> a été soumise. 
-              Notre équipe va vérifier vos informations et vous recevrez une confirmation par email.
+              {t('claims.modal.success.description', { businessName: supplier.name })}
             </p>
             <button
               onClick={onClose}
               className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
             >
-              Fermer
+              {t('claims.modal.success.close')}
             </button>
           </div>
         )}

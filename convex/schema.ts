@@ -62,7 +62,10 @@ export default defineSchema({
     images: v.optional(v.array(v.string())),
     created_at: v.string(),
     updated_at: v.string(),
-  }),
+  })
+    .index("supplierId", ["supplierId"])
+    .index("status", ["status"])
+    .index("category", ["category"]),
   reviews: defineTable({
     supplierId: v.string(),
     userId: v.string(),

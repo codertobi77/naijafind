@@ -123,7 +123,10 @@ export const admin = {
   "admin.confirm_delete_all_suppliers": "Are you sure you want to delete ALL suppliers? This action cannot be undone and will remove all supplier data from the platform.",
   "admin.delete_all_suppliers_success": "All suppliers deleted successfully",
   "admin.error_delete_all_suppliers": "Error deleting all suppliers",
-  "admin.init_categories_disabled": "Categories initialization is disabled"
+  "admin.init_categories_disabled": "Categories initialization is disabled",
+  "admin.refresh": "Refresh",
+  "admin.refresh_suppliers": "Refresh suppliers list",
+  "admin.suppliers_refreshed": "Suppliers list refreshed"
 };
 
 export default admin;

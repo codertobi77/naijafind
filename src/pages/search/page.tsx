@@ -1004,13 +1004,14 @@ export default function Search() {
     }
   );
   
-  // Separate query for ALL suppliers (for map display)
+  // Separate query for map view - ONLY when viewMode is 'map' to avoid unnecessary backend load
   const { data: allSuppliersResult, isLoading: allSuppliersLoading } = useConvexQuery(
     api.suppliers.searchSuppliers,
     allSuppliersQueryArgs,
     { 
       staleTime: 1 * 60 * 1000,
-      gcTime: 3 * 60 * 1000
+      gcTime: 3 * 60 * 1000,
+      enabled: viewMode === 'map' // Only fetch when map view is active
     }
   );
 

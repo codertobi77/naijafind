@@ -90,7 +90,7 @@ export const supplier = {
   "supplier.no_email": "Supplier doesn't have email",
   "supplier.no_phone": "Supplier doesn't have phone number",
   "supplier.location_not_available": "Location not available",
-  "supplier.claim_business": "Vous possédez cette entreprise ?"
+  "supplier.claim_business": "Do you own this business?"
 };
 
 export default supplier;

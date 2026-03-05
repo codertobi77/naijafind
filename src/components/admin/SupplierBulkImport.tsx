@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useMutation, useQuery } from 'convex/react';
-import * as XLSX from 'xlsx';
 import { api } from '@convex/_generated/api';
 import { useToast } from '../../hooks/useToast';
 import { Id } from 'convex/values';
+
+// xlsx is loaded dynamically only when needed (file import)
 
 interface JobStatus {
   _id: Id<'importJobs'>;
@@ -272,8 +273,10 @@ export function SupplierBulkImport() {
     
     return rowData;
   };
-  // Parse Excel file with flexible column detection
-  const parseExcel = useCallback((arrayBuffer: ArrayBuffer): { data: any[]; headers: string[]; mapping: Record<string, string> } => {
+  // Parse Excel file with flexible column detection - dynamically imports xlsx only when needed
+  const parseExcel = useCallback(async (arrayBuffer: ArrayBuffer): Promise<{ data: any[]; headers: string[]; mapping: Record<string, string> }> => {
+    // Dynamic import of xlsx - only loaded when Excel parsing is actually needed
+    const XLSX = await import('xlsx');
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     const firstSheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[firstSheetName];
@@ -576,11 +579,11 @@ export function SupplierBulkImport() {
     if (fileExtension === 'xlsx' || fileExtension === 'xls') {
       // Excel file
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
         const arrayBuffer = event.target?.result as ArrayBuffer;
         if (arrayBuffer) {
           try {
-            const { data, headers, mapping } = parseExcel(arrayBuffer);
+            const { data, headers, mapping } = await parseExcel(arrayBuffer);
             console.log('Parsed data:', data);
             console.log('Headers:', headers);
             console.log('Mapping:', mapping);

@@ -123,7 +123,10 @@ export const admin = {
   "admin.confirm_delete_all_suppliers": "Êtes-vous sûr de vouloir supprimer TOUS les fournisseurs ? Cette action est irréversible et supprimera toutes les données fournisseurs de la plateforme.",
   "admin.delete_all_suppliers_success": "Tous les fournisseurs supprimés avec succès",
   "admin.error_delete_all_suppliers": "Erreur lors de la suppression de tous les fournisseurs",
-  "admin.init_categories_disabled": "L'initialisation des catégories est désactivée"
+  "admin.init_categories_disabled": "L'initialisation des catégories est désactivée",
+  "admin.refresh": "Rafraîchir",
+  "admin.refresh_suppliers": "Rafraîchir la liste des fournisseurs",
+  "admin.suppliers_refreshed": "Liste des fournisseurs rafraîchie"
 };
 
 export default admin;

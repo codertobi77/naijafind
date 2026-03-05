@@ -1,10 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import type { Map, Marker, MapMouseEvent } from 'mapbox-gl';
 import Modal from './Modal';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
+
+// Dynamically import mapbox-gl only when needed
+let mapboxglPromise: Promise<typeof import('mapbox-gl')> | null = null;
+const getMapboxgl = () => {
+  if (!mapboxglPromise) {
+    mapboxglPromise = import('mapbox-gl').then((mod) => {
+      // Dynamically import CSS
+      import('mapbox-gl/dist/mapbox-gl.css');
+      return mod;
+    });
+  }
+  return mapboxglPromise;
+};
 
 // Country data with their states/regions
 const COUNTRY_DATA: Record<string, { name: string; states: string[]; center: { lat: number; lng: number } }> = {
@@ -76,8 +88,8 @@ export default function LocationPicker({ value, onChange, errors }: LocationPick
   const { t } = useTranslation();
   const [showMap, setShowMap] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
-  const markerRef = useRef<mapboxgl.Marker | null>(null);
+  const mapInstanceRef = useRef<Map | null>(null);
+  const markerRef = useRef<Marker | null>(null);
   const [mapCenter, setMapCenter] = useState({ lat: 9.0820, lng: 8.6753 }); // Default to Nigeria center
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isMapLoading, setIsMapLoading] = useState(false);
@@ -92,98 +104,103 @@ export default function LocationPicker({ value, onChange, errors }: LocationPick
 
   // Initialize Mapbox when modal opens
   useEffect(() => {
-    if (showMap && mapRef.current && !mapInstanceRef.current) {
-      setIsMapLoading(true);
+    const initMap = async () => {
+      if (showMap && mapRef.current && !mapInstanceRef.current) {
+        setIsMapLoading(true);
+        const mapboxgl = await getMapboxgl();
 
-      // Set Mapbox token
-      mapboxgl.accessToken = MAPBOX_TOKEN;
+        // Set Mapbox token
+        mapboxgl.accessToken = MAPBOX_TOKEN;
 
-      const initialCenter = selectedLocation || mapCenter;
-      
-      const map = new mapboxgl.Map({
-        container: mapRef.current,
-        style: 'mapbox://styles/mapbox/light-v11',
-        center: [initialCenter.lng, initialCenter.lat],
-        zoom: 12,
-        pitch: 45,
-        bearing: -17.6,
-        antialias: true
-      });
-
-      mapInstanceRef.current = map;
-
-      map.on('load', () => {
-        setIsMapLoading(false);
-
-        // Add 3D terrain
-        map.addSource('mapbox-dem', {
-          'type': 'raster-dem',
-          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-          'tileSize': 512,
-          'maxzoom': 14
-        });
-        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
-
-        // Add 3D buildings
-        if (!map.getLayer('3d-buildings')) {
-          map.addLayer({
-            'id': '3d-buildings',
-            'source': 'composite',
-            'source-layer': 'building',
-            'filter': ['==', 'extrude', 'true'],
-            'type': 'fill-extrusion',
-            'minzoom': 12,
-            'paint': {
-              'fill-extrusion-color': '#a8a8a8',
-              'fill-extrusion-height': ['get', 'height'],
-              'fill-extrusion-base': ['get', 'min_height'],
-              'fill-extrusion-opacity': 0.6
-            }
-          });
-        }
-
-        // Add marker if location already selected
-        if (selectedLocation) {
-          markerRef.current = new mapboxgl.Marker({ draggable: true })
-            .setLngLat([selectedLocation.lng, selectedLocation.lat])
-            .addTo(map);
-
-          markerRef.current.on('dragend', () => {
-            const lngLat = markerRef.current?.getLngLat();
-            if (lngLat) {
-              const newLocation = { lat: lngLat.lat, lng: lngLat.lng };
-              setSelectedLocation(newLocation);
-            }
-          });
-        }
-      });
-
-      // Add click listener to map
-      map.on('click', (e: mapboxgl.MapMouseEvent) => {
-        const clickedLng = e.lngLat.lng;
-        const clickedLat = e.lngLat.lat;
-        const clickedLocation = { lat: clickedLat, lng: clickedLng };
+        const initialCenter = selectedLocation || mapCenter;
         
-        setSelectedLocation(clickedLocation);
+        const map = new mapboxgl.Map({
+          container: mapRef.current,
+          style: 'mapbox://styles/mapbox/light-v11',
+          center: [initialCenter.lng, initialCenter.lat],
+          zoom: 12,
+          pitch: 45,
+          bearing: -17.6,
+          antialias: true
+        });
 
-        // Update or create marker
-        if (markerRef.current) {
-          markerRef.current.setLngLat([clickedLng, clickedLat]);
-        } else {
-          markerRef.current = new mapboxgl.Marker({ draggable: true })
-            .setLngLat([clickedLng, clickedLat])
-            .addTo(map);
+        mapInstanceRef.current = map;
 
-          markerRef.current.on('dragend', () => {
-            const lngLat = markerRef.current?.getLngLat();
-            if (lngLat) {
-              const newLocation = { lat: lngLat.lat, lng: lngLat.lng };
-              setSelectedLocation(newLocation);
-            }
+        map.on('load', () => {
+          setIsMapLoading(false);
+
+          // Add 3D terrain
+          map.addSource('mapbox-dem', {
+            'type': 'raster-dem',
+            'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+            'tileSize': 512,
+            'maxzoom': 14
           });
-        }
-      });
-    }
+          map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+
+          // Add 3D buildings
+          if (!map.getLayer('3d-buildings')) {
+            map.addLayer({
+              'id': '3d-buildings',
+              'source': 'composite',
+              'source-layer': 'building',
+              'filter': ['==', 'extrude', 'true'],
+              'type': 'fill-extrusion',
+              'minzoom': 12,
+              'paint': {
+                'fill-extrusion-color': '#a8a8a8',
+                'fill-extrusion-height': ['get', 'height'],
+                'fill-extrusion-base': ['get', 'min_height'],
+                'fill-extrusion-opacity': 0.6
+              }
+            });
+          }
+
+          // Add marker if location already selected
+          if (selectedLocation) {
+            markerRef.current = new mapboxgl.Marker({ draggable: true })
+              .setLngLat([selectedLocation.lng, selectedLocation.lat])
+              .addTo(map);
+
+            markerRef.current.on('dragend', () => {
+              const lngLat = markerRef.current?.getLngLat();
+              if (lngLat) {
+                const newLocation = { lat: lngLat.lat, lng: lngLat.lng };
+                setSelectedLocation(newLocation);
+              }
+            });
+          }
+        });
+
+        // Add click listener to map
+        map.on('click', (e: MapMouseEvent) => {
+          const clickedLng = e.lngLat.lng;
+          const clickedLat = e.lngLat.lat;
+          const clickedLocation = { lat: clickedLat, lng: clickedLng };
+          
+          setSelectedLocation(clickedLocation);
+
+          // Update or create marker
+          if (markerRef.current) {
+            markerRef.current.setLngLat([clickedLng, clickedLat]);
+          } else {
+            markerRef.current = new mapboxgl.Marker({ draggable: true })
+              .setLngLat([clickedLng, clickedLat])
+              .addTo(map);
+
+            markerRef.current.on('dragend', () => {
+              const lngLat = markerRef.current?.getLngLat();
+              if (lngLat) {
+                const newLocation = { lat: lngLat.lat, lng: lngLat.lng };
+                setSelectedLocation(newLocation);
+              }
+            });
+          }
+        });
+      }
+    };
+
+    initMap();
 
     // Cleanup map when modal closes
     return () => {

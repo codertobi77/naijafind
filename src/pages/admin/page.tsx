@@ -699,30 +699,43 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                   {t('admin.supplier_management_description')}
                 </p>
               </div>
-              <button
-                onClick={() => {
-                  showConfirm(
-                    t('admin.delete_all_suppliers'),
-                    t('admin.confirm_delete_all_suppliers'),
-                    async () => {
-                      try {
-                        const result: any = await deleteAllSuppliers({});
-                        showToast('success', result.message || t('admin.delete_all_suppliers_success'));
-                        refetchAllSuppliers();
-                        // Delay refetch to allow scheduler job to complete
-                        setTimeout(() => refetchAdminStats(), 1000);
-                      } catch (error: any) {
-                        console.error('Error deleting all suppliers:', error);
-                        showToast('error', error.message || t('admin.error_delete_all_suppliers'));
-                      }
-                    },
-                    true
-                  );
-                }}
-                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm"
-              >
-                🗑️ {t('admin.delete_all_suppliers')}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    refetchAllSuppliers();
+                    showToast('success', t('admin.suppliers_refreshed'));
+                  }}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm flex items-center gap-2"
+                  title={t('admin.refresh_suppliers')}
+                >
+                  <i className="ri-refresh-line"></i>
+                  {t('admin.refresh')}
+                </button>
+                <button
+                  onClick={() => {
+                    showConfirm(
+                      t('admin.delete_all_suppliers'),
+                      t('admin.confirm_delete_all_suppliers'),
+                      async () => {
+                        try {
+                          const result: any = await deleteAllSuppliers({});
+                          showToast('success', result.message || t('admin.delete_all_suppliers_success'));
+                          refetchAllSuppliers();
+                          // Delay refetch to allow scheduler job to complete
+                          setTimeout(() => refetchAdminStats(), 1000);
+                        } catch (error: any) {
+                          console.error('Error deleting all suppliers:', error);
+                          showToast('error', error.message || t('admin.error_delete_all_suppliers'));
+                        }
+                      },
+                      true
+                    );
+                  }}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm"
+                >
+                  🗑️ {t('admin.delete_all_suppliers')}
+                </button>
+              </div>
             </div>
 
             <div className="bg-white rounded-lg border p-6">
@@ -2330,7 +2343,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                 }`}
               >
                 <i className="ri-shield-user-line text-lg" />
-                <span className="font-medium">Réclamations</span>
+                <span className="font-medium">{t('claims.sidebar.menu')}</span>
               </button>
             </div>
           </nav>
@@ -2365,7 +2378,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                 {activeTab === 'notifications' && 'Envoyer une notification'}
                 {activeTab === 'import' && 'Import Fournisseurs'}
                 {activeTab === 'adBanners' && 'Ad Banners'}
-                {activeTab === 'claims' && 'Réclamations Fournisseurs'}
+                {activeTab === 'claims' && t('claims.sidebar.page_title')}
               </h1>
             </div>
             <div className="flex items-center space-x-3 sm:space-x-6">
@@ -2462,12 +2475,12 @@ function SupplierClaimsManager() {
     setProcessingClaim(claimId);
     try {
       await approveClaim({ claimId, notes });
-      showToast('success', 'Demande approuvée avec succès');
+      showToast('success', t('claims.notification.claim_approved'));
       refetchClaims();
       setShowDetailModal(false);
       setNotes('');
     } catch (error: any) {
-      showToast('error', error.message || 'Erreur lors de l\'approbation');
+      showToast('error', error.message || t('claims.notification.error_approve'));
     } finally {
       setProcessingClaim(null);
     }
@@ -2477,12 +2490,12 @@ function SupplierClaimsManager() {
     setProcessingClaim(claimId);
     try {
       await rejectClaim({ claimId, notes });
-      showToast('success', 'Demande refusée');
+      showToast('success', t('claims.notification.claim_rejected'));
       refetchClaims();
       setShowDetailModal(false);
       setNotes('');
     } catch (error: any) {
-      showToast('error', error.message || 'Erreur lors du refus');
+      showToast('error', error.message || t('claims.notification.error_reject'));
     } finally {
       setProcessingClaim(null);
     }
@@ -2493,16 +2506,16 @@ function SupplierClaimsManager() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">
-            Réclamations de Fournisseurs
+            {t('claims.admin.title')}
           </h2>
           <p className="mt-1 text-gray-600">
-            Gérez les demandes de propriété des entreprises
+            {t('claims.admin.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
             <i className="ri-time-line mr-1" />
-            {pendingClaims?.length || 0} en attente
+            {pendingClaims?.length || 0} {t('claims.admin.status.pending').toLowerCase()}
           </span>
         </div>
       </div>
@@ -2514,22 +2527,22 @@ function SupplierClaimsManager() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Entreprise
+                  {t('claims.admin.table.business')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Demandeur
+                  {t('claims.admin.table.claimant')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email entreprise
+                  {t('claims.admin.table.business_email')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
+                  {t('claims.admin.table.date')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Statut
+                  {t('claims.admin.table.status')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                  {t('claims.admin.table.actions')}
                 </th>
               </tr>
             </thead>
@@ -2544,7 +2557,7 @@ function SupplierClaimsManager() {
                         </div>
                         <div className="ml-3">
                           <div className="text-sm font-medium text-gray-900">
-                            {claim.supplier?.business_name || 'N/A'}
+                            {claim.supplier?.business_name || t('claims.detail.not_available')}
                           </div>
                           <div className="text-xs text-gray-500">
                             {claim.supplier?.city}, {claim.supplier?.state}
@@ -2559,7 +2572,7 @@ function SupplierClaimsManager() {
                       <div className="text-xs text-gray-500">{claim.userEmail}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-sm text-gray-900">{claim.supplierEmail || 'Non disponible'}</div>
+                      <div className="text-sm text-gray-900">{claim.supplierEmail || t('claims.modal.verify.not_available')}</div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm text-gray-900">
@@ -2572,7 +2585,7 @@ function SupplierClaimsManager() {
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                         <i className="ri-time-line mr-1" />
-                        En attente
+                        {t('claims.admin.status.pending')}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -2584,7 +2597,7 @@ function SupplierClaimsManager() {
                           }}
                           className="text-xs px-3 py-1.5 rounded bg-gray-600 text-white hover:bg-gray-700 transition-colors"
                         >
-                          Voir détails
+                          {t('claims.admin.view_details')}
                         </button>
                       </div>
                     </td>
@@ -2595,7 +2608,7 @@ function SupplierClaimsManager() {
                   <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                     <div className="flex flex-col items-center">
                       <i className="ri-shield-check-line text-4xl text-gray-300 mb-2" />
-                      <p className="text-sm">Aucune demande de réclamation en attente</p>
+                      <p className="text-sm">{t('claims.admin.no_claims')}</p>
                     </div>
                   </td>
                 </tr>
@@ -2610,10 +2623,11 @@ function SupplierClaimsManager() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Détails de la réclamation</h3>
+              <h3 className="text-lg font-semibold">{t('claims.detail.title')}</h3>
               <button
                 onClick={() => setShowDetailModal(false)}
                 className="text-gray-400 hover:text-gray-600"
+                aria-label={t('claims.detail.close')}
               >
                 <i className="ri-close-line text-xl" />
               </button>
@@ -2622,20 +2636,20 @@ function SupplierClaimsManager() {
             <div className="space-y-4">
               {/* Supplier Info */}
               <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-2">Entreprise</h4>
-                <p className="text-sm text-gray-700"><strong>Nom:</strong> {selectedClaim.supplier?.business_name}</p>
-                <p className="text-sm text-gray-700"><strong>Email:</strong> {selectedClaim.supplier?.email || 'N/A'}</p>
-                <p className="text-sm text-gray-700"><strong>Téléphone:</strong> {selectedClaim.supplier?.phone || 'N/A'}</p>
-                <p className="text-sm text-gray-700"><strong>Adresse:</strong> {selectedClaim.supplier?.address || 'N/A'}</p>
-                <p className="text-sm text-gray-700"><strong>Ville:</strong> {selectedClaim.supplier?.city}, {selectedClaim.supplier?.state}</p>
+                <h4 className="font-medium text-gray-900 mb-2">{t('claims.detail.business_info')}</h4>
+                <p className="text-sm text-gray-700"><strong>{t('claims.detail.business_name')}</strong> {selectedClaim.supplier?.business_name}</p>
+                <p className="text-sm text-gray-700"><strong>{t('claims.detail.business_email_label')}</strong> {selectedClaim.supplier?.email || t('claims.detail.not_available')}</p>
+                <p className="text-sm text-gray-700"><strong>{t('claims.detail.business_phone')}</strong> {selectedClaim.supplier?.phone || t('claims.detail.not_available')}</p>
+                <p className="text-sm text-gray-700"><strong>{t('claims.detail.business_address')}</strong> {selectedClaim.supplier?.address || t('claims.detail.not_available')}</p>
+                <p className="text-sm text-gray-700"><strong>{t('claims.detail.business_location')}</strong> {selectedClaim.supplier?.city}, {selectedClaim.supplier?.state}</p>
               </div>
 
               {/* Claimant Info */}
               <div className="bg-blue-50 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-2">Demandeur</h4>
-                <p className="text-sm text-gray-700"><strong>Nom:</strong> {selectedClaim.claimant?.firstName} {selectedClaim.claimant?.lastName}</p>
-                <p className="text-sm text-gray-700"><strong>Email:</strong> {selectedClaim.userEmail}</p>
-                <p className="text-sm text-gray-700"><strong>Date:</strong> {new Date(selectedClaim.claimedAt).toLocaleString('fr-FR')}</p>
+                <h4 className="font-medium text-gray-900 mb-2">{t('claims.detail.claimant_info')}</h4>
+                <p className="text-sm text-gray-700"><strong>{t('claims.detail.claimant_name')}</strong> {selectedClaim.claimant?.firstName} {selectedClaim.claimant?.lastName}</p>
+                <p className="text-sm text-gray-700"><strong>{t('claims.detail.claimant_email')}</strong> {selectedClaim.userEmail}</p>
+                <p className="text-sm text-gray-700"><strong>{t('claims.detail.claimant_date')}</strong> {new Date(selectedClaim.claimedAt).toLocaleString('fr-FR')}</p>
               </div>
 
               {/* Email Verification */}
@@ -2644,16 +2658,16 @@ function SupplierClaimsManager() {
                   ? 'bg-green-50 border border-green-200'
                   : 'bg-yellow-50 border border-yellow-200'
               }`}>
-                <h4 className="font-medium text-gray-900 mb-2">Vérification Email</h4>
+                <h4 className="font-medium text-gray-900 mb-2">{t('claims.detail.email_verification')}</h4>
                 {selectedClaim.userEmail.toLowerCase() === (selectedClaim.supplierEmail || '').toLowerCase() ? (
                   <p className="text-sm text-green-700">
                     <i className="ri-check-line mr-1" />
-                    Les emails correspondent parfaitement
+                    {t('claims.detail.email_match')}
                   </p>
                 ) : (
                   <p className="text-sm text-yellow-700">
                     <i className="ri-alert-line mr-1" />
-                    Les emails ne correspondent pas. Vérification manuelle requise.
+                    {t('claims.detail.email_mismatch')}
                   </p>
                 )}
               </div>
@@ -2661,14 +2675,14 @@ function SupplierClaimsManager() {
               {/* Notes */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes (optionnel)
+                  {t('claims.detail.notes.label')}
                 </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   rows={3}
-                  placeholder="Ajouter des notes sur cette décision..."
+                  placeholder={t('claims.detail.notes.placeholder')}
                 />
               </div>
 
@@ -2678,7 +2692,7 @@ function SupplierClaimsManager() {
                   onClick={() => setShowDetailModal(false)}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  Annuler
+                  {t('claims.detail.cancel')}
                 </button>
                 <button
                   onClick={() => handleReject(selectedClaim._id)}
@@ -2688,7 +2702,7 @@ function SupplierClaimsManager() {
                   {processingClaim === selectedClaim._id ? (
                     <i className="ri-loader-4-line animate-spin" />
                   ) : (
-                    <><i className="ri-close-line mr-1" /> Refuser</>
+                    <><i className="ri-close-line mr-1" /> {t('claims.detail.reject')}</>
                   )}
                 </button>
                 <button
@@ -2699,7 +2713,7 @@ function SupplierClaimsManager() {
                   {processingClaim === selectedClaim._id ? (
                     <i className="ri-loader-4-line animate-spin" />
                   ) : (
-                    <><i className="ri-check-line mr-1" /> Approuver</>
+                    <><i className="ri-check-line mr-1" /> {t('claims.detail.approve')}</>
                   )}
                 </button>
               </div>

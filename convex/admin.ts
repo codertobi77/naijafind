@@ -321,16 +321,31 @@ export const deleteAllSuppliersInternal = internalMutation({
     const suppliers = await ctx.db.query("suppliers").collect();
     
     let deletedCount = 0;
+    let deletedUsersCount = 0;
     const now = new Date().toISOString();
     
-    // Delete suppliers in batches to avoid timeout
+    // Collect userIds associated with suppliers
+    const userIdsToDelete = new Set<string>();
+    for (const supplier of suppliers) {
+      if (supplier.userId) {
+        userIdsToDelete.add(supplier.userId as string);
+      }
+    }
+    
+    // Delete all suppliers
     for (const supplier of suppliers) {
       await ctx.db.delete(supplier._id);
       deletedCount++;
-      
-      // Every 50 deletions, yield to prevent timeout
-      if (deletedCount % 50 === 0) {
-        await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    
+    // Delete associated users
+    for (const userId of userIdsToDelete) {
+      try {
+        await ctx.db.delete(userId as Id<"users">);
+        deletedUsersCount++;
+      } catch (error) {
+        // User may not exist or already deleted, continue
+        console.log(`Could not delete user ${userId}:`, error);
       }
     }
     
@@ -367,7 +382,8 @@ export const deleteAllSuppliersInternal = internalMutation({
     return { 
       success: true, 
       deletedCount,
-      message: `${deletedCount} fournisseurs supprimés avec succès` 
+      deletedUsersCount,
+      message: `${deletedCount} fournisseurs et ${deletedUsersCount} utilisateurs supprimés avec succès` 
     };
   }
 });

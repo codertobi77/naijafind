@@ -33,14 +33,14 @@ export const queryClient = new QueryClient({
       // Keep unused data in cache for shorter time
       gcTime: 2 * 60 * 1000, // 2 minutes (was 10 minutes)
       
-      // Refetch on window focus for fresh data
-      refetchOnWindowFocus: true,
+      // Refetch on window focus disabled by default - reduces unnecessary network churn
+      refetchOnWindowFocus: false,
       
       // Retry failed requests
       retry: 1,
       
-      // Always refetch on mount to ensure fresh data after mutations
-      refetchOnMount: 'always',
+      // Only refetch on mount if data is stale
+      refetchOnMount: true,
       
       // Refetch on reconnect
       refetchOnReconnect: true,

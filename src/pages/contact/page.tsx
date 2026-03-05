@@ -8,75 +8,92 @@ import { contactFormSchema, validateForm } from '../../lib/validation';
 import { HeroSection, Section, Container, Footer } from '../../components/layout';
 import { FormInput, FormTextarea, FormSelect } from '../../components/forms';
 import { ContactInfoCard } from '../../components/ui';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import type { Map, Marker, Popup } from 'mapbox-gl';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
+
+// Dynamically import mapbox-gl only when needed
+let mapboxglPromise: Promise<typeof import('mapbox-gl')> | null = null;
+const getMapboxgl = () => {
+  if (!mapboxglPromise) {
+    mapboxglPromise = import('mapbox-gl').then((mod) => {
+      // Dynamically import CSS
+      import('mapbox-gl/dist/mapbox-gl.css');
+      return mod;
+    });
+  }
+  return mapboxglPromise;
+};
 
 // Mapbox Map Component
 function ContactMap() {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
-  const markerRef = useRef<mapboxgl.Marker | null>(null);
+  const mapInstanceRef = useRef<Map | null>(null);
+  const markerRef = useRef<Marker | null>(null);
 
   useEffect(() => {
-    if (mapRef.current && !mapInstanceRef.current) {
-      mapboxgl.accessToken = MAPBOX_TOKEN;
+    const initMap = async () => {
+      if (mapRef.current && !mapInstanceRef.current) {
+        const mapboxgl = await getMapboxgl();
+        mapboxgl.accessToken = MAPBOX_TOKEN;
 
-      const map = new mapboxgl.Map({
-        container: mapRef.current,
-        style: 'mapbox://styles/mapbox/light-v11',
-        center: [3.4240, 6.4281], // Lagos, Nigeria
-        zoom: 13,
-        pitch: 45,
-        bearing: -17.6,
-        antialias: true
-      });
-
-      mapInstanceRef.current = map;
-
-      map.on('load', () => {
-        // Add 3D terrain
-        map.addSource('mapbox-dem', {
-          'type': 'raster-dem',
-          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-          'tileSize': 512,
-          'maxzoom': 14
+        const map = new mapboxgl.Map({
+          container: mapRef.current,
+          style: 'mapbox://styles/mapbox/light-v11',
+          center: [3.4240, 6.4281], // Lagos, Nigeria
+          zoom: 13,
+          pitch: 45,
+          bearing: -17.6,
+          antialias: true
         });
-        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
 
-        // Add 3D buildings
-        if (!map.getLayer('3d-buildings')) {
-          map.addLayer({
-            'id': '3d-buildings',
-            'source': 'composite',
-            'source-layer': 'building',
-            'filter': ['==', 'extrude', 'true'],
-            'type': 'fill-extrusion',
-            'minzoom': 12,
-            'paint': {
-              'fill-extrusion-color': '#a8a8a8',
-              'fill-extrusion-height': ['get', 'height'],
-              'fill-extrusion-base': ['get', 'min_height'],
-              'fill-extrusion-opacity': 0.6
-            }
+        mapInstanceRef.current = map;
+
+        map.on('load', () => {
+          // Add 3D terrain
+          map.addSource('mapbox-dem', {
+            'type': 'raster-dem',
+            'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+            'tileSize': 512,
+            'maxzoom': 14
           });
-        }
+          map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
 
-        // Add marker for office location
-        markerRef.current = new mapboxgl.Marker({ color: '#16a34a' })
-          .setLngLat([3.4240, 6.4281])
-          .setPopup(
-            new mapboxgl.Popup({ offset: 25 }).setHTML(
-              `<div class="p-2">
-                <h3 class="font-semibold text-sm">Suji Office</h3>
-                <p class="text-xs text-gray-600">Victoria Island, Lagos</p>
-              </div>`
-            )
-          )
-          .addTo(map);
-      });
-    }
+          // Add 3D buildings
+          if (!map.getLayer('3d-buildings')) {
+            map.addLayer({
+              'id': '3d-buildings',
+              'source': 'composite',
+              'source-layer': 'building',
+              'filter': ['==', 'extrude', 'true'],
+              'type': 'fill-extrusion',
+              'minzoom': 12,
+              'paint': {
+                'fill-extrusion-color': '#a8a8a8',
+                'fill-extrusion-height': ['get', 'height'],
+                'fill-extrusion-base': ['get', 'min_height'],
+                'fill-extrusion-opacity': 0.6
+              }
+            });
+          }
+
+          // Add marker for office location
+          const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
+            `<div class="p-2">
+              <h3 class="font-semibold text-sm">Suji Office</h3>
+              <p class="text-xs text-gray-600">Victoria Island, Lagos</p>
+            </div>`
+          );
+          
+          markerRef.current = new mapboxgl.Marker({ color: '#16a34a' })
+            .setLngLat([3.4240, 6.4281])
+            .setPopup(popup)
+            .addTo(map);
+        });
+      }
+    };
+
+    initMap();
 
     return () => {
       if (mapInstanceRef.current) {
