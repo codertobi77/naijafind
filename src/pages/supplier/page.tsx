@@ -8,6 +8,7 @@ import { Header } from '../../components/base';
 import { SupplierAvatar } from '../../components/SupplierImage';
 import { SignedIn, SignedOut, useUser } from '@clerk/clerk-react';
 import { useDeepLTranslation } from '../../hooks/useDeepLTranslation';
+import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/base';
 import type { Map, Popup } from 'mapbox-gl';
 
