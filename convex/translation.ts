@@ -14,20 +14,20 @@ interface DeepLTranslationResponse {
 /**
  * Supported target languages for DeepL
  * Maps our language codes to DeepL language codes
+ * Note: Using simplified codes for DeepL Free API compatibility
  */
 const DEEPL_LANGUAGE_MAP: Record<string, string> = {
-  en: "EN-US",
+  en: "EN",
   fr: "FR",
   de: "DE",
   es: "ES",
   it: "IT",
-  pt: "PT-PT",
+  pt: "PT",
   nl: "NL",
   pl: "PL",
   ru: "RU",
   ja: "JA",
   zh: "ZH",
-  ar: "AR",
 };
 
 /**
@@ -59,20 +59,19 @@ export const translateText = action({
       : undefined;
 
     try {
-      const params = new URLSearchParams();
-      params.append("text", args.text);
-      params.append("target_lang", deeplTargetLang);
-      if (deeplSourceLang) {
-        params.append("source_lang", deeplSourceLang);
-      }
+      const requestBody = {
+        text: [args.text],
+        target_lang: deeplTargetLang,
+        ...(deeplSourceLang && { source_lang: deeplSourceLang }),
+      };
 
       const response = await fetch("https://api-free.deepl.com/v2/translate", {
         method: "POST",
         headers: {
           "Authorization": `DeepL-Auth-Key ${DEEPL_API_KEY}`,
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/json",
         },
-        body: params.toString(),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -139,20 +138,19 @@ export const translateBatch = action({
       : undefined;
 
     try {
-      const params = new URLSearchParams();
-      args.texts.forEach((text) => params.append("text", text));
-      params.append("target_lang", deeplTargetLang);
-      if (deeplSourceLang) {
-        params.append("source_lang", deeplSourceLang);
-      }
+      const requestBody = {
+        text: args.texts,
+        target_lang: deeplTargetLang,
+        ...(deeplSourceLang && { source_lang: deeplSourceLang }),
+      };
 
       const response = await fetch("https://api-free.deepl.com/v2/translate", {
         method: "POST",
         headers: {
           "Authorization": `DeepL-Auth-Key ${DEEPL_API_KEY}`,
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/json",
         },
-        body: params.toString(),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -204,18 +202,18 @@ export const detectLanguage = action({
     }
 
     try {
-      // Translate with auto-detection to get the detected language
-      const params = new URLSearchParams();
-      params.append("text", args.text);
-      params.append("target_lang", "EN-US"); // Target doesn't matter for detection
+      const requestBody = {
+        text: [args.text],
+        target_lang: "EN",
+      };
 
       const response = await fetch("https://api-free.deepl.com/v2/translate", {
         method: "POST",
         headers: {
           "Authorization": `DeepL-Auth-Key ${DEEPL_API_KEY}`,
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/json",
         },
-        body: params.toString(),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
