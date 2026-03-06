@@ -76,10 +76,10 @@ export const translateText = action({
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("DeepL API error:", errorText);
+        console.error("DeepL API error:", response.status, errorText);
         return {
           success: false,
-          error: `DeepL API error: ${response.status}`,
+          error: `DeepL API error: ${response.status} - ${errorText}`,
           translatedText: null,
         };
       }
