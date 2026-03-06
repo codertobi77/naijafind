@@ -499,7 +499,7 @@ export default function AdminPage(){
   } = usePaginatedQuery(
     api.suppliers.getAllSuppliersPaginated,
     {},
-    { numItems: 100 }
+    { initialNumItems: 100 }
   );
   // Flatten paginated results for display
   const allSuppliers = paginatedSuppliers?.flatMap(page => page.page) ?? [];
