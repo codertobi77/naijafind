@@ -501,9 +501,12 @@ export default function AdminPage(){
     {},
     { initialNumItems: 100 }
   );
-  // Flatten paginated results for display
-  const allSuppliers = paginatedSuppliers?.flatMap(page => page.page) ?? [];
-  const hasMoreSuppliers = paginatedSuppliers?.[paginatedSuppliers.length - 1]?.continueCursor !== null;
+  // Debug: log the paginated data structure
+  console.log('paginatedSuppliers:', paginatedSuppliers);
+  // Flatten paginated results for display - use type assertion since we know the structure
+  const allSuppliers = (paginatedSuppliers as any)?.flatMap((page: any) => page.page ?? []) ?? [];
+  const lastPage = paginatedSuppliers?.[paginatedSuppliers.length - 1] as any;
+  const hasMoreSuppliers = lastPage?.continueCursor != null && lastPage?.page?.length === 100;
   const suppliersLoading = suppliersStatus === 'LoadingFirstPage';
   const { data: categories, refetch: refetchCategories } = useConvexQuery(
     api.categories.getFilteredCategories,

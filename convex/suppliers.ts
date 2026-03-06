@@ -415,8 +415,11 @@ export const getFilteredSuppliers = query({
 // Admin: Get all suppliers with pagination (no limit)
 export const getAllSuppliersPaginated = query({
   args: {
-    cursor: v.optional(v.string()),
-    numItems: v.optional(v.number()),
+    paginationOpts: v.object({
+      cursor: v.union(v.null(), v.optional(v.string())),
+      id: v.optional(v.number()),
+      numItems: v.number(),
+    }),
   },
   handler: async (ctx, args) => {
     // Check if user is admin
@@ -432,8 +435,8 @@ export const getAllSuppliersPaginated = query({
       throw new Error("Accès refusé. Seuls les administrateurs peuvent effectuer cette action.");
     }
 
-    const numItems = Math.min(args.numItems ?? 100, 500);
-    const cursor = args.cursor ?? null;
+    const numItems = Math.min(args.paginationOpts.numItems, 500);
+    const cursor = args.paginationOpts.cursor || undefined;
 
     // Use paginate to efficiently fetch all suppliers
     const result = await ctx.db
