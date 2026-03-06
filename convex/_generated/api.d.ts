@@ -11,6 +11,7 @@
 import type * as adBanners from "../adBanners.js";
 import type * as admin from "../admin.js";
 import type * as adminImport from "../adminImport.js";
+import type * as adminProductImport from "../adminProductImport.js";
 import type * as categories from "../categories.js";
 import type * as crons from "../crons.js";
 import type * as dashboard from "../dashboard.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   adBanners: typeof adBanners;
   admin: typeof admin;
   adminImport: typeof adminImport;
+  adminProductImport: typeof adminProductImport;
   categories: typeof categories;
   crons: typeof crons;
   dashboard: typeof dashboard;

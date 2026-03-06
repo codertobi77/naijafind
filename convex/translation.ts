@@ -16,7 +16,25 @@ interface DeepLTranslationResponse {
  * Maps our language codes to DeepL language codes
  * Note: Using simplified codes for DeepL Free API compatibility
  */
-const DEEPL_LANGUAGE_MAP: Record<string, string> = {
+const DEEPL_TARGET_LANG_MAP: Record<string, string> = {
+  en: "EN",
+  fr: "FR",
+  de: "DE",
+  es: "ES",
+  it: "IT",
+  pt: "PT",
+  nl: "NL",
+  pl: "PL",
+  ru: "RU",
+  ja: "JA",
+  zh: "ZH",
+};
+
+/**
+ * Supported source languages for DeepL
+ * DeepL supports fewer languages as source than target
+ */
+const DEEPL_SOURCE_LANG_MAP: Record<string, string> = {
   en: "EN",
   fr: "FR",
   de: "DE",
@@ -53,10 +71,18 @@ export const translateText = action({
     }
 
     // Map our language code to DeepL format
-    const deeplTargetLang = DEEPL_LANGUAGE_MAP[args.targetLang] || args.targetLang.toUpperCase();
-    const deeplSourceLang = args.sourceLang
-      ? (DEEPL_LANGUAGE_MAP[args.sourceLang] || args.sourceLang.toUpperCase())
+    const deeplTargetLang = DEEPL_TARGET_LANG_MAP[args.targetLang] || args.targetLang.toUpperCase();
+    const deeplSourceLang = args.sourceLang && DEEPL_SOURCE_LANG_MAP[args.sourceLang]
+      ? DEEPL_SOURCE_LANG_MAP[args.sourceLang]
       : undefined;
+
+    console.log("DeepL translate request:", {
+      text: args.text?.substring(0, 50),
+      targetLang: args.targetLang,
+      deeplTargetLang,
+      sourceLang: args.sourceLang,
+      deeplSourceLang,
+    });
 
     try {
       const requestBody = {
@@ -64,6 +90,8 @@ export const translateText = action({
         target_lang: deeplTargetLang,
         ...(deeplSourceLang && { source_lang: deeplSourceLang }),
       };
+
+      console.log("DeepL request body:", JSON.stringify(requestBody));
 
       const response = await fetch("https://api-free.deepl.com/v2/translate", {
         method: "POST",
@@ -132,9 +160,9 @@ export const translateBatch = action({
       };
     }
 
-    const deeplTargetLang = DEEPL_LANGUAGE_MAP[args.targetLang] || args.targetLang.toUpperCase();
-    const deeplSourceLang = args.sourceLang
-      ? (DEEPL_LANGUAGE_MAP[args.sourceLang] || args.sourceLang.toUpperCase())
+    const deeplTargetLang = DEEPL_TARGET_LANG_MAP[args.targetLang] || args.targetLang.toUpperCase();
+    const deeplSourceLang = args.sourceLang && DEEPL_SOURCE_LANG_MAP[args.sourceLang]
+      ? DEEPL_SOURCE_LANG_MAP[args.sourceLang]
       : undefined;
 
     try {

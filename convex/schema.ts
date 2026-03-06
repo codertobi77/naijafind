@@ -226,6 +226,20 @@ export default defineSchema({
   })
     .index("status", ["status"])
     .index("scheduledBy", ["scheduledBy"]),
+  // Bulk import jobs for tracking scheduled product imports
+  productImportJobs: defineTable({
+    status: v.string(), // 'pending', 'processing', 'completed', 'failed'
+    totalProducts: v.number(),
+    processedProducts: v.number(),
+    successCount: v.number(),
+    errorCount: v.number(),
+    errors: v.optional(v.array(v.object({ product: v.string(), error: v.string() }))),
+    startedAt: v.string(),
+    completedAt: v.optional(v.string()),
+    scheduledBy: v.string(), // admin userId
+  })
+    .index("status", ["status"])
+    .index("scheduledBy", ["scheduledBy"]),
   // Global statistics counters
   stats: defineTable({
     key: v.string(), // 'totalSuppliers', 'totalUsers', 'totalReviews', 'totalProducts', 'pendingSuppliers', 'approvedSuppliers', 'featuredSuppliers', etc.

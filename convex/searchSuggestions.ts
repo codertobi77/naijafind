@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { query } from "./_generated/server";
+import { query, action } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 /**
  * Get all search suggestions from the database
@@ -66,10 +67,173 @@ export const getSearchSuggestions = query({
 });
 
 /**
- * Search suggestions with query filter
- * Returns filtered suggestions based on user input
+ * Search suggestions with query filter - BILINGUAL VERSION
+ * Returns filtered suggestions based on user input with translation support
+ * Allows French and English speakers to search without language constraints
  */
-export const searchSuggestionsWithQuery = query({
+export const searchSuggestionsWithQuery = action({
+  args: {
+    query: v.string(),
+    limit: v.optional(v.number()),
+    userLanguage: v.optional(v.string()), // 'en', 'fr', etc.
+  },
+  handler: async (ctx, args) => {
+    const searchQuery = args.query.toLowerCase().trim();
+    const limit = Number(args.limit ?? 10);
+    const userLanguage = args.userLanguage || 'en';
+
+    if (!searchQuery) {
+      return { suggestions: [], locations: [], translationsUsed: false };
+    }
+
+    // Build list of queries to search - original + translated
+    let queryTranslations: string[] = [searchQuery];
+    
+    // If query is long enough, try to translate for bilingual search
+    if (searchQuery.length >= 2) {
+      try {
+        // If user is searching in French, also search in English and vice versa
+        const otherLanguage = userLanguage === 'fr' ? 'en' : 'fr';
+        
+        const translationResult = await ctx.runAction(internal.translation.translateText, {
+          text: searchQuery,
+          targetLang: otherLanguage,
+          sourceLang: userLanguage,
+        });
+        
+        if (translationResult.success && translationResult.translatedText) {
+          // Add the translated query to our search terms
+          const translatedQuery = translationResult.translatedText.toLowerCase().trim();
+          if (translatedQuery !== searchQuery) {
+            queryTranslations.push(translatedQuery);
+          }
+        }
+      } catch (error) {
+        // If translation fails, continue with original query only
+        console.log("Translation failed, using original query:", error);
+      }
+    }
+
+    // Get all approved suppliers
+    const suppliers = await ctx.db
+      .query("suppliers")
+      .withIndex("approved", (q) => q.eq("approved", true))
+      .collect();
+
+    // Get all products
+    const products = await ctx.db.query("products").collect();
+
+    // Get all active categories
+    const categories = await ctx.db
+      .query("categories")
+      .withIndex("is_active", (q) => q.eq("is_active", true))
+      .collect();
+
+    // Build suggestions with scoring
+    interface Suggestion {
+      text: string;
+      score: number;
+      type: 'supplier' | 'product' | 'category';
+    }
+    
+    const suggestions: Suggestion[] = [];
+
+    // Add matching supplier names
+    suppliers.forEach(s => {
+      if (!s.business_name) return;
+      const nameLower = s.business_name.toLowerCase();
+      
+      // Check against all query translations
+      for (const query of queryTranslations) {
+        if (nameLower.includes(query)) {
+          const score = nameLower === query ? 100 : nameLower.startsWith(query) ? 80 : 50;
+          suggestions.push({
+            text: s.business_name,
+            score,
+            type: 'supplier',
+          });
+          break; // Only add once per supplier
+        }
+      }
+    });
+
+    // Add matching product names
+    products.forEach(p => {
+      if (!p.name) return;
+      const nameLower = p.name.toLowerCase();
+      
+      for (const query of queryTranslations) {
+        if (nameLower.includes(query)) {
+          const score = nameLower === query ? 100 : nameLower.startsWith(query) ? 80 : 50;
+          suggestions.push({
+            text: p.name,
+            score,
+            type: 'product',
+          });
+          break;
+        }
+      }
+    });
+
+    // Add matching category names
+    categories.forEach(c => {
+      if (!c.name) return;
+      const nameLower = c.name.toLowerCase();
+      
+      for (const query of queryTranslations) {
+        if (nameLower.includes(query)) {
+          const score = nameLower === query ? 100 : nameLower.startsWith(query) ? 90 : 60;
+          suggestions.push({
+            text: c.name,
+            score,
+            type: 'category',
+          });
+          break;
+        }
+      }
+    });
+
+    // Build location suggestions
+    const locations: string[] = [];
+
+    suppliers.forEach(s => {
+      for (const query of queryTranslations) {
+        if (s.city?.toLowerCase().includes(query)) {
+          locations.push(s.city);
+          break;
+        }
+        if (s.state?.toLowerCase().includes(query)) {
+          locations.push(s.state);
+          break;
+        }
+      }
+    });
+
+    // Sort suggestions by score (descending) and remove duplicates
+    const sortedSuggestions = suggestions
+      .sort((a, b) => b.score - a.score)
+      .filter((item, index, self) => 
+        index === self.findIndex(t => t.text.toLowerCase() === item.text.toLowerCase())
+      )
+      .slice(0, limit);
+
+    // Remove duplicate locations and limit results
+    const uniqueLocations = [...new Set(locations)].slice(0, limit);
+
+    return {
+      suggestions: sortedSuggestions.map(s => s.text),
+      locations: uniqueLocations,
+      translationsUsed: queryTranslations.length > 1,
+      originalQuery: searchQuery,
+    };
+  },
+});
+
+/**
+ * Legacy query version for backward compatibility (without translation)
+ * Use searchSuggestionsWithQuery action for bilingual support
+ */
+export const searchSuggestionsWithQueryBasic = query({
   args: {
     query: v.string(),
     limit: v.optional(v.number()),

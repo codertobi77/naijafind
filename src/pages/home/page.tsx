@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation, type TFunction } from 'react-i18next';
 import { Header } from '../../components/base';
-import { useConvexAuth, useMutation } from 'convex/react';
+import { useConvexAuth, useMutation, useAction } from 'convex/react';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { api } from '@convex/_generated/api';
 import type { Doc } from 'convex/values';
@@ -10,6 +10,7 @@ import Modal from '../../components/base/Modal';
 import { HeroSection, Section, Container, Footer } from '../../components/layout';
 import { CTASection } from '../../components/ui';
 import { FormSelect } from '../../components/forms';
+import i18n from '../../i18n';
 
 // Custom hook for debouncing
 function useDebounce<T>(value: T, delay: number): T {
@@ -202,86 +203,94 @@ function SearchInputWithSuggestions({
 
   // Debounce the input value
   const debouncedValue = useDebounce(value, 300);
+  
+  // Get current language for bilingual search
+  const currentLanguage = i18n.language as 'en' | 'fr';
 
-  // Use Convex query hook for suggestions
-  const { data: searchResults, isLoading: isQueryLoading } = useConvexQuery(
-    api.searchSuggestions.searchSuggestionsWithQuery,
-    debouncedValue.trim() ? { query: debouncedValue, limit: 10 } : ('skip' as const),
-    { staleTime: 30 * 1000 }
-  );
-
-  // Update suggestions when query results change
+  // Use Convex action for bilingual search suggestions
+  const searchSuggestionsAction = useAction(api.searchSuggestions.searchSuggestionsWithQuery);
+  
+  // Fetch suggestions when debounced value changes
   useEffect(() => {
-    if (!debouncedValue.trim()) {
-      setHasSearched(false);
-      setIsLoading(false);
-      // Show recent searches when focused with empty value
-      if (recentSearches.length > 0) {
-        const recentItems: SuggestionItem[] = recentSearches.map((s) => ({
-          text: s,
-          type: type === 'location' ? 'location' : 'product',
-          icon: type === 'location' ? 'ri-map-pin-line' : 'ri-time-line',
-          subtext: 'Récent',
-        }));
-        setFilteredSuggestions(recentItems);
-      } else {
-        setFilteredSuggestions([]);
+    const fetchSuggestions = async () => {
+      if (!debouncedValue.trim()) {
+        setHasSearched(false);
+        setIsLoading(false);
+        if (recentSearches.length > 0) {
+          const recentItems: SuggestionItem[] = recentSearches.map((s) => ({
+            text: s,
+            type: type === 'location' ? 'location' : 'product',
+            icon: type === 'location' ? 'ri-map-pin-line' : 'ri-time-line',
+            subtext: 'Récent',
+          }));
+          setFilteredSuggestions(recentItems);
+        } else {
+          setFilteredSuggestions([]);
+        }
+        return;
       }
-      return;
-    }
 
-    setIsLoading(isQueryLoading);
-    setHasSearched(true);
+      setIsLoading(true);
+      setHasSearched(true);
 
-    if (!searchResults) {
-      if (!isQueryLoading) {
-        setFilteredSuggestions([]);
-      }
-      return;
-    }
-
-    // Categorize and build suggestions
-    const items: SuggestionItem[] = [];
-    
-    if (type === 'location') {
-      // For location input, use location results
-      searchResults.locations.forEach((loc) => {
-        items.push({
-          text: loc,
-          type: 'location',
-          icon: 'ri-map-pin-line',
+      try {
+        const results = await searchSuggestionsAction({
+          query: debouncedValue,
+          limit: 10,
+          userLanguage: currentLanguage,
         });
-      });
-    } else {
-      // For search input, categorize results
-      searchResults.suggestions.forEach((s) => {
-        let itemType: 'product' | 'supplier' | 'category' = 'product';
-        let itemIcon = 'ri-search-line';
-        let subtext: string | undefined;
 
-        // Heuristics to determine type
-        const lower = s.toLowerCase();
-        if (lower.includes('ltd') || lower.includes('limited') || lower.includes('inc') || lower.includes('corp') || lower.includes('nigeria') || lower.includes('services') || lower.includes('enterprise')) {
-          itemType = 'supplier';
-          itemIcon = 'ri-building-4-line';
-          subtext = 'Fournisseur';
-        } else if (s.split(' ').length === 1 && s.length < 20) {
-          itemType = 'category';
-          itemIcon = 'ri-folder-3-line';
-          subtext = 'Catégorie';
+        // Categorize and build suggestions
+        const items: SuggestionItem[] = [];
+        
+        if (type === 'location') {
+          // For location input, use location results
+          results.locations.forEach((loc) => {
+            items.push({
+              text: loc,
+              type: 'location',
+              icon: 'ri-map-pin-line',
+            });
+          });
+        } else {
+          // For search input, categorize results
+          results.suggestions.forEach((s) => {
+            let itemType: 'product' | 'supplier' | 'category' = 'product';
+            let itemIcon = 'ri-search-line';
+            let subtext: string | undefined;
+
+            // Heuristics to determine type
+            const lower = s.toLowerCase();
+            if (lower.includes('ltd') || lower.includes('limited') || lower.includes('inc') || lower.includes('corp') || lower.includes('nigeria') || lower.includes('services') || lower.includes('enterprise')) {
+              itemType = 'supplier';
+              itemIcon = 'ri-building-4-line';
+              subtext = 'Fournisseur';
+            } else if (s.split(' ').length === 1 && s.length < 20) {
+              itemType = 'category';
+              itemIcon = 'ri-folder-3-line';
+              subtext = 'Catégorie';
+            }
+
+            items.push({
+              text: s,
+              type: itemType,
+              icon: itemIcon,
+              subtext,
+            });
+          });
         }
 
-        items.push({
-          text: s,
-          type: itemType,
-          icon: itemIcon,
-          subtext,
-        });
-      });
-    }
+        setFilteredSuggestions(items);
+      } catch (error) {
+        console.error('Search suggestions error:', error);
+        setFilteredSuggestions([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    setFilteredSuggestions(items);
-  }, [debouncedValue, type, recentSearches, searchResults, isQueryLoading]);
+    fetchSuggestions();
+  }, [debouncedValue, type, recentSearches, searchSuggestionsAction, currentLanguage]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

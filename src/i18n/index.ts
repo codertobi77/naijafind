@@ -14,6 +14,45 @@ export const supportedLanguages = [
 export type SupportedLanguageCode = typeof supportedLanguages[number]['code'];
 
 /**
+ * LocalStorage key for language preference
+ */
+const LANGUAGE_STORAGE_KEY = 'suji_language_preference';
+
+/**
+ * Get stored language preference
+ */
+export const getStoredLanguage = (): SupportedLanguageCode | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored && supportedLanguages.some(l => l.code === stored)) {
+      return stored as SupportedLanguageCode;
+    }
+    // Also check i18next's storage
+    const i18nextStored = localStorage.getItem('i18nextLng');
+    if (i18nextStored && supportedLanguages.some(l => l.code === i18nextStored)) {
+      return i18nextStored as SupportedLanguageCode;
+    }
+  } catch {
+    // localStorage not available
+  }
+  return null;
+};
+
+/**
+ * Store language preference
+ */
+export const setStoredLanguage = (lang: SupportedLanguageCode): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+    localStorage.setItem('i18nextLng', lang);
+  } catch {
+    // localStorage not available
+  }
+};
+
+/**
  * Update HTML document attributes when language changes
  * - Sets the lang attribute for accessibility and SEO
  * - Sets the dir attribute for RTL language support
@@ -38,14 +77,20 @@ const updateDocumentLanguage = (lng: string) => {
       document.head.appendChild(metaLang);
     }
     metaLang.setAttribute('content', lng);
+    
+    // Store the language preference
+    setStoredLanguage(lng as SupportedLanguageCode);
   }
 };
+
+// Get stored language or default to 'en'
+const storedLanguage = getStoredLanguage();
 
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    lng: 'en',
+    lng: storedLanguage || 'en',
     fallbackLng: 'en',
     debug: false,
     resources: messages,
@@ -54,7 +99,7 @@ i18n
       escapeValue: false,
     },
     detection: {
-      order: ['navigator', 'localStorage', 'htmlTag'],
+      order: ['localStorage', 'navigator', 'htmlTag'],
       caches: ['localStorage'],
       lookupLocalStorage: 'i18nextLng',
     },

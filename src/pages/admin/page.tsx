@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import useCurrency from '../../hooks/useCurrency';
 import type { Id } from 'convex/values';
 import type { Doc } from 'convex/values';
-import { SupplierBulkImport } from '../../components/admin';
+import { SupplierBulkImport, ProductBulkImport } from '../../components/admin';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer, NotificationDropdown } from '../../components/base';
@@ -517,7 +517,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
   const sendAdminNotification = useMutation(api.notifications.sendAdminNotification);
   const sendBulkNotification = useMutation(api.notifications.sendBulkNotification);
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications' | 'import' | 'adBanners' | 'claims'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications' | 'import' | 'productImport' | 'adBanners' | 'claims'>('overview');
   // Suppression de l’état fournisseurs simulé (on utilise allSuppliers de Convex)
 
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -1615,6 +1615,8 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
         );
       case 'import':
         return <SupplierBulkImport />;
+      case 'productImport':
+        return <ProductBulkImport />;
       case 'adBanners':
         return <AdBannerManager />;
       case 'claims':
@@ -2324,6 +2326,17 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                 <span className="font-medium">Import Fournisseurs</span>
               </button>
               <button
+                onClick={() => setActiveTab('productImport')}
+                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                  activeTab === 'productImport'
+                    ? 'bg-green-600 text-white shadow'
+                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
+                }`}
+              >
+                <i className="ri-archive-line text-lg" />
+                <span className="font-medium">Import Produits</span>
+              </button>
+              <button
                 onClick={() => setActiveTab('adBanners')}
                 className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
                   activeTab === 'adBanners'
@@ -2377,6 +2390,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                 {activeTab === 'products' && t('admin.products')}
                 {activeTab === 'notifications' && 'Envoyer une notification'}
                 {activeTab === 'import' && 'Import Fournisseurs'}
+                {activeTab === 'productImport' && 'Import Produits'}
                 {activeTab === 'adBanners' && 'Ad Banners'}
                 {activeTab === 'claims' && t('claims.sidebar.page_title')}
               </h1>
