@@ -504,10 +504,9 @@ export default function AdminPage(){
   // Debug: log the paginated data structure and status
   console.log('paginatedSuppliers:', paginatedSuppliers);
   console.log('suppliersStatus:', suppliersStatus);
-  // Flatten paginated results for display - use type assertion since we know the structure
-  const allSuppliers = (paginatedSuppliers as any)?.flatMap((page: any) => page.page ?? []) ?? [];
-  const lastPage = paginatedSuppliers?.[paginatedSuppliers.length - 1] as any;
-  const hasMoreSuppliers = lastPage?.continueCursor != null && lastPage?.page?.length === 100;
+  // The paginated results are already flattened by usePaginatedQuery
+  const allSuppliers = (paginatedSuppliers as any[]) ?? [];
+  const hasMoreSuppliers = suppliersStatus === 'CanLoadMore';
   const suppliersLoading = suppliersStatus === 'LoadingFirstPage' || suppliersStatus === 'Loading';
   const { data: categories, refetch: refetchCategories } = useConvexQuery(
     api.categories.getFilteredCategories,
