@@ -492,7 +492,7 @@ export default function AdminPage(){
   );
   // Use paginated query to load all suppliers without the 500 limit
   const {
-    data: paginatedSuppliers,
+    results: paginatedSuppliers,
     status: suppliersStatus,
     loadMore: loadMoreSuppliers,
     isLoading: isLoadingMoreSuppliers,
