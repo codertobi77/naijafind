@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation } from 'convex/react';
 import { api } from '@convex/_generated/api';
@@ -6,8 +6,7 @@ import { useConvexAuth } from 'convex/react';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { useTranslation } from 'react-i18next';
 import useCurrency from '../../hooks/useCurrency';
-import type { Id } from 'convex/values';
-import type { Doc } from 'convex/values';
+import type { Id, Doc } from '@convex/_generated/dataModel';
 import { SupplierBulkImport, ProductBulkImport } from '../../components/admin';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useToast } from '../../hooks/useToast';
@@ -457,6 +456,29 @@ export default function AdminPage(){
   const { t } = useTranslation();
   const { formatCurrency } = useCurrency();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications' | 'import' | 'productImport' | 'adBanners' | 'claims'>('overview');
+  // Suppression de l'état fournisseurs simulé (on utilise allSuppliers de Convex)
+
+  // Filter states for Suppliers, Categories, and Products
+  const [supplierFilters, setSupplierFilters] = useState({
+    approved: undefined as boolean | undefined,
+    featured: undefined as boolean | undefined,
+    category: '',
+    searchQuery: '',
+  });
+  const [categoryFilters, setCategoryFilters] = useState({
+    isActive: undefined as boolean | undefined,
+    searchQuery: '',
+  });
+  const [productFilters, setProductFilters] = useState({
+    status: '',
+    category: '',
+    supplierId: '',
+    searchQuery: '',
+    minPrice: undefined as number | undefined,
+    maxPrice: undefined as number | undefined,
+  });
+
   const { isAuthenticated, isLoading } = useConvexAuth();
   const { data: meData } = useConvexQuery(
     api.users.me,
@@ -534,9 +556,6 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
   );
   const sendAdminNotification = useMutation(api.notifications.sendAdminNotification);
   const sendBulkNotification = useMutation(api.notifications.sendBulkNotification);
-  
-  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications' | 'import' | 'productImport' | 'adBanners' | 'claims'>('overview');
-  // Suppression de l’état fournisseurs simulé (on utilise allSuppliers de Convex)
 
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Id<"categories"> | null>(null);
@@ -563,28 +582,6 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
   const [sendingNotification, setSendingNotification] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
-
-  // Filter states for Suppliers, Categories, and Products
-  const [supplierFilters, setSupplierFilters] = useState({
-    approved: undefined as boolean | undefined,
-    featured: undefined as boolean | undefined,
-    category: '',
-    searchQuery: '',
-  });
-  const [categoryFilters, setCategoryFilters] = useState({
-    isActive: undefined as boolean | undefined,
-    searchQuery: '',
-  });
-  const [productFilters, setProductFilters] = useState({
-    status: '',
-    category: '',
-    supplierId: '',
-    searchQuery: '',
-    minPrice: undefined as number | undefined,
-    maxPrice: undefined as number | undefined,
-  });
-
-  // Vérifier l'accès admin
   // Be more lenient with the admin check to allow for loading states
   const isAdmin = meData?.user?.is_admin === true || meData?.user?.user_type === 'admin';
   
@@ -959,7 +956,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                                       );
                                     }).catch((error: any) => {
                                       console.error('Error updating featured status:', error);
-                                      showToast('error', error.message || t('admin.error_set_premium'));
+                                      showToast('error', error.message || t('admin.error_set_featured'));
                                     }).finally(() => {
                                       setIsSettingFeatured(null);
                                     });
@@ -1385,7 +1382,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                           <td className="px-2 py-3">
                             {supplier.featured ? (
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                {t('admin.featured')}
+                                {t('admin.feature')}
                               </span>
                             ) : (
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
@@ -1403,7 +1400,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                                       refetchFeaturedSuppliers();
                                     }).catch((error: any) => {
                                       console.error('Error removing featured status:', error);
-                                      showToast('error', error.message || t('admin.error_remove_premium'));
+                                      showToast('error', error.message || t('admin.error_remove_featured'));
                                     });
                                   }}
                                   className="text-xs px-3 py-1 rounded bg-yellow-600 text-white hover:bg-yellow-700 transition-colors"
@@ -1418,7 +1415,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                                       refetchFeaturedSuppliers();
                                     }).catch((error: any) => {
                                       console.error('Error setting featured status:', error);
-                                      showToast('error', error.message || t('admin.error_set_premium'));
+                                      showToast('error', error.message || t('admin.error_set_featured'));
                                     });
                                   }}
                                   className="text-xs px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700 transition-colors"
@@ -2713,7 +2710,7 @@ function SupplierClaimsManager() {
   const approveClaim = useMutation(api.suppliers.approveClaim);
   const rejectClaim = useMutation(api.suppliers.rejectClaim);
   
-  const handleApprove = async (claimId: string) => {
+  const handleApprove = async (claimId: Id<"supplierClaims">) => {
     setProcessingClaim(claimId);
     try {
       await approveClaim({ claimId, notes });
@@ -2728,7 +2725,7 @@ function SupplierClaimsManager() {
     }
   };
   
-  const handleReject = async (claimId: string) => {
+  const handleReject = async (claimId: Id<"supplierClaims">) => {
     setProcessingClaim(claimId);
     try {
       await rejectClaim({ claimId, notes });

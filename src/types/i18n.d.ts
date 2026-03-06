@@ -24,6 +24,7 @@ import type { contact } from '../i18n/local/en/contact';
 import type { privacy } from '../i18n/local/en/privacy';
 import type { about } from '../i18n/local/en/about';
 import type { notfound } from '../i18n/local/en/notfound';
+import type { claims } from '../i18n/local/en/claims';
 
 /**
  * Combined translation resources type
@@ -42,7 +43,8 @@ type TranslationResources = typeof common &
   typeof contact &
   typeof privacy &
   typeof about &
-  typeof notfound;
+  typeof notfound &
+  typeof claims;
 
 /**
  * Extract all translation keys as a union type
@@ -111,7 +113,8 @@ export type TranslationNamespace =
   | 'contact'
   | 'privacy'
   | 'about'
-  | 'notfound';
+  | 'notfound'
+  | 'claims';
 
 /**
  * Supported language codes
