@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, usePaginatedQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
@@ -491,6 +491,13 @@ export default function AdminPage(){
     { staleTime: 2 * 60 * 1000 }
   );
   // Use paginated query to load all suppliers without the 500 limit
+  const supplierQueryArgs = useMemo(() => ({
+    approved: supplierFilters.approved,
+    featured: supplierFilters.featured,
+    category: supplierFilters.category || undefined,
+    searchQuery: supplierFilters.searchQuery || undefined,
+  }), [supplierFilters.approved, supplierFilters.featured, supplierFilters.category, supplierFilters.searchQuery]);
+  
   const {
     results: paginatedSuppliers,
     status: suppliersStatus,
@@ -498,12 +505,7 @@ export default function AdminPage(){
     isLoading: isLoadingMoreSuppliers,
   } = usePaginatedQuery(
     api.suppliers.getAllSuppliersPaginated,
-    {
-      approved: supplierFilters.approved,
-      featured: supplierFilters.featured,
-      category: supplierFilters.category || undefined,
-      searchQuery: supplierFilters.searchQuery || undefined,
-    },
+    supplierQueryArgs,
     { initialNumItems: 100 }
   );
   // Debug: log the paginated data structure and status

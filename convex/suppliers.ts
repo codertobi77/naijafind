@@ -472,7 +472,10 @@ export const getAllSuppliersPaginated = query({
 
       // Apply category filter in memory if specified
       if (args.category) {
-        suppliers = suppliers.filter(s => s.category === args.category);
+        const categoryLower = args.category.toLowerCase().trim();
+        suppliers = suppliers.filter(s => 
+          s.category?.toLowerCase().trim() === categoryLower
+        );
       }
 
       // Apply search filter in memory if specified
