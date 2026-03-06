@@ -90,6 +90,11 @@ export function Footer({ variant = 'dark', showLogo = true }: FooterProps) {
                   {t('nav.privacy')}
                 </Link>
               </li>
+              <li>
+                <Link to="/terms" className={`${linkClasses} transition-colors`}>
+                  {t('nav.terms')}
+                </Link>
+              </li>
             </ul>
           </div>
           <div>

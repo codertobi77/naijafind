@@ -7,6 +7,7 @@ export const common = {
   "nav.help": "Aide",
   "nav.faq": "FAQ",
   "nav.privacy": "Confidentialité",
+  "nav.terms": "Conditions",
   "nav.login": "Connexion",
   "nav.register": "Inscription",
   "nav.dashboard": "Tableau de bord",

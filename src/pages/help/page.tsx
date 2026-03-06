@@ -436,6 +436,7 @@ export default function Help() {
                 <li><Link to="/contact" className="hover:text-white">{t('nav.contact')}</Link></li>
                 <li><Link to="/faq" className="hover:text-white">{t('nav.faq')}</Link></li>
                 <li><Link to="/privacy" className="hover:text-white">{t('nav.privacy')}</Link></li>
+                <li><Link to="/terms" className="hover:text-white">{t('nav.terms')}</Link></li>
               </ul>
             </div>
             <div>
