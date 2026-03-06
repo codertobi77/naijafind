@@ -501,13 +501,14 @@ export default function AdminPage(){
     {},
     { initialNumItems: 100 }
   );
-  // Debug: log the paginated data structure
+  // Debug: log the paginated data structure and status
   console.log('paginatedSuppliers:', paginatedSuppliers);
+  console.log('suppliersStatus:', suppliersStatus);
   // Flatten paginated results for display - use type assertion since we know the structure
   const allSuppliers = (paginatedSuppliers as any)?.flatMap((page: any) => page.page ?? []) ?? [];
   const lastPage = paginatedSuppliers?.[paginatedSuppliers.length - 1] as any;
   const hasMoreSuppliers = lastPage?.continueCursor != null && lastPage?.page?.length === 100;
-  const suppliersLoading = suppliersStatus === 'LoadingFirstPage';
+  const suppliersLoading = suppliersStatus === 'LoadingFirstPage' || suppliersStatus === 'Loading';
   const { data: categories, refetch: refetchCategories } = useConvexQuery(
     api.categories.getFilteredCategories,
     {
@@ -1015,6 +1016,13 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                           </td>
                         </tr>
                       ))
+                    ) : suppliersLoading ? (
+                      <tr>
+                        <td colSpan={6} className="text-center text-gray-400 p-4">
+                          <i className="ri-loader-4-line animate-spin mr-2"></i>
+                          Chargement des fournisseurs...
+                        </td>
+                      </tr>
                     ) : (
                       <tr>
                         <td colSpan={6} className="text-center text-gray-400 p-4">
@@ -1030,7 +1038,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                 <p className="text-sm text-gray-600">
                   Affichage de {allSuppliers.length} fournisseurs
                 </p>
-                {hasMoreSuppliers && (
+                {hasMoreSuppliers && !suppliersLoading && (
                   <button
                     onClick={() => loadMoreSuppliers(100)}
                     disabled={isLoadingMoreSuppliers}
