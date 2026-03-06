@@ -498,7 +498,12 @@ export default function AdminPage(){
     isLoading: isLoadingMoreSuppliers,
   } = usePaginatedQuery(
     api.suppliers.getAllSuppliersPaginated,
-    {},
+    {
+      approved: supplierFilters.approved,
+      featured: supplierFilters.featured,
+      category: supplierFilters.category || undefined,
+      searchQuery: supplierFilters.searchQuery || undefined,
+    },
     { initialNumItems: 100 }
   );
   // Debug: log the paginated data structure and status

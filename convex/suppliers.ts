@@ -420,6 +420,10 @@ export const getAllSuppliersPaginated = query({
       id: v.optional(v.number()),
       numItems: v.number(),
     }),
+    approved: v.optional(v.boolean()),
+    featured: v.optional(v.boolean()),
+    category: v.optional(v.string()),
+    searchQuery: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Check if user is admin
@@ -438,7 +442,59 @@ export const getAllSuppliersPaginated = query({
     const numItems = Math.min(args.paginationOpts.numItems, 500);
     const cursor = args.paginationOpts.cursor || undefined;
 
-    // Use paginate to efficiently fetch all suppliers
+    // If filters are applied, use index queries (no pagination cursor support for filtered results)
+    if (args.approved !== undefined || args.featured !== undefined || args.category || args.searchQuery) {
+      let suppliers: any[] = [];
+      const limit = 1000; // Higher limit for filtered results
+
+      // Use index-based filtering when possible
+      if (args.approved !== undefined && args.featured !== undefined) {
+        const byApproved = await ctx.db
+          .query("suppliers")
+          .withIndex("approved", (q) => q.eq("approved", args.approved))
+          .take(limit);
+        suppliers = byApproved.filter(s => s.featured === args.featured);
+      } else if (args.approved !== undefined) {
+        suppliers = await ctx.db
+          .query("suppliers")
+          .withIndex("approved", (q) => q.eq("approved", args.approved))
+          .take(limit);
+      } else if (args.featured !== undefined) {
+        suppliers = await ctx.db
+          .query("suppliers")
+          .withIndex("featured", (q) => q.eq("featured", args.featured))
+          .take(limit);
+      } else {
+        suppliers = await ctx.db
+          .query("suppliers")
+          .take(limit);
+      }
+
+      // Apply category filter in memory if specified
+      if (args.category) {
+        suppliers = suppliers.filter(s => s.category === args.category);
+      }
+
+      // Apply search filter in memory if specified
+      if (args.searchQuery && args.searchQuery.trim()) {
+        const q = args.searchQuery.toLowerCase().trim();
+        suppliers = suppliers.filter(s => 
+          s.business_name?.toLowerCase().includes(q) ||
+          s.email?.toLowerCase().includes(q) ||
+          s.city?.toLowerCase().includes(q) ||
+          s.state?.toLowerCase().includes(q)
+        );
+      }
+
+      // Return in paginated format
+      return {
+        page: suppliers,
+        continueCursor: null, // No pagination for filtered results
+        isDone: true,
+      };
+    }
+
+    // No filters - use paginate for efficient fetching of all suppliers
     const result = await ctx.db
       .query("suppliers")
       .paginate({ cursor, numItems });
