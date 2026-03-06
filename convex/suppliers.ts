@@ -338,6 +338,80 @@ export const claimSupplier = mutation({
   }
 });
 
+// Admin: Get filtered suppliers using indexes
+export const getFilteredSuppliers = query({
+  args: {
+    approved: v.optional(v.boolean()),
+    featured: v.optional(v.boolean()),
+    category: v.optional(v.string()),
+    searchQuery: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Check if user is admin
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Non autorisé");
+    
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", identity.email))
+      .first();
+      
+    if (!user || !user.is_admin) {
+      throw new Error("Accès refusé. Seuls les administrateurs peuvent effectuer cette action.");
+    }
+
+    const limit = Math.min(args.limit ?? 500, 500);
+    let suppliers: any[] = [];
+
+    // Use index-based filtering when possible
+    if (args.approved !== undefined && args.featured !== undefined) {
+      // When both approved and featured are specified, use approved index first
+      // then filter by featured
+      const byApproved = await ctx.db
+        .query("suppliers")
+        .withIndex("approved", (q) => q.eq("approved", args.approved))
+        .take(limit);
+      suppliers = byApproved.filter(s => s.featured === args.featured);
+    } else if (args.approved !== undefined) {
+      // Use approved index
+      suppliers = await ctx.db
+        .query("suppliers")
+        .withIndex("approved", (q) => q.eq("approved", args.approved))
+        .take(limit);
+    } else if (args.featured !== undefined) {
+      // Use featured index
+      suppliers = await ctx.db
+        .query("suppliers")
+        .withIndex("featured", (q) => q.eq("featured", args.featured))
+        .take(limit);
+    } else {
+      // No index filter, fetch all
+      suppliers = await ctx.db
+        .query("suppliers")
+        .take(limit);
+    }
+
+    // Apply category filter in memory if specified
+    if (args.category) {
+      suppliers = suppliers.filter(s => s.category === args.category);
+    }
+
+    // Apply search filter in memory if specified
+    if (args.searchQuery && args.searchQuery.trim()) {
+      const q = args.searchQuery.toLowerCase().trim();
+      suppliers = suppliers.filter(s => 
+        s.business_name?.toLowerCase().includes(q) ||
+        s.email?.toLowerCase().includes(q) ||
+        s.city?.toLowerCase().includes(q) ||
+        s.state?.toLowerCase().includes(q)
+      );
+    }
+
+    return suppliers;
+  },
+});
+
 // Admin: Get all pending supplier claims
 export const getPendingClaims = query({
   args: {},

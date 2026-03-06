@@ -127,6 +127,90 @@ export const listAllProductsAdmin = query({
   },
 });
 
+// Query admin : get filtered products using indexes
+export const getFilteredProducts = query({
+  args: {
+    status: v.optional(v.string()),
+    category: v.optional(v.string()),
+    supplierId: v.optional(v.string()),
+    searchQuery: v.optional(v.string()),
+    minPrice: v.optional(v.float64()),
+    maxPrice: v.optional(v.float64()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Vérifier si admin
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Non autorisé");
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", identity.email ?? ""))
+      .first();
+    if (!user || (!user.is_admin && user.user_type !== 'admin')) {
+      throw new Error("Non autorisé - Admin uniquement");
+    }
+
+    const limit = Math.min(args.limit ?? 500, 500);
+    let products: any[] = [];
+
+    // Use index-based filtering when possible
+    if (args.status) {
+      // Use status index
+      products = await ctx.db
+        .query("products")
+        .withIndex("status", (q) => q.eq("status", args.status))
+        .take(limit);
+    } else if (args.category) {
+      // Use category index
+      products = await ctx.db
+        .query("products")
+        .withIndex("category", (q) => q.eq("category", args.category))
+        .take(limit);
+    } else if (args.supplierId) {
+      // Use supplierId index
+      products = await ctx.db
+        .query("products")
+        .withIndex("supplierId", (q) => q.eq("supplierId", args.supplierId))
+        .take(limit);
+    } else {
+      // No index filter, fetch all
+      products = await ctx.db
+        .query("products")
+        .take(limit);
+    }
+
+    // Apply additional filters in memory
+    if (args.category && !args.status) {
+      products = products.filter(p => p.category === args.category);
+    }
+    if (args.supplierId && !args.status && !args.category) {
+      products = products.filter(p => p.supplierId === args.supplierId);
+    }
+    if (args.status && args.category) {
+      products = products.filter(p => p.category === args.category);
+    }
+
+    // Apply price range filter
+    if (args.minPrice !== undefined) {
+      products = products.filter(p => p.price >= args.minPrice!);
+    }
+    if (args.maxPrice !== undefined) {
+      products = products.filter(p => p.price <= args.maxPrice!);
+    }
+
+    // Apply search filter
+    if (args.searchQuery && args.searchQuery.trim()) {
+      const q = args.searchQuery.toLowerCase().trim();
+      products = products.filter(p =>
+        p.name?.toLowerCase().includes(q) ||
+        p.description?.toLowerCase().includes(q)
+      );
+    }
+
+    return products;
+  },
+});
+
 export const deleteProduct = mutation({
   args: { id: v.id("products") },
   handler: async (ctx, { id }) => {

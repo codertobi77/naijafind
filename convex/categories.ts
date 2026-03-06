@@ -60,6 +60,55 @@ export const getAllCategoriesAdmin = query({
   },
 });
 
+// Get filtered categories using indexes (admin only)
+export const getFilteredCategories = query({
+  args: {
+    isActive: v.optional(v.boolean()),
+    searchQuery: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    if (!(await isAdmin(ctx))) {
+      throw new Error("Non autorisé - Admin uniquement");
+    }
+
+    const limit = Math.min(args.limit ?? 100, 100);
+    let categories: any[] = [];
+
+    // Use is_active index when possible
+    if (args.isActive !== undefined) {
+      categories = await ctx.db
+        .query("categories")
+        .withIndex("is_active", (q) => q.eq("is_active", args.isActive))
+        .take(limit);
+    } else {
+      // Fetch all
+      categories = await ctx.db
+        .query("categories")
+        .take(limit);
+    }
+
+    // Apply search filter in memory if specified
+    if (args.searchQuery && args.searchQuery.trim()) {
+      const q = args.searchQuery.toLowerCase().trim();
+      categories = categories.filter(c =>
+        c.name?.toLowerCase().includes(q) ||
+        c.description?.toLowerCase().includes(q)
+      );
+    }
+
+    // Sort by order
+    return categories.sort((a, b) => {
+      if (a.order !== undefined && b.order !== undefined) {
+        return Number(a.order) - Number(b.order);
+      }
+      if (a.order !== undefined) return -1;
+      if (b.order !== undefined) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  },
+});
+
 // Add a new category (admin only)
 export const addCategory = mutation({
   args: {

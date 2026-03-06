@@ -463,24 +463,42 @@ export default function AdminPage(){
     {},
     { staleTime: 2 * 60 * 1000 } // Cache user data for 2 minutes
   );
-  const { data: categories, refetch: refetchCategories } = useConvexQuery(
-    api.categories.getAllCategoriesAdmin,
-    {},
-    { staleTime: 5 * 60 * 1000 } // Cache categories for 5 minutes
-  );
   const { data: pendingSuppliers, refetch: refetchPendingSuppliers } = useConvexQuery(
     api.admin.getPendingSuppliers,
     {},
     { staleTime: 2 * 60 * 1000 }
   );
   const { data: allSuppliers, isLoading: suppliersLoading, refetch: refetchAllSuppliers } = useConvexQuery(
-    api.suppliers.getAllSuppliers,
-    {},
+    api.suppliers.getFilteredSuppliers,
+    {
+      approved: supplierFilters.approved,
+      featured: supplierFilters.featured,
+      category: supplierFilters.category || undefined,
+      searchQuery: supplierFilters.searchQuery || undefined,
+      limit: 500,
+    },
     { staleTime: 2 * 60 * 1000 }
   );
+  const { data: categories, refetch: refetchCategories } = useConvexQuery(
+    api.categories.getFilteredCategories,
+    {
+      isActive: categoryFilters.isActive,
+      searchQuery: categoryFilters.searchQuery || undefined,
+      limit: 100,
+    },
+    { staleTime: 5 * 60 * 1000 }
+  );
   const { data: allProducts } = useConvexQuery(
-    api.products.listAllProductsAdmin,
-    {},
+    api.products.getFilteredProducts,
+    {
+      status: productFilters.status || undefined,
+      category: productFilters.category || undefined,
+      supplierId: productFilters.supplierId || undefined,
+      searchQuery: productFilters.searchQuery || undefined,
+      minPrice: productFilters.minPrice,
+      maxPrice: productFilters.maxPrice,
+      limit: 500,
+    },
     { staleTime: 2 * 60 * 1000 }
   );
   const { data: allGalleries } = useConvexQuery(
@@ -545,6 +563,26 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
   const [sendingNotification, setSendingNotification] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+
+  // Filter states for Suppliers, Categories, and Products
+  const [supplierFilters, setSupplierFilters] = useState({
+    approved: undefined as boolean | undefined,
+    featured: undefined as boolean | undefined,
+    category: '',
+    searchQuery: '',
+  });
+  const [categoryFilters, setCategoryFilters] = useState({
+    isActive: undefined as boolean | undefined,
+    searchQuery: '',
+  });
+  const [productFilters, setProductFilters] = useState({
+    status: '',
+    category: '',
+    supplierId: '',
+    searchQuery: '',
+    minPrice: undefined as number | undefined,
+    maxPrice: undefined as number | undefined,
+  });
 
   // Vérifier l'accès admin
   // Be more lenient with the admin check to allow for loading states
@@ -734,6 +772,83 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                   className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm"
                 >
                   🗑️ {t('admin.delete_all_suppliers')}
+                </button>
+              </div>
+            </div>
+
+            {/* Suppliers Filter Controls */}
+            <div className="bg-white rounded-lg border p-4">
+              <div className="flex flex-wrap gap-4 items-end">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Statut</label>
+                  <select
+                    value={supplierFilters.approved === undefined ? '' : supplierFilters.approved ? 'approved' : 'pending'}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setSupplierFilters(prev => ({
+                        ...prev,
+                        approved: value === '' ? undefined : value === 'approved'
+                      }));
+                    }}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="">Tous</option>
+                    <option value="approved">Approuvé</option>
+                    <option value="pending">En attente</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Premium</label>
+                  <select
+                    value={supplierFilters.featured === undefined ? '' : supplierFilters.featured ? 'yes' : 'no'}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setSupplierFilters(prev => ({
+                        ...prev,
+                        featured: value === '' ? undefined : value === 'yes'
+                      }));
+                    }}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="">Tous</option>
+                    <option value="yes">Oui</option>
+                    <option value="no">Non</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Catégorie</label>
+                  <select
+                    value={supplierFilters.category}
+                    onChange={(e) => setSupplierFilters(prev => ({ ...prev, category: e.target.value }))}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="">Toutes</option>
+                    {categories?.map((cat) => (
+                      <option key={cat._id} value={cat.name}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Recherche</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={supplierFilters.searchQuery}
+                      onChange={(e) => setSupplierFilters(prev => ({ ...prev, searchQuery: e.target.value }))}
+                      placeholder="Nom, email, ville..."
+                      className="w-full px-3 py-2 pl-9 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
+                    />
+                    <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setSupplierFilters({ approved: undefined, featured: undefined, category: '', searchQuery: '' });
+                  }}
+                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  <i className="ri-close-line mr-1"></i>
+                  Réinitialiser
                 </button>
               </div>
             </div>
@@ -942,6 +1057,52 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                   className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
                 >
                   + {t('admin.add_category')}
+                </button>
+              </div>
+            </div>
+
+            {/* Categories Filter Controls */}
+            <div className="bg-white rounded-lg border p-4">
+              <div className="flex flex-wrap gap-4 items-end">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Statut</label>
+                  <select
+                    value={categoryFilters.isActive === undefined ? '' : categoryFilters.isActive ? 'active' : 'inactive'}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setCategoryFilters(prev => ({
+                        ...prev,
+                        isActive: value === '' ? undefined : value === 'active'
+                      }));
+                    }}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="">Tous</option>
+                    <option value="active">Actif</option>
+                    <option value="inactive">Inactif</option>
+                  </select>
+                </div>
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Recherche</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={categoryFilters.searchQuery}
+                      onChange={(e) => setCategoryFilters(prev => ({ ...prev, searchQuery: e.target.value }))}
+                      placeholder="Nom, description..."
+                      className="w-full px-3 py-2 pl-9 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
+                    />
+                    <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setCategoryFilters({ isActive: undefined, searchQuery: '' });
+                  }}
+                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  <i className="ri-close-line mr-1"></i>
+                  Réinitialiser
                 </button>
               </div>
             </div>
@@ -1324,6 +1485,73 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                 iconColor="text-purple-600"
                 iconBg="bg-purple-100"
               />
+            </div>
+
+            {/* Products Filter Controls */}
+            <div className="bg-white rounded-lg border p-4">
+              <div className="flex flex-wrap gap-4 items-end">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Statut</label>
+                  <select
+                    value={productFilters.status}
+                    onChange={(e) => setProductFilters(prev => ({ ...prev, status: e.target.value }))}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="">Tous</option>
+                    <option value="active">Actif</option>
+                    <option value="inactive">Inactif</option>
+                    <option value="out_of_stock">Rupture de stock</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Catégorie</label>
+                  <select
+                    value={productFilters.category}
+                    onChange={(e) => setProductFilters(prev => ({ ...prev, category: e.target.value }))}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="">Toutes</option>
+                    {categories?.map((cat) => (
+                      <option key={cat._id} value={cat.name}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Fournisseur</label>
+                  <select
+                    value={productFilters.supplierId}
+                    onChange={(e) => setProductFilters(prev => ({ ...prev, supplierId: e.target.value }))}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 max-w-[180px]"
+                  >
+                    <option value="">Tous</option>
+                    {allSuppliers?.map((s) => (
+                      <option key={s._id} value={s._id}>{s.business_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Recherche</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={productFilters.searchQuery}
+                      onChange={(e) => setProductFilters(prev => ({ ...prev, searchQuery: e.target.value }))}
+                      placeholder="Nom, description..."
+                      className="w-full px-3 py-2 pl-9 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
+                    />
+                    <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setProductFilters({ status: '', category: '', supplierId: '', searchQuery: '', minPrice: undefined, maxPrice: undefined });
+                  }}
+                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  <i className="ri-close-line mr-1"></i>
+                  Réinitialiser
+                </button>
+              </div>
             </div>
 
             {/* Products Table */}
