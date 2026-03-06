@@ -412,6 +412,38 @@ export const getFilteredSuppliers = query({
   },
 });
 
+// Admin: Get all suppliers with pagination (no limit)
+export const getAllSuppliersPaginated = query({
+  args: {
+    cursor: v.optional(v.string()),
+    numItems: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Check if user is admin
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Non autorisé");
+    
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", identity.email))
+      .first();
+      
+    if (!user || !user.is_admin) {
+      throw new Error("Accès refusé. Seuls les administrateurs peuvent effectuer cette action.");
+    }
+
+    const numItems = Math.min(args.numItems ?? 100, 500);
+    const cursor = args.cursor ?? null;
+
+    // Use paginate to efficiently fetch all suppliers
+    const result = await ctx.db
+      .query("suppliers")
+      .paginate({ cursor, numItems });
+
+    return result;
+  },
+});
+
 // Admin: Get all pending supplier claims
 export const getPendingClaims = query({
   args: {},

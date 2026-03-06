@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useMutation } from 'convex/react';
+import { useMutation, usePaginatedQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { useConvexAuth } from 'convex/react';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
@@ -490,17 +490,21 @@ export default function AdminPage(){
     {},
     { staleTime: 2 * 60 * 1000 }
   );
-  const { data: allSuppliers, isLoading: suppliersLoading, refetch: refetchAllSuppliers } = useConvexQuery(
-    api.suppliers.getFilteredSuppliers,
-    {
-      approved: supplierFilters.approved,
-      featured: supplierFilters.featured,
-      category: supplierFilters.category || undefined,
-      searchQuery: supplierFilters.searchQuery || undefined,
-      limit: 500,
-    },
-    { staleTime: 2 * 60 * 1000 }
+  // Use paginated query to load all suppliers without the 500 limit
+  const {
+    data: paginatedSuppliers,
+    status: suppliersStatus,
+    loadMore: loadMoreSuppliers,
+    isLoading: isLoadingMoreSuppliers,
+  } = usePaginatedQuery(
+    api.suppliers.getAllSuppliersPaginated,
+    {},
+    { numItems: 100 }
   );
+  // Flatten paginated results for display
+  const allSuppliers = paginatedSuppliers?.flatMap(page => page.page) ?? [];
+  const hasMoreSuppliers = paginatedSuppliers?.[paginatedSuppliers.length - 1]?.continueCursor !== null;
+  const suppliersLoading = suppliersStatus === 'LoadingFirstPage';
   const { data: categories, refetch: refetchCategories } = useConvexQuery(
     api.categories.getFilteredCategories,
     {
@@ -737,8 +741,8 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
               <div className="flex gap-2">
                 <button
                   onClick={() => {
-                    refetchAllSuppliers();
-                    showToast('success', t('admin.suppliers_refreshed'));
+                    // Pagination refetch - reload the page
+                    window.location.reload();
                   }}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm flex items-center gap-2"
                   title={t('admin.refresh_suppliers')}
@@ -755,7 +759,6 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                         try {
                           const result: any = await deleteAllSuppliers({});
                           showToast('success', result.message || t('admin.delete_all_suppliers_success'));
-                          refetchAllSuppliers();
                           // Delay refetch to allow scheduler job to complete
                           setTimeout(() => refetchAdminStats(), 1000);
                         } catch (error: any) {
@@ -915,7 +918,6 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                                         setIsApproving(supplier._id);
                                         try {
                                           await approveSupplier({ supplierId: supplier._id });
-                                          refetchAllSuppliers();
                                           // Delay refetch to allow scheduler job to complete
                                           setTimeout(() => refetchAdminStats(), 500);
                                           showToast('success', t('admin.supplier_approved'));
@@ -947,7 +949,6 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                                       supplierId: supplier._id, 
                                       featured: !supplier.featured 
                                     }).then(() => {
-                                      refetchAllSuppliers();
                                       // Delay refetch to allow scheduler job to complete
                                       setTimeout(() => refetchAdminStats(), 500);
                                       showToast('success', supplier.featured 
@@ -985,7 +986,6 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                                       setIsDeleting(supplier._id);
                                       try {
                                         await deleteSupplier({ supplierId: supplier._id });
-                                        refetchAllSuppliers();
                                         // Delay refetch to allow scheduler job to complete
                                         setTimeout(() => refetchAdminStats(), 500);
                                         showToast('success', t('admin.supplier_deleted'));
@@ -1021,6 +1021,31 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                     )}
                   </tbody>
                 </table>
+              </div>
+              {/* Pagination controls */}
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-sm text-gray-600">
+                  Affichage de {allSuppliers.length} fournisseurs
+                </p>
+                {hasMoreSuppliers && (
+                  <button
+                    onClick={() => loadMoreSuppliers(100)}
+                    disabled={isLoadingMoreSuppliers}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {isLoadingMoreSuppliers ? (
+                      <>
+                        <i className="ri-loader-4-line animate-spin"></i>
+                        Chargement...
+                      </>
+                    ) : (
+                      <>
+                        <i className="ri-add-line"></i>
+                        Charger plus
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </div>
