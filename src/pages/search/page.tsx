@@ -988,7 +988,7 @@ export default function Search() {
           verified: filters.verified || undefined,
           limit: BigInt(itemsPerPage),
           offset: BigInt(currentPage * itemsPerPage),
-          sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | undefined,
+          sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | 'alpha_asc' | 'alpha_desc' | undefined,
         });
         setSearchResults(result);
       } catch (error) {
@@ -1021,7 +1021,7 @@ export default function Search() {
           verified: filters.verified || undefined,
           limit: undefined,
           offset: BigInt(0),
-          sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | undefined,
+          sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | 'alpha_asc' | 'alpha_desc' | undefined,
         });
         setMapSearchResults(result);
       } catch (error) {
@@ -1363,6 +1363,8 @@ export default function Search() {
                     onChange={(e) => setSortBy(e.target.value)}
                     className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm pr-10 outline-none"
                   >
+                    <option value="alpha_asc">{t('search.sort.alpha_asc')}</option>
+                    <option value="alpha_desc">{t('search.sort.alpha_desc')}</option>
                     <option value="relevance">{t('search.sort.relevance')}</option>
                     <option value="distance">{t('search.sort.distance')}</option>
                     <option value="rating">{t('search.sort.rating')}</option>

@@ -173,7 +173,7 @@ export const _searchSuppliersInternal = internalQuery({
     offset: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const limit = args.limit ?? 1000;
+    const limit = args.limit ?? 5000;
     const offset = args.offset ?? 0;
     
     // Get approved suppliers with minimal fields
@@ -252,7 +252,7 @@ export const searchSuppliers = action({
 
     // Use internal query to fetch suppliers with minimal fields
     const suppliers = await ctx.runQuery(internal.suppliers._searchSuppliersInternal, {
-      limit: 2000, // Fetch more for filtering
+      limit: 5000, // Support 4000+ suppliers
       offset: 0,
     });
 
@@ -332,6 +332,10 @@ export const searchSuppliers = action({
         return (b.rating ?? 0) - (a.rating ?? 0);
       } else if (sortBy === 'reviews') {
         return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
+      } else if (sortBy === 'alpha_asc') {
+        return (a.business_name || '').localeCompare(b.business_name || '');
+      } else if (sortBy === 'alpha_desc') {
+        return (b.business_name || '').localeCompare(a.business_name || '');
       }
       
       // Default 'relevance' - sort by rating then reviews
@@ -369,7 +373,7 @@ export const searchSuppliersQuery = query({
 
     // Use internal query to fetch suppliers
     const suppliers = await ctx.runQuery(internal.suppliers._searchSuppliersInternal, {
-      limit: 2000,
+      limit: 5000, // Support 4000+ suppliers
       offset: 0,
     });
 
@@ -444,6 +448,10 @@ export const searchSuppliersQuery = query({
         return (b.rating ?? 0) - (a.rating ?? 0);
       } else if (sortBy === 'reviews') {
         return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
+      } else if (sortBy === 'alpha_asc') {
+        return (a.business_name || '').localeCompare(b.business_name || '');
+      } else if (sortBy === 'alpha_desc') {
+        return (b.business_name || '').localeCompare(a.business_name || '');
       }
       
       const ratingDiff = (b.rating ?? 0) - (a.rating ?? 0);

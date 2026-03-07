@@ -11,6 +11,8 @@ export const search = {
   "search.sort.distance": "Distance",
   "search.sort.rating": "Rating",
   "search.sort.name": "Name",
+  "search.sort.alpha_asc": "Name (A-Z)",
+  "search.sort.alpha_desc": "Name (Z-A)",
   "search.placeholder": "Name or description...",
   "search.suggestions": "Suggestions:",
   "search.loading": "Loading suppliers...",
