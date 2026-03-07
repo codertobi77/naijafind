@@ -82,22 +82,26 @@ export default function Categories() {
         // Rediriger vers l'inscription avec type supplier
         navigate('/auth/register?type=supplier');
       } else {
-        // Vérifier si l'utilisateur est déjà un fournisseur
+        // Verifier si l'utilisateur est deja un fournisseur
         if (meData?.user?.user_type === 'supplier') {
           navigate('/dashboard');
         } else {
-          // Rediriger vers une page de conversion ou créer le profil supplier
+          // Rediriger vers une page de conversion ou creer le profil supplier
           navigate('/dashboard?action=become-supplier');
         }
       }
     }
   };
 
-  // Mapper les catégories avec les counts
+  // Loading states - separate for categories and stats
+  const categoriesLoadingState = !categoriesData;
+  const statsLoadingState = !categoryStatsArray;
+
+  // Mapper les categories avec les counts (show skeleton while loading stats)
   const categories = categoriesData?.map((cat: any) => ({
     name: cat.name,
     icon: cat.icon || 'ri-folder-line',
-    count: categoryCounts[cat.name] || 0,
+    count: categoryCounts[cat.name] ?? (statsLoadingState ? null : 0),
     description: cat.description || '',
     image: isValidImageUrl(cat.image) ? cat.image : DEFAULT_CATEGORY_IMAGE
   })) || [];
@@ -107,8 +111,8 @@ export default function Categories() {
     category.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Show loading state
-  if (loading) {
+  // Show loading state only for categories (not stats)
+  if (categoriesLoadingState) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -175,9 +179,15 @@ export default function Categories() {
                     </div>
                   </div>
                   <div className="absolute bottom-4 right-4">
-                    <span className="inline-flex items-center px-3 py-1.5 bg-white/95 backdrop-blur-md text-green-700 text-sm font-bold rounded-full shadow-lg">
-                      {category.count.toLocaleString()}
-                    </span>
+                    {category.count === null ? (
+                      <span className="inline-flex items-center px-3 py-1.5 bg-white/95 backdrop-blur-md rounded-full shadow-lg">
+                        <span className="w-8 h-4 bg-gray-200 animate-pulse rounded"></span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-3 py-1.5 bg-white/95 backdrop-blur-md text-green-700 text-sm font-bold rounded-full shadow-lg">
+                        {category.count.toLocaleString()}
+                      </span>
+                    )}
                   </div>
                 </div>
                 
