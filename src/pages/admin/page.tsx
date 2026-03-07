@@ -485,11 +485,21 @@ export default function AdminPage(){
     {},
     { staleTime: 2 * 60 * 1000 } // Cache user data for 2 minutes
   );
-  const { data: pendingSuppliers, refetch: refetchPendingSuppliers } = useConvexQuery(
-    api.admin.getPendingSuppliers,
+  // Use paginated query to load all pending suppliers without the 500 limit
+  const {
+    results: paginatedPendingSuppliers,
+    status: pendingSuppliersStatus,
+    loadMore: loadMorePendingSuppliers,
+    isLoading: isLoadingMorePendingSuppliers,
+  } = usePaginatedQuery(
+    api.admin.getPendingSuppliersPaginated,
     {},
-    { staleTime: 2 * 60 * 1000 }
+    { initialNumItems: 100 }
   );
+  // The paginated results are already flattened by usePaginatedQuery
+  const pendingSuppliers = (paginatedPendingSuppliers as any[]) ?? [];
+  const hasMorePendingSuppliers = pendingSuppliersStatus === 'CanLoadMore';
+  const pendingSuppliersLoading = pendingSuppliersStatus === 'LoadingFirstPage' || pendingSuppliersStatus === 'Loading';
   // Use paginated query to load all suppliers without the 500 limit
   const supplierQueryArgs = useMemo(() => ({
     approved: supplierFilters.approved,
@@ -544,12 +554,12 @@ export default function AdminPage(){
   );
 
   const { data: adminStats, refetch: refetchAdminStats } = useConvexQuery(
-    api.stats.getAdminStats,
+    api.statsOptimized.getAdminStats,
     {},
     { staleTime: 5 * 1000 } // Cache stats for 5 seconds only
   );
 
-// Statistiques depuis la table stats (plus performant)
+// Statistiques en temps réel depuis les tables source (toujours à jour)
 const usersCount = adminStats?.totalSuppliers || 0;
 const reviewsCount = adminStats?.totalReviews || 0;
 const pendingCount = adminStats?.pendingSuppliers || 0;
@@ -664,6 +674,9 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
             <div className="mt-6">
               <RecentSuppliersCard
                 suppliers={pendingSuppliers || []}
+                hasMore={hasMorePendingSuppliers}
+                isLoading={isLoadingMorePendingSuppliers}
+                onLoadMore={() => loadMorePendingSuppliers(100)}
                 onApprove={() => {}}
                 onReject={() => {}}
               />
@@ -786,82 +799,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
               </div>
             </div>
 
-            {/* Suppliers Filter Controls */}
-            <div className="bg-white rounded-lg border p-4">
-              <div className="flex flex-wrap gap-4 items-end">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Statut</label>
-                  <select
-                    value={supplierFilters.approved === undefined ? '' : supplierFilters.approved ? 'approved' : 'pending'}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setSupplierFilters(prev => ({
-                        ...prev,
-                        approved: value === '' ? undefined : value === 'approved'
-                      }));
-                    }}
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
-                  >
-                    <option value="">Tous</option>
-                    <option value="approved">Approuvé</option>
-                    <option value="pending">En attente</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Premium</label>
-                  <select
-                    value={supplierFilters.featured === undefined ? '' : supplierFilters.featured ? 'yes' : 'no'}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setSupplierFilters(prev => ({
-                        ...prev,
-                        featured: value === '' ? undefined : value === 'yes'
-                      }));
-                    }}
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
-                  >
-                    <option value="">Tous</option>
-                    <option value="yes">Oui</option>
-                    <option value="no">Non</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Catégorie</label>
-                  <select
-                    value={supplierFilters.category}
-                    onChange={(e) => setSupplierFilters(prev => ({ ...prev, category: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
-                  >
-                    <option value="">Toutes</option>
-                    {categories?.map((cat) => (
-                      <option key={cat._id} value={cat.name}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex-1 min-w-[200px]">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Recherche</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={supplierFilters.searchQuery}
-                      onChange={(e) => setSupplierFilters(prev => ({ ...prev, searchQuery: e.target.value }))}
-                      placeholder="Nom, email, ville..."
-                      className="w-full px-3 py-2 pl-9 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500"
-                    />
-                    <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setSupplierFilters({ approved: undefined, featured: undefined, category: '', searchQuery: '' });
-                  }}
-                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  <i className="ri-close-line mr-1"></i>
-                  Réinitialiser
-                </button>
-              </div>
-            </div>
+            {/* Suppliers Filter Controls - DISABLED */}
 
             <div className="bg-white rounded-lg border p-6">
               <h3 className="font-semibold mb-4">{t('admin.all_suppliers')}</h3>
@@ -1100,7 +1038,8 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
               </div>
             </div>
 
-            {/* Categories Filter Controls */}
+            {/* Categories Filter Controls - DISABLED */}
+            {/*
             <div className="bg-white rounded-lg border p-4">
               <div className="flex flex-wrap gap-4 items-end">
                 <div>
@@ -1145,6 +1084,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                 </button>
               </div>
             </div>
+            */}
 
             {showAddCategory && (
               <div className="bg-white rounded-lg border p-6">
@@ -1526,7 +1466,8 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
               />
             </div>
 
-            {/* Products Filter Controls */}
+            {/* Products Filter Controls - DISABLED */}
+            {/*
             <div className="bg-white rounded-lg border p-4">
               <div className="flex flex-wrap gap-4 items-end">
                 <div>
@@ -1592,6 +1533,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                 </button>
               </div>
             </div>
+            */}
 
             {/* Products Table */}
             <div className="bg-white rounded-lg border p-6">
@@ -2039,13 +1981,19 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
     );
   }
 
-  // Update the RecentSuppliersCard component to use proper async handlers
+  // Update the RecentSuppliersCard component to use proper async handlers and pagination
   function RecentSuppliersCard({
     suppliers,
+    hasMore,
+    isLoading,
+    onLoadMore,
     onApprove,
     onReject,
   }: {
     suppliers: Supplier[];
+    hasMore?: boolean;
+    isLoading?: boolean;
+    onLoadMore?: () => void;
     onApprove: (supplierId: Id<"suppliers">) => void;
     onReject: (supplierId: Id<"suppliers">) => void;
   }) {
@@ -2094,7 +2042,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
               {t('admin.no_pending_suppliers')}
             </p>
           ) : (
-            suppliers.slice(0, 5).map((supplier) => (
+            suppliers.map((supplier) => (
               <div key={supplier._id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
                 <div>
                   <p className="font-medium text-gray-900">{supplier.business_name}</p>
@@ -2128,6 +2076,31 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
             ))
           )}
         </div>
+        {/* Pagination controls for pending suppliers */}
+        {hasMore && (
+          <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              Affichage de {suppliers.length} fournisseurs en attente
+            </p>
+            <button
+              onClick={onLoadMore}
+              disabled={isLoading}
+              className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors text-sm flex items-center gap-2 disabled:opacity-50"
+            >
+              {isLoading ? (
+                <>
+                  <i className="ri-loader-4-line animate-spin"></i>
+                  Chargement...
+                </>
+              ) : (
+                <>
+                  <i className="ri-add-line"></i>
+                  Charger plus
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     );
   }

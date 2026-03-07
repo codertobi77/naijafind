@@ -198,24 +198,6 @@ export const signUpSupplier = mutation({
       updated_at: now,
     });
 
-    // Update stats counters
-    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
-      key: "totalSuppliers",
-      amount: 1,
-      category: "global",
-    });
-    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
-      key: "pendingSuppliers",
-      amount: 1,
-      category: "global",
-    });
-    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
-      key: "suppliersInCategory",
-      amount: 1,
-      category: "category",
-      metadata: { categoryName: args.category },
-    });
-
     return { id };
   }
 });

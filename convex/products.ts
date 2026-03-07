@@ -1,7 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
 
 export const listProducts = query({
   args: {},
@@ -56,13 +55,6 @@ export const createProduct = mutation({
       images: args.images,
       created_at: now,
       updated_at: now,
-    });
-    
-    // Update global stats
-    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
-      key: "totalProducts",
-      amount: 1,
-      category: "global",
     });
     
     return { success: true, id };
@@ -224,13 +216,6 @@ export const deleteProduct = mutation({
     if (!supplier || prod.supplierId !== (supplier._id as unknown as string)) throw new Error("Accès refusé");
 
     await ctx.db.delete(id);
-    
-    // Update global stats
-    await ctx.scheduler.runAfter(0, internal.stats.decrementStat, {
-      key: "totalProducts",
-      amount: 1,
-      category: "global",
-    });
     
     return { success: true };
   }

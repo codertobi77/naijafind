@@ -186,39 +186,6 @@ async function importSingleSupplierInternal(
       actionUrl: '/dashboard',
       createdAt: now,
     });
-    // Update global stats after successful import
-    const isApproved = args.supplier_approved ?? true;
-    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
-      key: "totalSuppliers",
-      amount: 1,
-      category: "global",
-    });
-    if (isApproved) {
-      await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
-        key: "approvedSuppliers",
-        amount: 1,
-        category: "global",
-      });
-    } else {
-      await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
-        key: "pendingSuppliers",
-        amount: 1,
-        category: "global",
-      });
-    }
-    if (args.supplier_featured) {
-      await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
-        key: "featuredSuppliers",
-        amount: 1,
-        category: "global",
-      });
-    }
-    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
-      key: "suppliersInCategory",
-      amount: 1,
-      category: "category",
-      metadata: { categoryName },
-    });
   }
 
   return {
@@ -423,7 +390,7 @@ export const importSingleSupplier = mutation({
     const now = new Date().toISOString();
     const allCategories = await ctx.db
       .query("categories")
-      .filter(q => q.eq(q.field("is_active"), true))
+      .withIndex("is_active", (q) => q.eq("is_active", true))
       .take(100);
     
     return await importSingleSupplierInternal(ctx, args, allCategories, now, false);
@@ -548,7 +515,7 @@ export const processImportChunk = internalMutation({
     // Fetch all categories once per chunk
     const allCategories = await ctx.db
       .query("categories")
-      .filter(q => q.eq(q.field("is_active"), true))
+      .withIndex("is_active", (q) => q.eq("is_active", true))
       .take(100);
 
     // Build category maps for O(1) lookups

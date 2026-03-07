@@ -1,6 +1,50 @@
 import { v } from "convex/values";
-import { query, action } from "./_generated/server";
+import { query, action, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
+
+// Internal query to get approved suppliers
+export const getApprovedSuppliers = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("suppliers")
+      .withIndex("approved", (q) => q.eq("approved", true))
+      .collect();
+  },
+});
+
+// Internal query to get all products
+export const getAllProducts = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("products").collect();
+  },
+});
+
+// Internal query to get active categories
+export const getActiveCategories = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("categories")
+      .withIndex("is_active", (q) => q.eq("is_active", true))
+      .collect();
+  },
+});
+
+// Internal query to get suppliers by category
+export const getSuppliersByCategory = internalQuery({
+  args: {
+    category: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("suppliers")
+      .withIndex("approved", (q) => q.eq("approved", true))
+      .filter((q) => q.eq(q.field("category"), args.category))
+      .take(10);
+  },
+});
 
 /**
  * Get all search suggestions from the database
@@ -114,20 +158,17 @@ export const searchSuggestionsWithQuery = action({
       }
     }
 
-    // Get all approved suppliers
-    const suppliers = await ctx.db
-      .query("suppliers")
-      .withIndex("approved", (q) => q.eq("approved", true))
-      .collect();
+    // Get all approved suppliers using internal query
+    const suppliers = await ctx.runQuery(internal.searchSuggestions.getApprovedSuppliers, {});
 
-    // Get all products
-    const products = await ctx.db.query("products").collect();
+    // Get all products using internal query
+    const products = await ctx.runQuery(internal.searchSuggestions.getAllProducts, {});
 
-    // Get all active categories
-    const categories = await ctx.db
-      .query("categories")
-      .withIndex("is_active", (q) => q.eq("is_active", true))
-      .collect();
+    // Get all active categories using internal query
+    const categories = await ctx.runQuery(internal.searchSuggestions.getActiveCategories, {});
+
+    // Track product categories for supplier suggestions
+    const matchedProductCategories = new Set<string>();
 
     // Build suggestions with scoring
     interface Suggestion {
@@ -139,7 +180,7 @@ export const searchSuggestionsWithQuery = action({
     const suggestions: Suggestion[] = [];
 
     // Add matching supplier names
-    suppliers.forEach(s => {
+    suppliers.forEach((s: any) => {
       if (!s.business_name) return;
       const nameLower = s.business_name.toLowerCase();
       
@@ -157,8 +198,8 @@ export const searchSuggestionsWithQuery = action({
       }
     });
 
-    // Add matching product names
-    products.forEach(p => {
+    // Add matching product names and track their categories
+    products.forEach((p: any) => {
       if (!p.name) return;
       const nameLower = p.name.toLowerCase();
       
@@ -170,13 +211,39 @@ export const searchSuggestionsWithQuery = action({
             score,
             type: 'product',
           });
+          // Track category for supplier suggestions
+          if (p.category) {
+            matchedProductCategories.add(p.category);
+          }
           break;
         }
       }
     });
 
+    // Add suppliers from matched product categories
+    for (const category of matchedProductCategories) {
+      const categorySuppliers = await ctx.runQuery(
+        internal.searchSuggestions.getSuppliersByCategory, 
+        { category }
+      );
+      categorySuppliers.forEach((s: any) => {
+        if (!s.business_name) return;
+        // Avoid duplicates
+        const alreadyAdded = suggestions.some(
+          sug => sug.text.toLowerCase() === s.business_name.toLowerCase() && sug.type === 'supplier'
+        );
+        if (!alreadyAdded) {
+          suggestions.push({
+            text: s.business_name,
+            score: 45, // Slightly lower score than direct matches
+            type: 'supplier',
+          });
+        }
+      });
+    }
+
     // Add matching category names
-    categories.forEach(c => {
+    categories.forEach((c: any) => {
       if (!c.name) return;
       const nameLower = c.name.toLowerCase();
       
@@ -196,7 +263,7 @@ export const searchSuggestionsWithQuery = action({
     // Build location suggestions
     const locations: string[] = [];
 
-    suppliers.forEach(s => {
+    suppliers.forEach((s: any) => {
       for (const query of queryTranslations) {
         if (s.city?.toLowerCase().includes(query)) {
           locations.push(s.city);

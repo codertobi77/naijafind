@@ -1,6 +1,7 @@
 import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 
 // Helper function to require admin authentication
 async function requireAdmin(ctx: any) {
@@ -94,18 +95,6 @@ export const approveSupplier = mutation({
       updated_at: now,
     });
     
-    // Update stats: decrement pending, increment approved
-    await ctx.scheduler.runAfter(0, internal.stats.decrementStat, {
-      key: "pendingSuppliers",
-      amount: 1,
-      category: "global",
-    });
-    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
-      key: "approvedSuppliers",
-      amount: 1,
-      category: "global",
-    });
-    
     // Send notification to supplier
     await ctx.db.insert('notifications', {
       userId: supplier.userId,
@@ -143,41 +132,6 @@ export const deleteSupplier = mutation({
     const category = supplier.category;
     await ctx.db.delete(args.supplierId);
     
-    // Update stats
-    await ctx.scheduler.runAfter(0, internal.stats.decrementStat, {
-      key: "totalSuppliers",
-      amount: 1,
-      category: "global",
-    });
-    if (!wasApproved) {
-      await ctx.scheduler.runAfter(0, internal.stats.decrementStat, {
-        key: "pendingSuppliers",
-        amount: 1,
-        category: "global",
-      });
-    } else {
-      await ctx.scheduler.runAfter(0, internal.stats.decrementStat, {
-        key: "approvedSuppliers",
-        amount: 1,
-        category: "global",
-      });
-    }
-    if (wasFeatured) {
-      await ctx.scheduler.runAfter(0, internal.stats.decrementStat, {
-        key: "featuredSuppliers",
-        amount: 1,
-        category: "global",
-      });
-    }
-    if (category) {
-      await ctx.scheduler.runAfter(0, internal.stats.decrementStat, {
-        key: "suppliersInCategory",
-        amount: 1,
-        category: "category",
-        metadata: { categoryName: category },
-      });
-    }
-    
     return { success: true };
   }
 });
@@ -203,13 +157,6 @@ export const setSupplierFeatured = mutation({
     await ctx.db.patch(args.supplierId, {
       featured: args.featured,
       updated_at: now,
-    });
-    
-    // Update stats
-    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
-      key: "featuredSuppliers",
-      amount: args.featured ? 1 : -1,
-      category: "global",
     });
     
     return { success: true };
@@ -271,6 +218,32 @@ export const getPendingSuppliers = query({
     
     return suppliers;
   }
+});
+
+// Admin: Get pending suppliers with pagination (no limit)
+export const getPendingSuppliersPaginated = query({
+  args: {
+    paginationOpts: v.object({
+      cursor: v.union(v.null(), v.optional(v.string())),
+      id: v.optional(v.number()),
+      numItems: v.number(),
+    }),
+  },
+  handler: async (ctx, args) => {
+    // Check if user is admin
+    await requireAdmin(ctx);
+
+    const numItems = Math.min(args.paginationOpts.numItems, 500);
+    const cursor = args.paginationOpts.cursor || undefined;
+
+    // Use paginate for efficient fetching of all pending suppliers
+    const result = await ctx.db
+      .query("suppliers")
+      .withIndex("approved", (q) => q.eq("approved", false))
+      .paginate({ cursor, numItems });
+
+    return result;
+  },
 });
 
 // Get featured suppliers
@@ -350,34 +323,8 @@ export const deleteAllSuppliersInternal = internalMutation({
     }
     
     // Reset all stats to 0
-    const statsToReset = [
-      "totalSuppliers",
-      "pendingSuppliers", 
-      "approvedSuppliers",
-      "featuredSuppliers",
-      "verifiedSuppliers"
-    ];
-    
-    for (const key of statsToReset) {
-      await ctx.scheduler.runAfter(0, internal.stats.setStat, {
-        key,
-        value: 0,
-        category: "global",
-      });
-    }
-    
-    // Reset category stats
-    const categoryStats = await ctx.db
-      .query("stats")
-      .withIndex("category", (q) => q.eq("category", "category"))
-      .collect();
-    
-    for (const stat of categoryStats) {
-      await ctx.db.patch(stat._id, {
-        value: 0,
-        updatedAt: now,
-      });
-    }
+    // NOTE: Stats are now calculated in real-time from source tables
+    // No need to reset cached stats since the stats table has been removed
     
     return { 
       success: true, 

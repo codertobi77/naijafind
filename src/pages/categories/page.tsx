@@ -60,7 +60,7 @@ export default function Categories() {
     { staleTime: 15 * 60 * 1000 } // Categories don't change often - cache for 15 minutes
   );
   const { data: categoryStats, isLoading: statsLoading } = useConvexQuery(
-    api.stats.getCategoryStats,
+    api.statsOptimized.getCategoryStats,
     {},
     { staleTime: 5 * 60 * 1000 } // Cache category stats for 5 minutes
   );

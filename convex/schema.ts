@@ -50,7 +50,8 @@ export default defineSchema({
     .index("userId", ["userId"])
     .index("approved", ["approved"])
     .index("featured", ["featured"])
-    .index("claimStatus", ["claimStatus"]),
+    .index("claimStatus", ["claimStatus"])
+    .index("business_name", ["business_name"]),
   products: defineTable({
     supplierId: v.string(),
     name: v.string(),
@@ -240,14 +241,43 @@ export default defineSchema({
   })
     .index("status", ["status"])
     .index("scheduledBy", ["scheduledBy"]),
-  // Global statistics counters
-  stats: defineTable({
-    key: v.string(), // 'totalSuppliers', 'totalUsers', 'totalReviews', 'totalProducts', 'pendingSuppliers', 'approvedSuppliers', 'featuredSuppliers', etc.
-    value: v.number(), // the counter value
-    category: v.optional(v.string()), // 'global', 'category', 'supplier' for grouping
-    metadata: v.optional(v.record(v.string(), v.any())), // extra data like category name, supplierId, etc.
-    updatedAt: v.string(),
+  // Product import items - one row per product to import
+  productImportItems: defineTable({
+    jobId: v.id("productImportJobs"),
+    name: v.string(),
+    price: v.number(),
+    stock: v.number(),
+    status: v.string(), // 'pending', 'processing', 'completed', 'error'
+    category: v.optional(v.string()),
+    description: v.optional(v.string()),
+    images: v.optional(v.array(v.string())),
+    supplier_email: v.optional(v.string()),
+    supplier_business_name: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+    processedAt: v.optional(v.string()),
+    createdAt: v.string(),
   })
-    .index("key", ["key"])
-    .index("category", ["category"]),
+    .index("jobId", ["jobId"])
+    .index("jobId_status", ["jobId", "status"])
+    .index("status", ["status"]),
+  // Product import errors for detailed error tracking
+  productImportErrors: defineTable({
+    jobId: v.id("productImportJobs"), // Reference to the import job
+    productName: v.string(), // Name of the product that failed
+    supplierEmail: v.optional(v.string()), // Supplier email if provided
+    supplierBusinessName: v.optional(v.string()), // Supplier business name if provided
+    errorType: v.string(), // 'validation', 'not_found', 'duplicate', 'server_error', etc.
+    errorMessage: v.string(), // Detailed error message
+    rowData: v.optional(v.record(v.string(), v.any())), // The original data that failed
+    createdAt: v.string(),
+  })
+    .index("jobId", ["jobId"])
+    .index("errorType", ["errorType"])
+    .index("createdAt", ["createdAt"]),
+  // Global statistics counters
+  // NOTE: The stats table has been removed. Stats are now calculated in real-time
+  // using optimized actions in statsOptimized.ts for maximum accuracy.
+  // This eliminates the need for cron jobs and ensures stats are always up-to-date.
+  
+  // stats: defineTable({ ... }) // REMOVED - use statsOptimized queries instead
 });

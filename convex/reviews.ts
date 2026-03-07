@@ -80,13 +80,6 @@ export const createReview = mutation({
       created_at: new Date().toISOString(),
     });
     
-    // Update global stats
-    await ctx.scheduler.runAfter(0, internal.stats.incrementStat, {
-      key: "totalReviews",
-      amount: 1,
-      category: "global",
-    });
-    
     // Update supplier rating and review count
     const supplierReviews = await ctx.db
       .query("reviews")
@@ -164,13 +157,6 @@ export const deleteReview = mutation({
     if (!supplier || review.supplierId !== (supplier._id as unknown as string)) throw new Error("Accès refusé");
 
     await ctx.db.delete(id);
-    
-    // Update global stats
-    await ctx.scheduler.runAfter(0, internal.stats.decrementStat, {
-      key: "totalReviews",
-      amount: 1,
-      category: "global",
-    });
     
     // Update supplier rating and review count
     const supplierReviews = await ctx.db
