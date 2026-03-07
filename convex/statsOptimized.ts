@@ -14,6 +14,7 @@ import { v } from "convex/values";
 /**
  * Query: Get category supplier counts efficiently
  * Uses database aggregation for minimal bandwidth
+ * Returns array format to avoid special characters in field names
  */
 export const getCategoryStats = query({
   args: {},
@@ -21,25 +22,17 @@ export const getCategoryStats = query({
     // Get all categories
     const categories = await ctx.db.query("categories").collect();
     
-    // Get all suppliers (approved only for public stats)
-    const suppliers = await ctx.db
-      .query("suppliers")
-      .withIndex("approved", (q) => q.eq("approved", true))
-      .collect();
+    // Get all suppliers (count all suppliers, not just approved)
+    const suppliers = await ctx.db.query("suppliers").collect();
     
-    // Count suppliers per category
-    const categoryCounts: Record<string, number> = {};
-    
-    for (const cat of categories) {
-      categoryCounts[cat.name] = 0;
-    }
-    
-    for (const supplier of suppliers) {
-      const cat = supplier.category;
-      if (cat && categoryCounts.hasOwnProperty(cat)) {
-        categoryCounts[cat]++;
-      }
-    }
+    // Count suppliers per category and return as array
+    const categoryCounts = categories.map((cat) => {
+      const count = suppliers.filter(s => s.category === cat.name).length;
+      return {
+        name: cat.name,
+        count: count,
+      };
+    });
     
     return categoryCounts;
   },
@@ -47,7 +40,7 @@ export const getCategoryStats = query({
 
 /**
  * Query: Get detailed category stats with breakdown
- * Returns total, approved, featured, verified counts per category
+ * Returns total, approved, featured, verified counts per category as array
  */
 export const getDetailedCategoryStats = query({
   args: {},
@@ -58,34 +51,17 @@ export const getDetailedCategoryStats = query({
     // Get all suppliers
     const suppliers = await ctx.db.query("suppliers").collect();
     
-    // Build detailed stats
-    const stats: Record<string, {
-      total: number;
-      approved: number;
-      featured: number;
-      verified: number;
-    }> = {};
-    
-    // Initialize all categories
-    for (const cat of categories) {
-      stats[cat.name] = {
-        total: 0,
-        approved: 0,
-        featured: 0,
-        verified: 0,
+    // Build detailed stats as array
+    const stats = categories.map((cat) => {
+      const catSuppliers = suppliers.filter(s => s.category === cat.name);
+      return {
+        name: cat.name,
+        total: catSuppliers.length,
+        approved: catSuppliers.filter(s => s.approved).length,
+        featured: catSuppliers.filter(s => s.featured).length,
+        verified: catSuppliers.filter(s => s.verified).length,
       };
-    }
-    
-    // Count suppliers
-    for (const supplier of suppliers) {
-      const cat = supplier.category;
-      if (cat && stats[cat]) {
-        stats[cat].total++;
-        if (supplier.approved) stats[cat].approved++;
-        if (supplier.featured) stats[cat].featured++;
-        if (supplier.verified) stats[cat].verified++;
-      }
-    }
+    });
     
     return stats;
   },

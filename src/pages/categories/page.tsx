@@ -59,7 +59,7 @@ export default function Categories() {
     {},
     { staleTime: 15 * 60 * 1000 } // Categories don't change often - cache for 15 minutes
   );
-  const { data: categoryStats, isLoading: statsLoading } = useConvexQuery(
+  const { data: categoryStatsArray, isLoading: statsLoading } = useConvexQuery(
     api.statsOptimized.getCategoryStats,
     {},
     { staleTime: 5 * 60 * 1000 } // Cache category stats for 5 minutes
@@ -68,8 +68,13 @@ export default function Categories() {
   // Loading state
   const loading = categoriesLoading || statsLoading;
 
-  // Utiliser les counts depuis la table stats (plus performant)
-  const categoryCounts = categoryStats || {};
+  // Convert array to lookup object for easy access
+  const categoryCounts: Record<string, number> = {};
+  if (categoryStatsArray) {
+    for (const item of categoryStatsArray) {
+      categoryCounts[item.name] = item.count;
+    }
+  }
 
   const handleAddBusinessClick = () => {
     if (!isLoading) {
