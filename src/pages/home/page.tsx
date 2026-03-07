@@ -104,7 +104,7 @@ function AdBannerCarousel({ banners }: { banners: AdBanner[] }) {
   // Dynamic banner width based on count
   const bannerWidth = bannerCount === 1 ? 'w-full' : 
     bannerCount === 2 ? 'w-[48%]' : 
-    'w-[300px] sm:w-[350px] md:w-[400px]';
+    'w-[400px] sm:w-[500px] md:w-[600px] lg:w-[700px]';
 
   // Only duplicate for seamless loop if we have more than 2 banners
   const displayBanners = bannerCount > 2 ? [...banners, ...banners] : banners;
@@ -723,7 +723,12 @@ export default function Home() {
   const subscribeToNewsletter = useMutation(api.emails.subscribeToNewsletter);
   const [isSubscribing, setIsSubscribing] = useState(false);
 
-  // State for displaying messages from navigation
+  // Contact modal state
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [contactView, setContactView] = useState<'options' | 'message'>('options');
+  const [contactMessage, setContactMessage] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [messageSent, setMessageSent] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   // Modal state for newsletter
@@ -1060,10 +1065,7 @@ export default function Home() {
           label: "Inscrire mon entreprise gratuitement",
         }}
         secondaryAction={{
-          onClick: () => {
-            const widget = document.querySelector('#vapi-widget-floating-button') as HTMLElement;
-            if (widget) widget.click();
-          },
+          onClick: () => setContactModalOpen(true),
           label: "Parler à un conseiller",
           icon: 'ri-chat-3-line',
         }}
@@ -1080,6 +1082,173 @@ export default function Home() {
         buttonText="OK"
         icon={modalConfig.icon}
       />
+
+      {/* Contact Modal - Olufona */}
+      {contactModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => {
+            setContactModalOpen(false);
+            setContactView('options');
+            setMessageSent(false);
+            setContactMessage('');
+          }}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold">Parler à un conseiller</h3>
+                  <p className="text-green-100 text-sm mt-1">Olufona est là pour vous aider</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setContactModalOpen(false);
+                    setContactView('options');
+                    setMessageSent(false);
+                    setContactMessage('');
+                  }}
+                  className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+                >
+                  <i className="ri-close-line text-lg"></i>
+                </button>
+              </div>
+            </div>
+
+            {/* Options View */}
+            {contactView === 'options' && (
+              <div className="p-6 space-y-4">
+                {/* Email */}
+                <a
+                  href="mailto:contact@olufona.com"
+                  className="flex items-center gap-4 p-4 rounded-xl border-2 border-gray-100 hover:border-green-500 hover:bg-green-50 transition-all group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i className="ri-mail-line text-2xl"></i>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900">Email</h4>
+                    <p className="text-sm text-gray-500">contact@olufona.com</p>
+                  </div>
+                  <i className="ri-arrow-right-line text-gray-400 group-hover:text-green-600"></i>
+                </a>
+
+                {/* WhatsApp */}
+                <a
+                  href="https://wa.me/234XXXXXXXXXX"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-4 p-4 rounded-xl border-2 border-gray-100 hover:border-green-500 hover:bg-green-50 transition-all group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i className="ri-whatsapp-line text-2xl"></i>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900">WhatsApp</h4>
+                    <p className="text-sm text-gray-500">+234 XXX XXX XXXX</p>
+                  </div>
+                  <i className="ri-arrow-right-line text-gray-400 group-hover:text-green-600"></i>
+                </a>
+
+                {/* Internal Message Option */}
+                <button
+                  onClick={() => setContactView('message')}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-gray-100 hover:border-green-500 hover:bg-green-50 transition-all group text-left"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i className="ri-message-3-line text-2xl"></i>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900">Message</h4>
+                    <p className="text-sm text-gray-500">Messagerie interne</p>
+                  </div>
+                  <i className="ri-arrow-right-line text-gray-400 group-hover:text-green-600"></i>
+                </button>
+              </div>
+            )}
+
+            {/* Message Form View */}
+            {contactView === 'message' && (
+              <div className="p-6">
+                <button
+                  onClick={() => {
+                    setContactView('options');
+                    setMessageSent(false);
+                    setContactMessage('');
+                  }}
+                  className="flex items-center text-gray-500 hover:text-gray-700 mb-4 transition-colors"
+                >
+                  <i className="ri-arrow-left-line mr-2"></i>
+                  Retour
+                </button>
+                
+                <h4 className="font-semibold text-gray-900 mb-4">Envoyer un message à Olufona</h4>
+                
+                {messageSent ? (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-4">
+                      <i className="ri-check-line text-3xl"></i>
+                    </div>
+                    <h5 className="font-semibold text-gray-900 mb-2">Message envoyé !</h5>
+                    <p className="text-gray-500 text-sm">Nous vous répondrons dans les plus brefs délais.</p>
+                  </div>
+                ) : (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      setIsSendingMessage(true);
+                      // Simulate sending message - in production, call an API
+                      setTimeout(() => {
+                        setIsSendingMessage(false);
+                        setMessageSent(true);
+                        setContactMessage('');
+                      }, 1000);
+                    }}
+                  >
+                    <textarea
+                      value={contactMessage}
+                      onChange={(e) => setContactMessage(e.target.value)}
+                      placeholder="Écrivez votre message ici..."
+                      className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all resize-none h-32 mb-4"
+                      required
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSendingMessage || !contactMessage.trim()}
+                      className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-medium hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {isSendingMessage ? (
+                        <>
+                          <i className="ri-loader-4-line animate-spin"></i>
+                          Envoi en cours...
+                        </>
+                      ) : (
+                        <>
+                          <i className="ri-send-plane-line"></i>
+                          Envoyer le message
+                        </>
+                      )}
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
+
+            {/* Footer - Only show on options view */}
+            {contactView === 'options' && (
+              <div className="px-6 py-4 bg-gray-50 text-center">
+                <p className="text-xs text-gray-500">
+                  Disponible du lundi au vendredi, 9h - 18h
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
