@@ -2,7 +2,68 @@ import { v } from "convex/values";
 import { query, action, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 
-// Internal query to get approved suppliers
+/**
+ * Internal query: Get approved suppliers with minimal fields (light version)
+ * Only returns fields needed for search suggestions
+ */
+export const _getApprovedSuppliersLight = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const suppliers = await ctx.db
+      .query("suppliers")
+      .withIndex("approved", (q) => q.eq("approved", true))
+      .take(5000); // Limit to prevent timeout
+    
+    // Return only necessary fields to minimize bandwidth
+    return suppliers.map(s => ({
+      business_name: s.business_name,
+      city: s.city,
+      state: s.state,
+      category: s.category,
+    }));
+  },
+});
+
+/**
+ * Internal query: Get products with minimal fields (light version)
+ * Only returns fields needed for search suggestions
+ */
+export const _getProductsLight = internalQuery({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 1000;
+    const products = await ctx.db.query("products").take(limit);
+    
+    // Return only necessary fields to minimize bandwidth
+    return products.map(p => ({
+      name: p.name,
+      category: p.category,
+      supplierId: p.supplierId,
+    }));
+  },
+});
+
+/**
+ * Internal query: Get active categories with minimal fields (light version)
+ */
+export const _getActiveCategoriesLight = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const categories = await ctx.db
+      .query("categories")
+      .withIndex("is_active", (q) => q.eq("is_active", true))
+      .collect();
+    
+    // Return only necessary fields to minimize bandwidth
+    return categories.map(c => ({
+      name: c.name,
+    }));
+  },
+});
+
+// Internal query to get approved suppliers (full version for search with query)
 export const getApprovedSuppliers = internalQuery({
   args: {},
   handler: async (ctx) => {
@@ -47,30 +108,21 @@ export const getSuppliersByCategory = internalQuery({
 });
 
 /**
- * Get all search suggestions from the database
+ * Get all search suggestions from the database - OPTIMIZED ACTION VERSION
+ * Uses internal queries to minimize bandwidth
  * Returns unique values for: products, suppliers, categories, and locations
  */
-export const getSearchSuggestions = query({
+export const getSearchSuggestions = action({
   args: {
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const limit = Number(args.limit ?? 100);
 
-    // Get all approved suppliers
-    const suppliers = await ctx.db
-      .query("suppliers")
-      .withIndex("approved", (q) => q.eq("approved", true))
-      .collect();
-
-    // Get all products
-    const products = await ctx.db.query("products").collect();
-
-    // Get all active categories
-    const categories = await ctx.db
-      .query("categories")
-      .withIndex("is_active", (q) => q.eq("is_active", true))
-      .collect();
+    // Use internal queries to fetch data server-side
+    const suppliers = await ctx.runQuery(internal.searchSuggestions._getApprovedSuppliersLight, {});
+    const products = await ctx.runQuery(internal.searchSuggestions._getProductsLight, { limit: 1000 });
+    const categories = await ctx.runQuery(internal.searchSuggestions._getActiveCategoriesLight, {});
 
     // Extract unique supplier business names
     const supplierNames = suppliers

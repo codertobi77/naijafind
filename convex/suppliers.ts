@@ -1,5 +1,6 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, action, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 
 export const getAllSuppliers = query({
@@ -56,117 +57,6 @@ export const listAllGalleriesAdmin = query({
       business_name: s.business_name,
       imageGallery: s.imageGallery || [],
     }));
-  }
-});
-
-export const searchSuppliers = query({
-  args: {
-    q: v.optional(v.string()),
-    category: v.optional(v.string()),
-    location: v.optional(v.string()),
-    lat: v.optional(v.float64()),
-    lng: v.optional(v.float64()),
-    radiusKm: v.optional(v.float64()),
-    minRating: v.optional(v.float64()),
-    verified: v.optional(v.boolean()),
-    limit: v.optional(v.int64()),
-    offset: v.optional(v.int64()),
-    sortBy: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const limit = Number(args.limit ?? 20);
-    const offset = Number(args.offset ?? 0);
-    const sortBy = args.sortBy || 'relevance';
-
-    // Only show approved suppliers - use index at database level
-    let query = ctx.db.query("suppliers").withIndex("approved", (q) => q.eq("approved", true));
-    let all = await query.collect();
-
-    if (args.q && args.q.trim()) {
-      const q = args.q.toLowerCase();
-      
-      // Get all products to search through
-      const allProducts = await ctx.db.query("products").collect();
-      
-      // Find suppliers that have matching products
-      const supplierIdsWithMatchingProducts = new Set<string>();
-      allProducts.forEach(product => {
-        if (product.name?.toLowerCase().includes(q) || 
-            product.description?.toLowerCase().includes(q)) {
-          supplierIdsWithMatchingProducts.add(product.supplierId);
-        }
-      });
-      
-      all = all.filter(s =>
-        (s.business_name?.toLowerCase().includes(q)) ||
-        (s.description?.toLowerCase().includes(q)) ||
-        supplierIdsWithMatchingProducts.has(s._id as unknown as string)
-      );
-    }
-
-    if (args.category) {
-      all = all.filter(s => s.category === args.category);
-    }
-
-    if (args.location) {
-      const loc = args.location.toLowerCase();
-      all = all.filter(s => (s.location || "").toLowerCase().includes(loc));
-    }
-
-    if (args.minRating && args.minRating > 0) {
-      all = all.filter(s => (s.rating ?? 0) >= (args.minRating as number));
-    }
-
-    if (args.verified) {
-      all = all.filter(s => s.approved === true);
-    }
-
-    if (args.lat !== undefined && args.lng !== undefined) {
-      const lat = args.lat as number;
-      const lng = args.lng as number;
-      const radius = args.radiusKm ?? 50;
-
-      all = all
-        .map(s => {
-          if (s.latitude != null && s.longitude != null) {
-            const d = haversineKm(lat, lng, s.latitude, s.longitude);
-            return { ...s, distance: d } as typeof s & { distance: number };
-          }
-          return { ...s, distance: Number.POSITIVE_INFINITY } as typeof s & { distance: number };
-        })
-        .filter(s => s.distance <= radius);
-    }
-
-    // Apply sorting - prioritize featured suppliers first, then apply user-selected sort
-    all = all.sort((a, b) => {
-      // First priority: featured suppliers come first
-      const featuredA = a.featured ? 1 : 0;
-      const featuredB = b.featured ? 1 : 0;
-      
-      if (featuredB !== featuredA) {
-        return featuredB - featuredA; // Featured first
-      }
-      
-      // Second priority: user-selected sort
-      if (sortBy === 'distance') {
-        const distA = (a as any).distance ?? Number.POSITIVE_INFINITY;
-        const distB = (b as any).distance ?? Number.POSITIVE_INFINITY;
-        return distA - distB;
-      } else if (sortBy === 'rating') {
-        return (b.rating ?? 0) - (a.rating ?? 0);
-      } else if (sortBy === 'reviews') {
-        return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
-      }
-      
-      // Default 'relevance' - sort by rating then reviews
-      const ratingDiff = (b.rating ?? 0) - (a.rating ?? 0);
-      if (ratingDiff !== 0) return ratingDiff;
-      return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
-    });
-
-    const total = all.length;
-    const sliced = all.slice(offset, offset + limit);
-    return { suppliers: sliced, total };
   }
 });
 
@@ -271,7 +161,301 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * c;
 }
 
-function toRad(v: number) { return v * v * Math.PI / 180; }
+function toRad(v: number) { return v * Math.PI / 180; }
+
+/**
+ * Internal query: Search suppliers with minimal fields for action processing
+ * Returns only necessary fields to minimize bandwidth
+ */
+export const _searchSuppliersInternal = internalQuery({
+  args: {
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 1000;
+    const offset = args.offset ?? 0;
+    
+    // Get approved suppliers with minimal fields
+    const suppliers = await ctx.db
+      .query("suppliers")
+      .withIndex("approved", (q) => q.eq("approved", true))
+      .take(limit);
+    
+    // Return only necessary fields
+    return suppliers.map(s => ({
+      _id: s._id,
+      business_name: s.business_name,
+      description: s.description,
+      category: s.category,
+      city: s.city,
+      state: s.state,
+      location: s.location,
+      rating: s.rating,
+      reviews_count: s.reviews_count,
+      verified: s.verified,
+      featured: s.featured,
+      approved: s.approved,
+      image: s.image,
+      logo_url: s.logo_url,
+      latitude: s.latitude,
+      longitude: s.longitude,
+      phone: s.phone,
+      email: s.email,
+    }));
+  },
+});
+
+/**
+ * Internal query: Get products with minimal fields for search
+ */
+export const _getProductsForSearch = internalQuery({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 1000;
+    const products = await ctx.db.query("products").take(limit);
+    
+    return products.map(p => ({
+      _id: p._id,
+      name: p.name,
+      description: p.description,
+      supplierId: p.supplierId,
+      category: p.category,
+    }));
+  },
+});
+
+/**
+ * Search suppliers - OPTIMIZED ACTION VERSION
+ * Uses internal queries to minimize bandwidth and improve performance
+ */
+export const searchSuppliers = action({
+  args: {
+    q: v.optional(v.string()),
+    category: v.optional(v.string()),
+    location: v.optional(v.string()),
+    lat: v.optional(v.float64()),
+    lng: v.optional(v.float64()),
+    radiusKm: v.optional(v.float64()),
+    minRating: v.optional(v.float64()),
+    verified: v.optional(v.boolean()),
+    limit: v.optional(v.int64()),
+    offset: v.optional(v.int64()),
+    sortBy: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Number(args.limit ?? 20);
+    const offset = Number(args.offset ?? 0);
+    const sortBy = args.sortBy || 'relevance';
+
+    // Use internal query to fetch suppliers with minimal fields
+    const suppliers = await ctx.runQuery(internal.suppliers._searchSuppliersInternal, {
+      limit: 2000, // Fetch more for filtering
+      offset: 0,
+    });
+
+    let all = [...suppliers];
+
+    if (args.q && args.q.trim()) {
+      const q = args.q.toLowerCase();
+      
+      // Get products with minimal fields
+      const products = await ctx.runQuery(internal.suppliers._getProductsForSearch, { limit: 1000 });
+      
+      // Find suppliers that have matching products
+      const supplierIdsWithMatchingProducts = new Set<string>();
+      products.forEach(product => {
+        if (product.name?.toLowerCase().includes(q) || 
+            product.description?.toLowerCase().includes(q)) {
+          supplierIdsWithMatchingProducts.add(product.supplierId);
+        }
+      });
+      
+      all = all.filter(s =>
+        (s.business_name?.toLowerCase().includes(q)) ||
+        (s.description?.toLowerCase().includes(q)) ||
+        supplierIdsWithMatchingProducts.has(s._id as unknown as string)
+      );
+    }
+
+    if (args.category) {
+      all = all.filter(s => s.category === args.category);
+    }
+
+    if (args.location) {
+      const loc = args.location.toLowerCase();
+      all = all.filter(s => (s.location || "").toLowerCase().includes(loc));
+    }
+
+    if (args.minRating && args.minRating > 0) {
+      all = all.filter(s => (s.rating ?? 0) >= (args.minRating as number));
+    }
+
+    if (args.verified) {
+      all = all.filter(s => s.approved === true);
+    }
+
+    if (args.lat !== undefined && args.lng !== undefined) {
+      const lat = args.lat as number;
+      const lng = args.lng as number;
+      const radius = args.radiusKm ?? 50;
+
+      all = all
+        .map(s => {
+          if (s.latitude != null && s.longitude != null) {
+            const d = haversineKm(lat, lng, s.latitude, s.longitude);
+            return { ...s, distance: d } as typeof s & { distance: number };
+          }
+          return { ...s, distance: Number.POSITIVE_INFINITY } as typeof s & { distance: number };
+        })
+        .filter(s => s.distance <= radius);
+    }
+
+    // Apply sorting - prioritize featured suppliers first, then apply user-selected sort
+    all = all.sort((a, b) => {
+      // First priority: featured suppliers come first
+      const featuredA = a.featured ? 1 : 0;
+      const featuredB = b.featured ? 1 : 0;
+      
+      if (featuredB !== featuredA) {
+        return featuredB - featuredA; // Featured first
+      }
+      
+      // Second priority: user-selected sort
+      if (sortBy === 'distance') {
+        const distA = (a as any).distance ?? Number.POSITIVE_INFINITY;
+        const distB = (b as any).distance ?? Number.POSITIVE_INFINITY;
+        return distA - distB;
+      } else if (sortBy === 'rating') {
+        return (b.rating ?? 0) - (a.rating ?? 0);
+      } else if (sortBy === 'reviews') {
+        return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
+      }
+      
+      // Default 'relevance' - sort by rating then reviews
+      const ratingDiff = (b.rating ?? 0) - (a.rating ?? 0);
+      if (ratingDiff !== 0) return ratingDiff;
+      return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
+    });
+
+    const total = all.length;
+    const sliced = all.slice(offset, offset + limit);
+    return { suppliers: sliced, total };
+  },
+});
+
+// Legacy query version kept for backward compatibility
+export const searchSuppliersQuery = query({
+  args: {
+    q: v.optional(v.string()),
+    category: v.optional(v.string()),
+    location: v.optional(v.string()),
+    lat: v.optional(v.float64()),
+    lng: v.optional(v.float64()),
+    radiusKm: v.optional(v.float64()),
+    minRating: v.optional(v.float64()),
+    verified: v.optional(v.boolean()),
+    limit: v.optional(v.int64()),
+    offset: v.optional(v.int64()),
+    sortBy: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Redirect to action via internal query
+    const limit = Number(args.limit ?? 20);
+    const offset = Number(args.offset ?? 0);
+    const sortBy = args.sortBy || 'relevance';
+
+    // Use internal query to fetch suppliers
+    const suppliers = await ctx.runQuery(internal.suppliers._searchSuppliersInternal, {
+      limit: 2000,
+      offset: 0,
+    });
+
+    let all = [...suppliers];
+
+    if (args.q && args.q.trim()) {
+      const q = args.q.toLowerCase();
+      const products = await ctx.runQuery(internal.suppliers._getProductsForSearch, { limit: 1000 });
+      
+      const supplierIdsWithMatchingProducts = new Set<string>();
+      products.forEach(product => {
+        if (product.name?.toLowerCase().includes(q) || 
+            product.description?.toLowerCase().includes(q)) {
+          supplierIdsWithMatchingProducts.add(product.supplierId);
+        }
+      });
+      
+      all = all.filter(s =>
+        (s.business_name?.toLowerCase().includes(q)) ||
+        (s.description?.toLowerCase().includes(q)) ||
+        supplierIdsWithMatchingProducts.has(s._id as unknown as string)
+      );
+    }
+
+    if (args.category) {
+      all = all.filter(s => s.category === args.category);
+    }
+
+    if (args.location) {
+      const loc = args.location.toLowerCase();
+      all = all.filter(s => (s.location || "").toLowerCase().includes(loc));
+    }
+
+    if (args.minRating && args.minRating > 0) {
+      all = all.filter(s => (s.rating ?? 0) >= (args.minRating as number));
+    }
+
+    if (args.verified) {
+      all = all.filter(s => s.approved === true);
+    }
+
+    if (args.lat !== undefined && args.lng !== undefined) {
+      const lat = args.lat as number;
+      const lng = args.lng as number;
+      const radius = args.radiusKm ?? 50;
+
+      all = all
+        .map(s => {
+          if (s.latitude != null && s.longitude != null) {
+            const d = haversineKm(lat, lng, s.latitude, s.longitude);
+            return { ...s, distance: d } as typeof s & { distance: number };
+          }
+          return { ...s, distance: Number.POSITIVE_INFINITY } as typeof s & { distance: number };
+        })
+        .filter(s => s.distance <= radius);
+    }
+
+    // Apply sorting
+    all = all.sort((a, b) => {
+      const featuredA = a.featured ? 1 : 0;
+      const featuredB = b.featured ? 1 : 0;
+      
+      if (featuredB !== featuredA) {
+        return featuredB - featuredA;
+      }
+      
+      if (sortBy === 'distance') {
+        const distA = (a as any).distance ?? Number.POSITIVE_INFINITY;
+        const distB = (b as any).distance ?? Number.POSITIVE_INFINITY;
+        return distA - distB;
+      } else if (sortBy === 'rating') {
+        return (b.rating ?? 0) - (a.rating ?? 0);
+      } else if (sortBy === 'reviews') {
+        return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
+      }
+      
+      const ratingDiff = (b.rating ?? 0) - (a.rating ?? 0);
+      if (ratingDiff !== 0) return ratingDiff;
+      return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
+    });
+
+    const total = all.length;
+    const sliced = all.slice(offset, offset + limit);
+    return { suppliers: sliced, total };
+  },
+});
 
 // Mutation for claiming a supplier/business
 export const claimSupplier = mutation({
@@ -310,6 +494,9 @@ export const claimSupplier = mutation({
     // Verify email matches (basic validation)
     const supplierEmail = (supplier.email || "").toLowerCase();
     const claimerEmail = args.userEmail.toLowerCase();
+    // Email validation can be extended here
+    void supplierEmail;
+    void claimerEmail;
     
     // Create a claim record
     const claimId = await ctx.db.insert("supplierClaims", {
@@ -370,20 +557,20 @@ export const getFilteredSuppliers = query({
       // then filter by featured
       const byApproved = await ctx.db
         .query("suppliers")
-        .withIndex("approved", (q) => q.eq("approved", args.approved))
+        .withIndex("approved", (q) => q.eq("approved", args.approved as boolean))
         .take(limit);
       suppliers = byApproved.filter(s => s.featured === args.featured);
     } else if (args.approved !== undefined) {
       // Use approved index
       suppliers = await ctx.db
         .query("suppliers")
-        .withIndex("approved", (q) => q.eq("approved", args.approved))
+        .withIndex("approved", (q) => q.eq("approved", args.approved as boolean))
         .take(limit);
     } else if (args.featured !== undefined) {
       // Use featured index
       suppliers = await ctx.db
         .query("suppliers")
-        .withIndex("featured", (q) => q.eq("featured", args.featured))
+        .withIndex("featured", (q) => q.eq("featured", args.featured as boolean))
         .take(limit);
     } else {
       // No index filter, fetch all
@@ -451,18 +638,18 @@ export const getAllSuppliersPaginated = query({
       if (args.approved !== undefined && args.featured !== undefined) {
         const byApproved = await ctx.db
           .query("suppliers")
-          .withIndex("approved", (q) => q.eq("approved", args.approved))
+          .withIndex("approved", (q) => q.eq("approved", args.approved as boolean))
           .take(limit);
         suppliers = byApproved.filter(s => s.featured === args.featured);
       } else if (args.approved !== undefined) {
         suppliers = await ctx.db
           .query("suppliers")
-          .withIndex("approved", (q) => q.eq("approved", args.approved))
+          .withIndex("approved", (q) => q.eq("approved", args.approved as boolean))
           .take(limit);
       } else if (args.featured !== undefined) {
         suppliers = await ctx.db
           .query("suppliers")
-          .withIndex("featured", (q) => q.eq("featured", args.featured))
+          .withIndex("featured", (q) => q.eq("featured", args.featured as boolean))
           .take(limit);
       } else {
         suppliers = await ctx.db

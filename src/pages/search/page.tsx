@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
 import { SupplierAvatar } from '../../components/SupplierImage';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
+import { useAction } from 'convex/react';
 import type { Map, Marker, Popup } from 'mapbox-gl';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
@@ -964,63 +965,79 @@ export default function Search() {
   // Use user's location if available, otherwise fall back to selected city coordinates
   const effectiveLocationCoords = userLocation || getLocationCoords(filters.location);
   
-  // Query for paginated list results
-  const queryArgs = {
-    q: filters.query || undefined,
-    category: filters.category || undefined,
-    location: filters.location || undefined,
-    lat: effectiveLocationCoords?.lat,
-    lng: effectiveLocationCoords?.lng,
-    radiusKm: Number(filters.distance || '50'),
-    minRating: filters.rating ? Number(filters.rating) : undefined,
-    verified: filters.verified || undefined,
-    limit: BigInt(itemsPerPage),
-    offset: BigInt(currentPage * itemsPerPage),
-    sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | undefined,
-  } as const;
+  // Setup action for search
+  const searchSuppliersAction = useAction(api.suppliers.searchSuppliers);
+  const [searchResults, setSearchResults] = useState<any>(null);
+  const [mapSearchResults, setMapSearchResults] = useState<any>(null);
   
-  // Query for ALL suppliers (for map view - no pagination)
-  const allSuppliersQueryArgs = {
-    q: filters.query || undefined,
-    category: filters.category || undefined,
-    location: filters.location || undefined,
-    lat: effectiveLocationCoords?.lat,
-    lng: effectiveLocationCoords?.lng,
-    radiusKm: Number(filters.distance || '50'),
-    minRating: filters.rating ? Number(filters.rating) : undefined,
-    verified: filters.verified || undefined,
-    limit: undefined, // No limit for map
-    offset: BigInt(0),
-    sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | undefined,
-  } as const;
+  // Perform search when filters change
+  useEffect(() => {
+    const performSearch = async () => {
+      setLoading(true);
+      setPaginationLoading(currentPage > 0);
+      
+      try {
+        const result = await searchSuppliersAction({
+          q: filters.query || undefined,
+          category: filters.category || undefined,
+          location: filters.location || undefined,
+          lat: effectiveLocationCoords?.lat,
+          lng: effectiveLocationCoords?.lng,
+          radiusKm: Number(filters.distance || '50'),
+          minRating: filters.rating ? Number(filters.rating) : undefined,
+          verified: filters.verified || undefined,
+          limit: BigInt(itemsPerPage),
+          offset: BigInt(currentPage * itemsPerPage),
+          sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | undefined,
+        });
+        setSearchResults(result);
+      } catch (error) {
+        console.error('Search error:', error);
+      } finally {
+        setLoading(false);
+        setPaginationLoading(false);
+      }
+    };
+    
+    void performSearch();
+  }, [filters, currentPage, sortBy, effectiveLocationCoords?.lat, effectiveLocationCoords?.lng]);
   
-  // Use React Query with shorter cache time for search results (1 minute)
-  const { data: convexResult, isLoading: queryLoading } = useConvexQuery(
-    api.suppliers.searchSuppliers,
-    queryArgs,
-    { 
-      staleTime: 1 * 60 * 1000, // 1 minute - search results should be relatively fresh
-      gcTime: 3 * 60 * 1000 // Keep in cache for 3 minutes
-    }
-  );
-  
-  // Separate query for map view - ONLY when viewMode is 'map' to avoid unnecessary backend load
-  const { data: allSuppliersResult, isLoading: allSuppliersLoading } = useConvexQuery(
-    api.suppliers.searchSuppliers,
-    allSuppliersQueryArgs,
-    { 
-      staleTime: 1 * 60 * 1000,
-      gcTime: 3 * 60 * 1000,
-      enabled: viewMode === 'map' // Only fetch when map view is active
-    }
-  );
+  // Perform map search when viewMode changes to map
+  useEffect(() => {
+    if (viewMode !== 'map') return;
+    
+    const performMapSearch = async () => {
+      setAllSuppliersLoading(true);
+      
+      try {
+        const result = await searchSuppliersAction({
+          q: filters.query || undefined,
+          category: filters.category || undefined,
+          location: filters.location || undefined,
+          lat: effectiveLocationCoords?.lat,
+          lng: effectiveLocationCoords?.lng,
+          radiusKm: Number(filters.distance || '50'),
+          minRating: filters.rating ? Number(filters.rating) : undefined,
+          verified: filters.verified || undefined,
+          limit: undefined,
+          offset: BigInt(0),
+          sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | undefined,
+        });
+        setMapSearchResults(result);
+      } catch (error) {
+        console.error('Map search error:', error);
+      } finally {
+        setAllSuppliersLoading(false);
+      }
+    };
+    
+    void performMapSearch();
+  }, [viewMode, filters, sortBy, effectiveLocationCoords?.lat, effectiveLocationCoords?.lng]);
 
   // Process paginated suppliers for list view
   useEffect(() => {
-    setLoading(queryLoading);
-    setPaginationLoading(queryLoading && currentPage > 0);
-    if (!convexResult) return;
-    const list = (convexResult.suppliers || []).map((s: any) => ({
+    if (!searchResults) return;
+    const list = (searchResults.suppliers || []).map((s: any) => ({
       id: (s._id ?? s.id) as string,
       name: s.business_name ?? s.name ?? '',
       category: s.category ?? '',
@@ -1042,17 +1059,17 @@ export default function Search() {
       address: s.address,
     })) as Supplier[];
     setSuppliers(list);
-    setTotalCount(convexResult.total ?? list.length);
+    setTotalCount(searchResults.total ?? list.length);
     // Scroll to results after loading completes
-    if (!queryLoading && list.length > 0) {
+    if (!loading && list.length > 0) {
       handleScrollToResults();
     }
-  }, [convexResult, queryLoading, currentPage]);
+  }, [searchResults, loading, currentPage]);
   
   // Process ALL suppliers for map view (no pagination)
   useEffect(() => {
-    if (!allSuppliersResult) return;
-    const allList = (allSuppliersResult.suppliers || []).map((s: any) => ({
+    if (!mapSearchResults) return;
+    const allList = (mapSearchResults.suppliers || []).map((s: any) => ({
       id: (s._id ?? s.id) as string,
       name: s.business_name ?? s.name ?? '',
       category: s.category ?? '',
@@ -1074,7 +1091,7 @@ export default function Search() {
       address: s.address,
     })) as Supplier[];
     setAllMapSuppliers(allList);
-  }, [allSuppliersResult]);
+  }, [mapSearchResults]);
 
   useEffect(() => {
     setCurrentPage(0); // Reset to first page when filters change

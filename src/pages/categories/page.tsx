@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { Header } from '../../components/base';
-import { useConvexAuth } from 'convex/react';
+import { useConvexAuth, useAction } from 'convex/react';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { api } from '@convex/_generated/api';
 
@@ -59,11 +59,27 @@ export default function Categories() {
     {},
     { staleTime: 15 * 60 * 1000 } // Categories don't change often - cache for 15 minutes
   );
-  const { data: categoryStatsArray, isLoading: statsLoading } = useConvexQuery(
-    api.statsOptimized.getCategoryStats,
-    {},
-    { staleTime: 5 * 60 * 1000 } // Cache category stats for 5 minutes
-  );
+  // Use action for category stats (optimized version)
+  const getCategoryStatsAction = useAction(api.statsOptimized.getCategoryStats);
+  const [categoryStatsArray, setCategoryStatsArray] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  
+  // Fetch category stats on mount
+  useEffect(() => {
+    const fetchStats = async () => {
+      setStatsLoading(true);
+      try {
+        const result = await getCategoryStatsAction({});
+        setCategoryStatsArray(result);
+      } catch (error) {
+        console.error('Failed to fetch category stats:', error);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+    
+    void fetchStats();
+  }, [getCategoryStatsAction]);
 
   // Loading state
   const loading = categoriesLoading || statsLoading;

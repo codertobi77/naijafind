@@ -689,11 +689,28 @@ export default function Home() {
     {},
     { staleTime: 15 * 60 * 1000 }
   );
-  const { data: searchSuggestionsData } = useConvexQuery(
-    api.searchSuggestions.getSearchSuggestions,
-    {},
-    { staleTime: 5 * 60 * 1000 }
-  );
+  
+  // Use action for search suggestions (optimized version)
+  const getSearchSuggestionsAction = useAction(api.searchSuggestions.getSearchSuggestions);
+  const [searchSuggestionsData, setSearchSuggestionsData] = useState<any>(null);
+  const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(true);
+  
+  // Fetch search suggestions on mount
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      setIsSuggestionsLoading(true);
+      try {
+        const result = await getSearchSuggestionsAction({ limit: 100 });
+        setSearchSuggestionsData(result);
+      } catch (error) {
+        console.error('Failed to fetch search suggestions:', error);
+      } finally {
+        setIsSuggestionsLoading(false);
+      }
+    };
+    
+    void fetchSuggestions();
+  }, [getSearchSuggestionsAction]);
 
   // Fetch active homepage banners from database
   const { data: homepageBanners } = useConvexQuery(
