@@ -679,11 +679,24 @@ export default function Home() {
 
   // Using React Query cached queries instead of direct Convex queries
   const { data: meData } = useConvexQuery(api.users.me, {}, { staleTime: 2 * 60 * 1000 });
-  const { data: featuredSuppliersData } = useConvexQuery(
+  const { data: featuredSuppliersData, isLoading: featuredSuppliersLoading } = useConvexQuery(
     api.admin.getFeaturedSuppliers,
     {},
     { staleTime: 10 * 60 * 1000 }
   );
+  
+  // Timeout for featured suppliers loading to prevent infinite spinner
+  const [featuredSuppliersTimeout, setFeaturedSuppliersTimeout] = useState(false);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (featuredSuppliersLoading) {
+        setFeaturedSuppliersTimeout(true);
+      }
+    }, 8000); // 8 seconds timeout for featured suppliers
+    
+    return () => clearTimeout(timer);
+  }, [featuredSuppliersLoading]);
   const { data: categories } = useConvexQuery(
     api.categories.getAllCategories,
     {},
@@ -867,9 +880,26 @@ export default function Home() {
             <p className="text-gray-600">Découvrez les fournisseurs les mieux notés près de chez vous</p>
           </div>
 
-          {featuredSuppliersData === undefined ? (
+          {(featuredSuppliersLoading && !featuredSuppliersTimeout) ? (
             <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+            </div>
+          ) : (featuredSuppliersLoading && featuredSuppliersTimeout) ? (
+            <div className="text-center py-12">
+              <i className="ri-time-line text-4xl text-yellow-500 mb-4"></i>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Chargement des fournisseurs...
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Le chargement prend plus de temps que prévu
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <i className="ri-refresh-line mr-2"></i>
+                Réessayer
+              </button>
             </div>
           ) : featuredSuppliers.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
