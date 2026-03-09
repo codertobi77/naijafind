@@ -101,10 +101,10 @@ function AdBannerCarousel({ banners }: { banners: AdBanner[] }) {
     return () => cancelAnimationFrame(animationId);
   }, [isPaused, bannerCount]);
 
-  // Dynamic banner width based on count
-  const bannerWidth = bannerCount === 1 ? 'w-full' : 
-    bannerCount === 2 ? 'w-[48%]' : 
-    'w-[400px] sm:w-[550px] md:w-[700px] lg:w-[900px] xl:w-[1000px]';
+  // Square format for 1080×1080 ads
+  const bannerSize = bannerCount === 1 ? 'w-full max-w-[400px] aspect-square' : 
+    bannerCount === 2 ? 'w-[48%] max-w-[400px] aspect-square' : 
+    'w-[300px] sm:w-[350px] md:w-[400px] aspect-square';
 
   // Only duplicate for seamless loop if we have more than 2 banners
   const displayBanners = bannerCount > 2 ? [...banners, ...banners] : banners;
@@ -124,12 +124,12 @@ function AdBannerCarousel({ banners }: { banners: AdBanner[] }) {
           <a
             key={`${banner.id}-${index}`}
             href={banner.link || '#'}
-            className={`flex-shrink-0 ${bannerWidth} h-[150px] sm:h-[160px] md:h-[180px] rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 group`}
+            className={`flex-shrink-0 ${bannerSize} rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 group`}
           >
             <img
               src={banner.image}
               alt={banner.alt}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
             />
           </a>
         ))}

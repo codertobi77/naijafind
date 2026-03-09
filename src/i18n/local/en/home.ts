@@ -52,6 +52,7 @@ export const home = {
 
   // Newsletter section
   "newsletter.title": "Stay informed",
+  "newsletter.stay_informed": "Stay informed",
   "newsletter.subtitle": "Subscribe to our newsletter to receive the latest news and updates",
   "newsletter.benefit1": "Receive exclusive offers",
   "newsletter.benefit2": "Discover new suppliers",

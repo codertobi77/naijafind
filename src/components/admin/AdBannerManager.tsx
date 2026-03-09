@@ -120,6 +120,9 @@ function BannerImageInput({
       )}
 
       {/* Preview */}
+      <p className="text-xs text-gray-500">
+        Format recommandé : <strong>1080 × 1080 px</strong> (carré)
+      </p>
       {preview && (
         <div className="relative w-full max-w-md">
           <img

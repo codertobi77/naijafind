@@ -210,7 +210,6 @@ const CATEGORY_NAME_MAPPING: Record<string, string[]> = {
   'construction': ['BTP', 'btp', 'Construction', 'construction'],
   'auto': ['Auto', 'auto', 'Automotive', 'automotive'],
   'automotive': ['Auto', 'auto', 'Automotive', 'automotive'],
-  'it': ['IT', 'it', 'Informatique', 'informatique'],
   'packaging': ['Packaging', 'packaging', 'Emballage', 'emballage'],
   'emballage': ['Packaging', 'packaging', 'Emballage', 'emballage'],
   'agroalimentaire': ['Agroalimentaire', 'agroalimentaire', 'Food', 'food'],
@@ -811,6 +810,9 @@ export const searchSuppliers = action({
     const sortBy = args.sortBy || 'relevance';
 
     let scoredSuppliers: Array<any & { _score: number; _matchDetails: string[] }> = [];
+    
+    // Initialize target categories set (used for ranking)
+    let targetCategories: Set<string> = new Set();
 
     // ==========================================
     // PHASE 1: CATEGORY DETECTION (Lightweight)
@@ -834,7 +836,6 @@ export const searchSuppliers = action({
         : [];
       
       // Determine target categories
-      let targetCategories: Set<string> = new Set();
       
       // From matching products (use actual category names from products)
       matchingProducts.forEach((product: any) => {
@@ -1004,6 +1005,20 @@ export const searchSuppliers = action({
     // APPLY FILTERS
     // ==========================================
     
+    // STRICT FILTER: If we detected target categories from search query,
+    // ONLY show suppliers from those categories (don't show unrelated premium suppliers)
+    if (targetCategories.size > 0 && args.q && args.q.trim()) {
+      scoredSuppliers = scoredSuppliers.filter(s => {
+        if (!s.category) return false;
+        const catLower = s.category.toLowerCase();
+        return targetCategoriesLower.some(targetCat => 
+          catLower === targetCat || 
+          catLower.includes(targetCat) || 
+          targetCat.includes(catLower)
+        );
+      });
+    }
+    
     // Apply explicit category filter
     if (args.category) {
       scoredSuppliers = scoredSuppliers.filter(s => s.category === args.category);
@@ -1060,15 +1075,17 @@ export const searchSuppliers = action({
       
       const aIsTarget = isTargetCategory(a);
       const bIsTarget = isTargetCategory(b);
-      const aIsFeatured = a.featured ? 1 : 0;
-      const bIsFeatured = b.featured ? 1 : 0;
+      // const aIsFeatured = a.featured ? 1 : 0;
+      // const bIsFeatured = b.featured ? 1 : 0;
       
+      /* 
+      // PREMIUM RANKING DISABLED - All suppliers treated equally
       // Priority 1: Featured suppliers in target category
       if (aIsFeatured && aIsTarget && !(bIsFeatured && bIsTarget)) {
-        return -1; // a comes first
+        return -1;
       }
       if (bIsFeatured && bIsTarget && !(aIsFeatured && aIsTarget)) {
-        return 1; // b comes first
+        return 1;
       }
       
       // Priority 2: Non-featured suppliers in target category
@@ -1083,8 +1100,18 @@ export const searchSuppliers = action({
       if (aIsFeatured !== bIsFeatured) {
         return bIsFeatured - aIsFeatured;
       }
+      */
       
-      // Priority 4: Relevance score (for intelligent search)
+      // NEW: Only prioritize by category match, then relevance
+      // Priority 1: Suppliers in target category
+      if (aIsTarget && !bIsTarget) {
+        return -1;
+      }
+      if (bIsTarget && !aIsTarget) {
+        return 1;
+      }
+      
+      // Priority 2: Relevance score (for intelligent search)
       if (sortBy === 'relevance') {
         const scoreDiff = (b._score ?? 0) - (a._score ?? 0);
         if (scoreDiff !== 0) return scoreDiff;
