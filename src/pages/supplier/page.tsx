@@ -515,12 +515,60 @@ export default function SupplierDetail() {
     }
   };
 
-  if (loading) {
+  // Add timeout for loading to prevent infinite loading screen
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) {
+        setLoadingTimeout(true);
+      }
+    }, 15000); // 15 seconds max for supplier loading
+    
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+  // Loading state with timeout protection
+  if (loading && !loadingTimeout) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
           <p className="text-gray-600">{t('supplier.loading')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if loading takes too long
+  if (loading && loadingTimeout) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center mx-auto mb-4">
+            <i className="ri-time-line text-3xl"></i>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Le chargement prend plus de temps que prévu
+          </h3>
+          <p className="text-gray-600 mb-4">
+            Impossible de charger les détails du fournisseur. Veuillez réessayer.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <i className="ri-refresh-line mr-2"></i>
+              Réessayer
+            </button>
+            <Link
+              to="/search"
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Retour à la recherche
+            </Link>
+          </div>
         </div>
       </div>
     );

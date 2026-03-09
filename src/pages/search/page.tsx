@@ -8,7 +8,15 @@ import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { useAction } from 'convex/react';
 import type { Map, Marker, Popup } from 'mapbox-gl';
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
+// Helper function to add timeout to promises
+const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    )
+  ]);
+};
 
 // Dynamically import mapbox-gl only when needed
 let mapboxglPromise: Promise<typeof import('mapbox-gl')> | null = null;
@@ -968,7 +976,7 @@ export default function Search() {
   // Setup action for search
   const searchSuppliersAction = useAction(api.suppliers.searchSuppliers);
   const [searchResults, setSearchResults] = useState<any>(null);
-  const [mapSearchResults, setMapSearchResults] = useState<any>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
   
   // Perform search when filters change
   useEffect(() => {
@@ -977,22 +985,27 @@ export default function Search() {
       setPaginationLoading(currentPage > 0);
       
       try {
-        const result = await searchSuppliersAction({
-          q: filters.query || undefined,
-          category: filters.category || undefined,
-          location: filters.location || undefined,
-          lat: effectiveLocationCoords?.lat,
-          lng: effectiveLocationCoords?.lng,
-          radiusKm: Number(filters.distance || '50'),
-          minRating: filters.rating ? Number(filters.rating) : undefined,
-          verified: filters.verified || undefined,
-          limit: BigInt(itemsPerPage),
-          offset: BigInt(currentPage * itemsPerPage),
-          sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | 'alpha_asc' | 'alpha_desc' | undefined,
-        });
+        const result = await withTimeout(
+          searchSuppliersAction({
+            q: filters.query || undefined,
+            category: filters.category || undefined,
+            location: filters.location || undefined,
+            lat: effectiveLocationCoords?.lat,
+            lng: effectiveLocationCoords?.lng,
+            radiusKm: Number(filters.distance || '50'),
+            minRating: filters.rating ? Number(filters.rating) : undefined,
+            verified: filters.verified || undefined,
+            limit: BigInt(itemsPerPage),
+            offset: BigInt(currentPage * itemsPerPage),
+            sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | 'alpha_asc' | 'alpha_desc' | undefined,
+          }),
+          30000, // 30 second timeout
+          'La recherche a pris trop de temps. Veuillez réessayer.'
+        );
         setSearchResults(result);
       } catch (error) {
         console.error('Search error:', error);
+        setSearchError(error instanceof Error ? error.message : 'Erreur lors de la recherche');
       } finally {
         setLoading(false);
         setPaginationLoading(false);
@@ -1010,19 +1023,23 @@ export default function Search() {
       setAllSuppliersLoading(true);
       
       try {
-        const result = await searchSuppliersAction({
-          q: filters.query || undefined,
-          category: filters.category || undefined,
-          location: filters.location || undefined,
-          lat: effectiveLocationCoords?.lat,
-          lng: effectiveLocationCoords?.lng,
-          radiusKm: Number(filters.distance || '50'),
-          minRating: filters.rating ? Number(filters.rating) : undefined,
-          verified: filters.verified || undefined,
-          limit: undefined,
-          offset: BigInt(0),
-          sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | 'alpha_asc' | 'alpha_desc' | undefined,
-        });
+        const result = await withTimeout(
+          searchSuppliersAction({
+            q: filters.query || undefined,
+            category: filters.category || undefined,
+            location: filters.location || undefined,
+            lat: effectiveLocationCoords?.lat,
+            lng: effectiveLocationCoords?.lng,
+            radiusKm: Number(filters.distance || '50'),
+            minRating: filters.rating ? Number(filters.rating) : undefined,
+            verified: filters.verified || undefined,
+            limit: undefined,
+            offset: BigInt(0),
+            sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | 'alpha_asc' | 'alpha_desc' | undefined,
+          }),
+          30000,
+          'La recherche carte a pris trop de temps'
+        );
         setMapSearchResults(result);
       } catch (error) {
         console.error('Map search error:', error);
@@ -1373,6 +1390,21 @@ export default function Search() {
                 </div>
               </div>
             </div>
+
+            {searchError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+                <div className="flex items-center gap-2 text-red-700">
+                  <i className="ri-error-warning-line"></i>
+                  <span>{searchError}</span>
+                  <button 
+                    onClick={() => setSearchError(null)}
+                    className="ml-auto text-red-500 hover:text-red-700"
+                  >
+                    <i className="ri-close-line"></i>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {viewMode === 'map' && (
               <div className="bg-white rounded-lg shadow-sm mb-6 h-64 sm:h-96 overflow-hidden">

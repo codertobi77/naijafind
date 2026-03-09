@@ -947,7 +947,20 @@ export default function Dashboard() {
     setShowInviteModal(false);
   };
 
-  if (loading) {
+  const [initialLoadTimeout, setInitialLoadTimeout] = useState(false);
+  
+  // Add timeout for initial loading to prevent infinite loading screen
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) {
+        setInitialLoadTimeout(true);
+      }
+    }, 10000); // 10 seconds max for initial loading
+    
+    return () => clearTimeout(timer);
+  }, [loading]);
+  
+  if (loading && !initialLoadTimeout) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -957,7 +970,33 @@ export default function Dashboard() {
       </div>
     );
   }
-
+  
+  // Show error if loading takes too long
+  if (loading && initialLoadTimeout) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center mx-auto mb-4">
+            <i className="ri-time-line text-3xl"></i>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Le chargement prend plus de temps que prévu
+          </h3>
+          <p className="text-gray-600 mb-4">
+            Veuillez patienter ou réessayer. Si le problème persiste, vérifiez votre connexion internet.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <i className="ri-refresh-line mr-2"></i>
+            Réessayer
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
