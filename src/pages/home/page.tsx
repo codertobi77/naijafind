@@ -611,7 +611,7 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
       backgroundImage="https://readdy.ai/api/search-image?query=Modern%20Nigerian%20marketplace%20with%20vendors%20selling%20colorful%20products%2C%20bustling%20commercial%20district%20in%20Lagos%20with%20traditional%20and%20modern%20buildings%2C%20vibrant%20street%20scene%20with%20people%20shopping%2C%20warm%20golden%20lighting%2C%20professional%20photography%20style%2C%20clean%20organized%20market%20stalls&width=1200&height=600&seq=hero-nigeria&orientation=landscape"
       backgroundGradient="from-black/60 via-black/50 to-black/40"
       showBadge={true}
-      badgeText="Trusted by 25,000+ Nigerian businesses"
+      badgeText={t('hero.badge_trusted')}
       badgeIcon=""
       title={t('hero.title')}
       subtitle={t('hero.subtitle')}

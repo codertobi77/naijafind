@@ -61,7 +61,7 @@ export default function About() {
         backgroundImage="https://readdy.ai/api/search-image?query=Modern%20Nigerian%20business%20district%20with%20skyscrapers%20and%20traditional%20markets%2C%20aerial%20view%20of%20Lagos%20commercial%20area%2C%20blend%20of%20modern%20and%20traditional%20architecture%2C%20vibrant%20economic%20activity%2C%20professional%20photography%2C%20golden%20hour%20lighting&width=1200&height=400&seq=about-hero&orientation=landscape"
         backgroundGradient="from-black/70 via-black/50 to-black/40"
         showBadge={true}
-        badgeText="Our Story"
+        badgeText={t('about.badge_story')}
         badgeIcon="ri-information-line"
         title={t('about.title')}
         subtitle={t('about.subtitle')}
@@ -75,7 +75,7 @@ export default function About() {
             <div className="animate-fade-in-up">
               <div className="inline-flex items-center px-4 py-2 bg-green-100 rounded-full mb-6">
                 <i className="ri-target-line text-green-600 mr-2"></i>
-                <span className="text-green-700 text-sm font-semibold">Our Mission</span>
+                <span className="text-green-700 text-sm font-semibold">{t('about.badge_mission')}</span>
               </div>
               <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">{t('about.mission_title')}</h2>
               <p className="text-lg sm:text-xl text-gray-700 mb-6 leading-relaxed">{t('about.mission_text1')}</p>

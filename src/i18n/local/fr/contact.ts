@@ -30,7 +30,11 @@ export const contact = {
   "contact.placeholder_email": "votre@email.com",
   "contact.placeholder_subject": "Sujet de votre message",
   "contact.placeholder_message": "Décrivez votre demande en détail...",
-  "contact.char_count": "caractères"
+  "contact.char_count": "caractères",
+  "contact.rate_limited": "Trop de demandes. Veuillez réessayer plus tard.",
+  "contact.try_again_after": "Réessayez après",
+  "contact.office_name": "Bureau Suji",
+  "contact.office_address": "Victoria Island, Lagos"
 };
 
 export default contact;

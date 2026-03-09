@@ -25,7 +25,9 @@ export const about = {
   "about.cta_subtitle": "Whether you're a supplier or buyer, discover how Suji can transform your business",
   "about.cta_become_supplier": "Become a supplier",
   "about.cta_search_suppliers": "Search for suppliers",
-  "about.add_business": "Add your business"
+  "about.add_business": "Add your business",
+  "about.badge_story": "Our Story",
+  "about.badge_mission": "Our Mission"
 };
 
 export default about;

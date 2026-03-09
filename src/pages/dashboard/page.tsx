@@ -282,15 +282,15 @@ function GallerySection({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">Gestion de la galerie</h2>
-          <p className="text-sm text-gray-600">Gérez vos photos pour présenter vos services aux clients.</p>
+          <h2 className="text-xl font-semibold text-gray-900">{t('gallery.title')}</h2>
+          <p className="text-sm text-gray-600">{t('gallery.subtitle')}</p>
         </div>
         {!editMode ? (
           <button
             onClick={() => setEditMode(true)}
             className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
           >
-            Modifier
+            {t('gallery.edit')}
           </button>
         ) : (
           <div className="flex gap-2">
@@ -298,14 +298,14 @@ function GallerySection({
               onClick={() => setEditMode(false)}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
-              Annuler
+              {t('gallery.cancel')}
             </button>
             <button
               onClick={onSave}
               disabled={saving}
               className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
             >
-              {saving ? 'Enregistrement...' : 'Enregistrer'}
+              {saving ? t('gallery.saving') : t('gallery.save')}
             </button>
           </div>
         )}
@@ -313,19 +313,19 @@ function GallerySection({
 
       {planConfig.maxPhotos !== -1 && (
         <p className="text-sm text-gray-600">
-          Photos: {gallery.length} / {planConfig.maxPhotos} (limite abonnement {planConfig.name})
+          {t('gallery.photo_limit', { count: gallery.length, max: planConfig.maxPhotos, plan: planConfig.name })}
         </p>
       )}
 
       {editMode && canAddMore && (
         <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Ajouter une image URL</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('gallery.add_image_url')}</label>
           <div className="flex gap-2">
             <input
               type="text"
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://example.com/image.jpg"
+              placeholder={t('gallery.placeholder_url')}
               className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
             />
             <button
@@ -334,7 +334,7 @@ function GallerySection({
               className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
             >
               <i className="ri-add-line mr-1" />
-              Ajouter
+              {t('gallery.add')}
             </button>
           </div>
         </div>
@@ -343,13 +343,13 @@ function GallerySection({
       {gallery.length === 0 ? (
         <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
           <i className="ri-image-line text-4xl text-gray-400 mb-3" />
-          <p className="text-gray-600 mb-2">Aucune photo dans votre galerie</p>
+          <p className="text-gray-600 mb-2">{t('gallery.no_photos')}</p>
           {!editMode && (
             <button
               onClick={() => setEditMode(true)}
               className="text-green-600 hover:text-green-700 text-sm font-medium"
             >
-              Ajouter des photos
+              {t('gallery.add_photos')}
             </button>
           )}
         </div>
@@ -858,8 +858,8 @@ export default function Dashboard() {
     if (result.success) {
       showToast('success',
         productModalMode === 'add'
-          ? 'Produit ajouté avec succès'
-          : 'Produit mis à jour'
+          ? t('dashboard.success.product_added', 'Produit ajouté avec succès')
+          : t('dashboard.success.product_updated', 'Produit mis à jour')
       );
       setShowProductModal(false);
       setProductModalData(null);
@@ -875,11 +875,11 @@ export default function Dashboard() {
     setProductOpLoading(true);
     const result = await handleDeleteProduct(productModalData.id);
     if (result.success) {
-      showToast('success', 'Produit supprimé');
+      showToast('success', t('dashboard.success.product_deleted', 'Produit supprimé'));
       setShowProductDeleteModal(false);
       setProductModalData(null);
     } else {
-      showToast('error', result.error || 'Erreur lors de la suppression');
+      showToast('error', result.error || t('dashboard.errors.delete_product'));
     }
     setProductOpLoading(false);
   };
@@ -959,13 +959,12 @@ export default function Dashboard() {
     
     return () => clearTimeout(timer);
   }, [loading]);
-  
-  if (loading && !initialLoadTimeout) {
+    if (loading && !initialLoadTimeout) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4" />
-          <p className="text-gray-600">Chargement du tableau de bord...</p>
+          <p className="text-gray-600">{t('loading.title')}</p>
         </div>
       </div>
     );
@@ -980,17 +979,17 @@ export default function Dashboard() {
             <i className="ri-time-line text-3xl"></i>
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Le chargement prend plus de temps que prévu
+            {t('loading.timeout_title')}
           </h3>
           <p className="text-gray-600 mb-4">
-            Veuillez patienter ou réessayer. Si le problème persiste, vérifiez votre connexion internet.
+            {t('loading.timeout_message')}
           </p>
           <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >
             <i className="ri-refresh-line mr-2"></i>
-            Réessayer
+            {t('loading.retry')}
           </button>
         </div>
       </div>

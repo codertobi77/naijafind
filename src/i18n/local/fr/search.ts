@@ -76,6 +76,7 @@ export const search = {
   "search.locating": "Localisation en cours...",
   "search.use_my_location": "Utiliser ma position",
   "search.my_location": "Ma position",
+  "search.your_position": "Votre position",
   "search.reset": "Réinitialiser",
   "search.hide_filters": "Masquer les filtres",
   "search.show_filters": "Afficher les filtres",
@@ -87,7 +88,14 @@ export const search = {
   "search.view_details": "Voir détails",
   "search.distance_from": "Distance depuis votre position actuelle",
   "search.distance_from_location": "Distance depuis {{location}}",
-  "search.select_city_or_use_position": "Sélectionnez une ville ou utilisez votre position"
+  "search.select_city_or_use_position": "Sélectionnez une ville ou utilisez votre position",
+  "search.location_not_supported": "La géolocalisation n'est pas prise en charge par votre navigateur",
+  "search.location_permission_denied": "Vous avez refusé l'accès à votre position",
+  "search.location_unavailable": "Position indisponible",
+  "search.location_timeout": "Demande de position expirée",
+  "search.location_error": "Erreur lors de la récupération de la position",
+  "search.timeout_error": "La recherche a pris trop de temps. Veuillez réessayer.",
+  "search.map_timeout_error": "La recherche sur la carte a pris trop de temps."
 };
 
 export default search;

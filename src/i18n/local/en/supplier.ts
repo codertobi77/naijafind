@@ -90,7 +90,16 @@ export const supplier = {
   "supplier.no_email": "Supplier doesn't have email",
   "supplier.no_phone": "Supplier doesn't have phone number",
   "supplier.location_not_available": "Location not available",
-  "supplier.claim_business": "Do you own this business?"
+  "supplier.claim_business": "Do you own this business?",
+
+  // Error messages and loading
+  "supplier.review_client": "Client",
+  "supplier.form_error": "Error sending form:",
+  "supplier.review_send_error": "Error sending review:",
+  "supplier.message_send_error": "Error sending message:",
+  "supplier.loading_timeout_title": "Loading is taking longer than expected",
+  "supplier.loading_timeout_desc": "Unable to load supplier details. Please try again.",
+  "supplier.retry": "Retry"
 };
 
 export default supplier;

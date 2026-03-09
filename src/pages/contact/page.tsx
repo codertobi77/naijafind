@@ -80,8 +80,8 @@ function ContactMap() {
           // Add marker for office location
           const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
             `<div class="p-2">
-              <h3 class="font-semibold text-sm">Suji Office</h3>
-              <p class="text-xs text-gray-600">Victoria Island, Lagos</p>
+              <h3 class="font-semibold text-sm">${t('contact.office_name')}</h3>
+              <p class="text-xs text-gray-600">${t('contact.office_address')}</p>
             </div>`
           );
           
@@ -263,10 +263,10 @@ export default function Contact() {
               {submitStatus === 'rate_limited' && (
                 <div className="mb-6 p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg text-sm sm:text-base">
                   <i className="ri-time-line mr-2"></i>
-                  Too many requests. Please try again later.
+                  {t('contact.rate_limited')}
                   {checkRateLimit?.resetAt && (
                     <span className="block mt-1 text-xs">
-                      Try again after {new Date(checkRateLimit.resetAt).toLocaleTimeString()}
+                      {t('contact.try_again_after')} {new Date(checkRateLimit.resetAt).toLocaleTimeString()}
                     </span>
                   )}
                 </div>

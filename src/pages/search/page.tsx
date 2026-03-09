@@ -267,7 +267,7 @@ function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; u
 
     const popup = new mapboxgl.Popup({ offset: 10 }).setHTML(
       `<div class="p-2 text-sm">
-        <p class="font-medium text-gray-900">Votre position</p>
+        <p class="font-medium text-gray-900">${t('search.your_position')}</p>
       </div>`
     );
 
@@ -520,8 +520,8 @@ function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; u
           <div class="flex items-center gap-2 mb-2">
             <h3 class="font-semibold text-sm text-gray-900">${supplier.name}</h3>
             ${isExact 
-              ? '<span class="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Exact</span>'
-              : '<span class="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">Approximate</span>'
+              ? '<span class="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded">' + t('map.exact') + '</span>'
+              : '<span class="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">' + t('map.approximate') + '</span>'
             }
           </div>
           <p class="text-xs text-gray-600 mb-1">${supplier.category}</p>
@@ -611,7 +611,7 @@ function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; u
         </div>
         <div className="flex items-center gap-2">
           <i className="ri-user-fill text-blue-500"></i>
-          <span>Votre position</span>
+          <span>{t('search.your_position')}</span>
         </div>
       </div>
 
@@ -871,7 +871,7 @@ export default function Search() {
   // Request user's geolocation
   const requestUserLocation = () => {
     if (!navigator.geolocation) {
-      setLocationError('La géolocalisation n\'est pas supportée par votre navigateur');
+      setLocationError(t('search.location_not_supported'));
       return;
     }
 
@@ -890,16 +890,16 @@ export default function Search() {
         setLocationLoading(false);
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            setLocationError('Vous avez refusé l\'accès à votre position');
+            setLocationError(t('search.location_permission_denied'));
             break;
           case error.POSITION_UNAVAILABLE:
-            setLocationError('Position indisponible');
+            setLocationError(t('search.location_unavailable'));
             break;
           case error.TIMEOUT:
-            setLocationError('Délai de demande de position dépassé');
+            setLocationError(t('search.location_timeout'));
             break;
           default:
-            setLocationError('Erreur lors de l\'obtention de la position');
+            setLocationError(t('search.location_error'));
         }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
@@ -1024,7 +1024,7 @@ export default function Search() {
             sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | 'alpha_asc' | 'alpha_desc' | undefined,
           }),
           30000, // 30 second timeout
-          'La recherche a pris trop de temps. Veuillez réessayer.'
+          t('search.timeout_error')
         );
         setSearchResults(result);
       } catch (error) {
@@ -1075,7 +1075,7 @@ export default function Search() {
             sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | 'alpha_asc' | 'alpha_desc' | undefined,
           }),
           30000,
-          'La recherche carte a pris trop de temps'
+          t('search.map_timeout_error')
         );
         setMapSearchResults(result);
       } catch (error) {
@@ -1265,12 +1265,12 @@ export default function Search() {
                       {locationLoading ? (
                         <>
                           <i className="ri-loader-4-line animate-spin"></i>
-                          <span>Localisation en cours...</span>
+                          <span>{t('search.locating')}</span>
                         </>
                       ) : (
                         <>
                           <i className="ri-crosshair-line"></i>
-                          <span>Utiliser ma position</span>
+                          <span>{t('search.use_my_location')}</span>
                         </>
                       )}
                     </button>
@@ -1278,12 +1278,12 @@ export default function Search() {
                     <div className="flex items-center justify-between px-3 py-2 bg-green-50 text-green-700 rounded-lg text-sm">
                       <span className="flex items-center gap-2">
                         <i className="ri-map-pin-fill"></i>
-                        <span>Ma position</span>
+                        <span>{t('search.my_location')}</span>
                       </span>
                       <button
                         onClick={() => setUserLocation(null)}
                         className="text-green-600 hover:text-green-800"
-                        title="Réinitialiser"
+                        title={t('search.reset')}
                       >
                         <i className="ri-close-line"></i>
                       </button>
@@ -1309,10 +1309,10 @@ export default function Search() {
                 </select>
                 <div className="text-xs text-gray-600 mt-1">
                   {userLocation 
-                    ? 'Distance depuis votre position actuelle'
+                    ? t('search.distance_from')
                     : filters.location 
-                      ? `Distance depuis ${filters.location}` 
-                      : 'Sélectionnez une ville ou utilisez votre position'
+                      ? t('search.distance_from_location', { location: filters.location })
+                      : t('search.select_city_or_use_position')
                   }
                 </div>
               </div>
@@ -1354,7 +1354,7 @@ export default function Search() {
               >
                 <span className="font-medium text-gray-700 flex items-center">
                   <i className="ri-filter-3-line mr-2 text-green-600"></i>
-                  {showFiltersMobile ? 'Masquer les filtres' : 'Afficher les filtres'}
+                  {showFiltersMobile ? t('search.hide_filters') : t('search.show_filters')}
                 </span>
                 <i className={`ri-arrow-${showFiltersMobile ? 'up' : 'down'}-line text-gray-400`}></i>
               </button>
@@ -1386,7 +1386,7 @@ export default function Search() {
                         {translatedQuery && (
                           <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full ml-2">
                             <i className="ri-translate-2 mr-1"></i>
-                            {t('search.translated_from') || 'Traduit depuis'}: "{translatedQuery}"
+                            {t('search.translated_from')}: "{translatedQuery}"
                           </span>
                         )}
                       </>
@@ -1523,7 +1523,7 @@ export default function Search() {
                               <i className="ri-map-pin-line mr-2 text-green-600 flex-shrink-0"></i>
                               <div className="min-w-0">
                                 <div className="font-medium truncate">{supplier.location}</div>
-                                <div className="text-xs text-gray-500">Adresse complète disponible</div>
+                                <div className="text-xs text-gray-500">{t('search.full_address_available')}</div>
                               </div>
                             </div>
                             <div className="flex items-center text-xs sm:text-sm text-gray-600">
@@ -1540,21 +1540,21 @@ export default function Search() {
                               <a
                                 href={`tel:${supplier.phone}`}
                                 className="p-2 text-gray-400 hover:text-green-600 transition-colors"
-                                title="Appeler"
+                                title={t('search.call')}
                               >
                                 <i className="ri-phone-line text-base sm:text-lg"></i>
                               </a>
                               <a
                                 href={`mailto:${supplier.email}`}
                                 className="p-2 text-gray-400 hover:text-green-600 transition-colors"
-                                title="Envoyer un email"
+                                title={t('search.send_email')}
                               >
                                 <i className="ri-mail-line text-base sm:text-lg"></i>
                               </a>
                               <button
                                 onClick={() => (document.querySelector('#vapi-widget-floating-button') as HTMLElement | null)?.click()}
                                 className="p-2 text-gray-400 hover:text-purple-600 transition-colors"
-                                title="Prendre rendez-vous"
+                                title={t('search.make_appointment')}
                               >
                                 <i className="ri-calendar-line text-base sm:text-lg"></i>
                               </button>
@@ -1563,7 +1563,7 @@ export default function Search() {
                               to={`/supplier/${supplier.id}`}
                               className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
                             >
-                              Voir détails
+                              {t('search.view_details')}
                             </Link>
                           </div>
                         </div>

@@ -427,7 +427,7 @@ export default function SupplierDetail() {
     comment: r.comment || '',
     created_at: r.created_at || new Date().toISOString(),
     user_id: r.userId || '',
-    user_name: 'Client', // Convex reviews don't include user names by default
+    user_name: t('supplier.review_client') || 'Client', // Convex reviews don't include user names by default
     sourceLanguage: r.sourceLanguage,
   }));
 
@@ -451,7 +451,7 @@ export default function SupplierDetail() {
         showToast('error', t('supplier.contact_error'));
       }
     } catch (error) {
-      console.error('Erreur d\'envoi du formulaire:', error);
+      console.error(t('supplier.form_error'), error);
       showToast('error', t('supplier.contact_error'));
     } finally {
       setIsSubmitting(false);
@@ -478,7 +478,7 @@ export default function SupplierDetail() {
         refetchSupplierData();
       }, 500); // Small delay to ensure the backend has processed the review
     } catch (error: any) {
-      console.error('Erreur d\'envoi de l\'avis:', error);
+      console.error(t('supplier.review_send_error'), error);
       showToast('error', t('supplier.review_error'));
     } finally {
       setReviewSubmitting(false);
@@ -508,7 +508,7 @@ export default function SupplierDetail() {
       setShowInternalMessageForm(false);
       setInternalMessageForm({ name: '', email: '', phone: '', message: '' });
     } catch (error: any) {
-      console.error('Erreur d\'envoi du message:', error);
+      console.error(t('supplier.message_send_error'), error);
       showToast('error', t('supplier.message_sent_error'));
     } finally {
       setIsSendingInternalMessage(false);
@@ -549,10 +549,10 @@ export default function SupplierDetail() {
             <i className="ri-time-line text-3xl"></i>
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Le chargement prend plus de temps que prévu
+            {t('supplier.loading_timeout_title')}
           </h3>
           <p className="text-gray-600 mb-4">
-            Impossible de charger les détails du fournisseur. Veuillez réessayer.
+            {t('supplier.loading_timeout_desc')}
           </p>
           <div className="flex gap-3 justify-center">
             <button
@@ -560,13 +560,13 @@ export default function SupplierDetail() {
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
               <i className="ri-refresh-line mr-2"></i>
-              Réessayer
+              {t('supplier.retry')}
             </button>
             <Link
               to="/search"
               className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              Retour à la recherche
+              {t('supplier.back_to_search')}
             </Link>
           </div>
         </div>

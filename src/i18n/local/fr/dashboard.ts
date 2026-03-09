@@ -88,6 +88,20 @@ export const dashboard = {
   "feature.custom_domain": "Domaine personnalisé",
   "feature.unlimited": "Illimité",
 
+  // Gallery section
+  "gallery.title": "Gestion de la galerie",
+  "gallery.subtitle": "Gérez vos photos pour présenter vos services aux clients.",
+  "gallery.edit": "Modifier",
+  "gallery.cancel": "Annuler",
+  "gallery.save": "Enregistrer",
+  "gallery.saving": "Enregistrement...",
+  "gallery.photo_limit": "Photos: {{count}} / {{max}} (limite abonnement {{plan}})",
+  "gallery.add_image_url": "Ajouter une image URL",
+  "gallery.placeholder_url": "https://example.com/image.jpg",
+  "gallery.add": "Ajouter",
+  "gallery.no_photos": "Aucune photo dans votre galerie",
+  "gallery.add_photos": "Ajouter des photos",
+
   // Upgrade messages
   "dashboard.upgrade.analytics": "Les analytics avancées nécessitent le plan Basic (ou supérieur).",
   "dashboard.upgrade.products": "La gestion avancée des produits est disponible à partir du plan Basic.",
@@ -140,7 +154,23 @@ export const dashboard = {
   "dashboard.tour.notifications.title": "Notifications",
   "dashboard.tour.notifications.content": "Restez informé des activités importantes de votre entreprise.",
   "dashboard.tour.complete.title": "Visite guidée terminée",
-  "dashboard.tour.complete.content": "Vous avez terminé la visite guidée. Explorez votre tableau de bord et n'hésitez pas à revenir ici si vous avez des questions."
-};
+  // Loading and messages
+  "loading.title": "Chargement du tableau de bord...",
+  "loading.timeout_title": "Le chargement prend plus de temps que prévu",
+  "loading.timeout_message": "Veuillez patienter ou réessayer. Si le problème persiste, vérifiez votre connexion internet.",
+  "loading.retry": "Réessayer",
+
+  // Actions
+  "action.edit": "Modifier",
+  "action.cancel": "Annuler",
+  "action.save": "Enregistrer",
+  "action.delete": "Supprimer",
+  "action.add": "Ajouter",
+  "action.close": "Fermer",
+
+  // Status
+  "status.active": "Actif",
+  "status.inactive": "Inactif",
+  "status.pending": "En attente",
 
 export default dashboard;

@@ -87,6 +87,20 @@ export const dashboard = {
   "feature.priority_support": "Priority Support",
   "feature.custom_domain": "Custom Domain",
   "feature.unlimited": "Unlimited",
+  
+  // Gallery section
+  "gallery.title": "Gallery Management",
+  "gallery.subtitle": "Manage your photos to showcase your services to customers.",
+  "gallery.edit": "Edit",
+  "gallery.cancel": "Cancel",
+  "gallery.save": "Save",
+  "gallery.saving": "Saving...",
+  "gallery.photo_limit": "Photos: {{count}} / {{max}} (subscription limit {{plan}})",
+  "gallery.add_image_url": "Add Image URL",
+  "gallery.placeholder_url": "https://example.com/image.jpg",
+  "gallery.add": "Add",
+  "gallery.no_photos": "No photos in your gallery",
+  "gallery.add_photos": "Add photos",
 
   // Upgrade messages
   "dashboard.upgrade.analytics": "Advanced analytics require the Basic plan (or higher).",
@@ -140,7 +154,18 @@ export const dashboard = {
   "dashboard.tour.notifications.title": "Notifications",
   "dashboard.tour.notifications.content": "Stay informed about important business activities.",
   "dashboard.tour.complete.title": "Guided tour completed",
-  "dashboard.tour.complete.content": "You have completed the guided tour. Explore your dashboard and feel free to return here if you have any questions."
+  "dashboard.tour.complete.content": "You have completed the guided tour. Explore your dashboard and feel free to return here if you have any questions.",
+
+  // Loading and messages
+  "loading.title": "Loading dashboard...",
+  "loading.timeout_title": "Loading is taking longer than expected",
+  "loading.timeout_message": "Please wait or try again. If the problem persists, check your internet connection.",
+  "loading.retry": "Retry",
+
+  // Success messages for products
+  "dashboard.success.product_added": "Product added successfully",
+  "dashboard.success.product_updated": "Product updated",
+  "dashboard.success.product_deleted": "Product deleted"
 };
 
 export default dashboard;

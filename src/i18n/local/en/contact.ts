@@ -30,7 +30,11 @@ export const contact = {
   "contact.placeholder_email": "your@email.com",
   "contact.placeholder_subject": "Subject of your message",
   "contact.placeholder_message": "Describe your request in detail...",
-  "contact.char_count": "characters"
+  "contact.char_count": "characters",
+  "contact.rate_limited": "Too many requests. Please try again later.",
+  "contact.try_again_after": "Try again after",
+  "contact.office_name": "Suji Office",
+  "contact.office_address": "Victoria Island, Lagos"
 };
 
 export default contact;
