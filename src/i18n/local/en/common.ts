@@ -161,7 +161,16 @@ export const common = {
   "translation.view_translation": "View translation",
   "translation.translated_by": "Translated by DeepL",
   "translation.translated_from": "Translated from",
-  "translation.loading": "Translating..."
+  "translation.loading": "Translating...",
+  
+  // Read more / Show less
+  "common.read_more": "Read more",
+  "common.show_less": "Show less",
+  "common.translated_from_english": "Translated from English",
+  
+  // Search translation (Alibaba-style)
+  "search.translating": "Translating...",
+  "search.translated_from": "Translated from"
 };
 
 export default common;

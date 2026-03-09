@@ -61,7 +61,11 @@ export const search = {
   "results.reviews": "reviews",
   "results.view_profile": "View Profile",
   "results.contact": "Contact",
-  "results.no_match": "No suppliers match the selected filters."
+  "results.no_match": "No suppliers match the selected filters.",
+  
+  // Search translation (Alibaba-style)
+  "search.translating": "Translating...",
+  "search.translated_from": "Translated from"
 };
 
 export default search;

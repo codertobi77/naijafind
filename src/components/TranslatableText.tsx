@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useDeepLTranslation } from "../hooks/useDeepLTranslation";
-import i18n from "../i18n";
+import { normalizeLanguageCode } from "../i18n";
+import { useTranslation } from "react-i18next";
 
 interface TranslatableTextProps {
   text: string | null | undefined;
@@ -26,7 +27,8 @@ export const TranslatableText: React.FC<TranslatableTextProps> = ({
   const { translate, isTranslating } = useDeepLTranslation();
   const [translatedText, setTranslatedText] = useState<string | null>(null);
   const [showOriginal, setShowOriginal] = useState(true);
-  const currentLanguage = i18n.language;
+  const { i18n } = useTranslation();
+  const currentLanguage = normalizeLanguageCode(i18n.language);
 
   useEffect(() => {
     const loadTranslation = async () => {
@@ -88,12 +90,13 @@ export const TranslatableParagraph: React.FC<TranslatableParagraphProps> = ({
   text,
   className = "",
   maxLength = 200,
-  readMoreLabel = "Read more",
+  readMoreLabel,
 }) => {
   const [expanded, setExpanded] = useState(false);
   const { translate, isTranslating } = useDeepLTranslation();
   const [translatedText, setTranslatedText] = useState<string | null>(null);
-  const currentLanguage = i18n.language;
+  const { i18n, t } = useTranslation();
+  const currentLanguage = normalizeLanguageCode(i18n.language);
 
   useEffect(() => {
     const loadTranslation = async () => {
@@ -135,13 +138,13 @@ export const TranslatableParagraph: React.FC<TranslatableParagraphProps> = ({
           onClick={() => setExpanded(!expanded)}
           className="text-blue-600 hover:text-blue-800 text-sm mt-1 font-medium"
         >
-          {expanded ? "Show less" : readMoreLabel}
+          {expanded ? t('common.show_less', 'Show less') : (readMoreLabel || t('common.read_more', 'Read more'))}
         </button>
       )}
 
       {translatedText && (
         <p className="text-xs text-gray-400 mt-1 italic">
-          Translated from English
+          {t('common.translated_from_english', 'Translated from English')}
         </p>
       )}
     </div>
@@ -167,7 +170,8 @@ export function BatchTranslatableList<T>({
 }: BatchTranslatableListProps<T>) {
   const { translateBatch, isTranslating } = useDeepLTranslation();
   const [translations, setTranslations] = useState<Map<number, string>>(new Map());
-  const currentLanguage = i18n.language;
+  const { i18n } = useTranslation();
+  const currentLanguage = normalizeLanguageCode(i18n.language);
 
   useEffect(() => {
     const loadTranslations = async () => {

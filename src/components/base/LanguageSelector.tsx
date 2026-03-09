@@ -1,12 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-
-interface Language {
-  code: string;
-  name: string;
-  nativeName: string;
-  flag: string;
-}
+import { supportedLanguages, normalizeLanguageCode, SupportedLanguageCode } from '../../i18n';
 
 const LanguageSelector: React.FC = () => {
   const { i18n, t } = useTranslation();
@@ -16,20 +10,20 @@ const LanguageSelector: React.FC = () => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  const languages: Language[] = [
-    { code: 'en', name: 'English', nativeName: 'English', flag: '🇺🇸' },
-    { code: 'fr', name: 'French', nativeName: 'Français', flag: '🇫🇷' }
-  ];
+  // Normalize the current language code
+  const currentLanguageCode = normalizeLanguageCode(i18n.language);
+  
+  const currentLanguage = supportedLanguages.find(lang => lang.code === currentLanguageCode) || supportedLanguages[0];
+  const currentIndex = supportedLanguages.findIndex(lang => lang.code === currentLanguage.code);
 
-  const currentLanguage = languages.find(lang => lang.code === i18n.language) || languages[0];
-  const currentIndex = languages.findIndex(lang => lang.code === currentLanguage.code);
-
-  const handleLanguageChange = useCallback((languageCode: string) => {
-    i18n.changeLanguage(languageCode);
+  const handleLanguageChange = useCallback((languageCode: SupportedLanguageCode) => {
+    if (languageCode !== currentLanguageCode) {
+      i18n.changeLanguage(languageCode);
+    }
     setIsOpen(false);
     setFocusedIndex(-1);
     buttonRef.current?.focus();
-  }, [i18n]);
+  }, [i18n, currentLanguageCode]);
 
   const handleToggle = useCallback(() => {
     setIsOpen(prev => {
@@ -61,11 +55,11 @@ const LanguageSelector: React.FC = () => {
         break;
       case 'ArrowDown':
         event.preventDefault();
-        setFocusedIndex(prev => (prev + 1) % languages.length);
+        setFocusedIndex(prev => (prev + 1) % supportedLanguages.length);
         break;
       case 'ArrowUp':
         event.preventDefault();
-        setFocusedIndex(prev => (prev - 1 + languages.length) % languages.length);
+        setFocusedIndex(prev => (prev - 1 + supportedLanguages.length) % supportedLanguages.length);
         break;
       case 'Home':
         event.preventDefault();
@@ -73,13 +67,13 @@ const LanguageSelector: React.FC = () => {
         break;
       case 'End':
         event.preventDefault();
-        setFocusedIndex(languages.length - 1);
+        setFocusedIndex(supportedLanguages.length - 1);
         break;
       case 'Enter':
       case ' ':
         event.preventDefault();
-        if (focusedIndex >= 0 && focusedIndex < languages.length) {
-          handleLanguageChange(languages[focusedIndex].code);
+        if (focusedIndex >= 0 && focusedIndex < supportedLanguages.length) {
+          handleLanguageChange(supportedLanguages[focusedIndex].code);
         }
         break;
       case 'Tab':
@@ -90,15 +84,15 @@ const LanguageSelector: React.FC = () => {
       default:
         // Type-ahead: focus language starting with pressed key
         const char = event.key.toLowerCase();
-        const matchIndex = languages.findIndex(
-          lang => lang.name.toLowerCase().startsWith(char) || lang.nativeName.toLowerCase().startsWith(char)
+        const matchIndex = supportedLanguages.findIndex(
+          lang => lang.name.toLowerCase().startsWith(char) || lang.code.toLowerCase().startsWith(char)
         );
         if (matchIndex !== -1) {
           setFocusedIndex(matchIndex);
         }
         break;
     }
-  }, [isOpen, focusedIndex, languages, currentIndex, handleLanguageChange]);
+  }, [isOpen, focusedIndex, currentIndex, handleLanguageChange]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -143,7 +137,7 @@ const LanguageSelector: React.FC = () => {
         className="flex items-center space-x-2 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors cursor-pointer"
       >
         <span className="text-lg" aria-hidden="true">{currentLanguage.flag}</span>
-        <span className="text-sm font-medium text-gray-700">{currentLanguage.nativeName}</span>
+        <span className="text-sm font-medium text-gray-700">{currentLanguage.name}</span>
         <i 
           className={`ri-arrow-down-s-line text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
           aria-hidden="true"
@@ -156,11 +150,11 @@ const LanguageSelector: React.FC = () => {
           id={dropdownId}
           role="listbox"
           aria-label={t('common.available_languages', 'Available languages')}
-          aria-activedescendant={focusedIndex >= 0 ? `language-option-${languages[focusedIndex].code}` : undefined}
+          aria-activedescendant={focusedIndex >= 0 ? `language-option-${supportedLanguages[focusedIndex].code}` : undefined}
           tabIndex={-1}
           className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[160px] py-1 focus:outline-none"
         >
-          {languages.map((language, index) => {
+          {supportedLanguages.map((language, index) => {
             const isSelected = currentLanguage.code === language.code;
             const isFocused = focusedIndex === index;
             
@@ -179,9 +173,9 @@ const LanguageSelector: React.FC = () => {
               >
                 <span className="text-lg" aria-hidden="true">{language.flag}</span>
                 <span className="text-sm flex-1">
-                  <span>{language.nativeName}</span>
-                  {language.nativeName !== language.name && (
-                    <span className="text-gray-400 ml-1">({language.name})</span>
+                  <span>{language.name}</span>
+                  {language.code !== 'en' && (
+                    <span className="text-gray-400 ml-1">({language.code})</span>
                   )}
                 </span>
                 {isSelected && (

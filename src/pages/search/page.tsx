@@ -6,6 +6,7 @@ import { Header } from '../../components/base';
 import { SupplierAvatar } from '../../components/SupplierImage';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { useAction } from 'convex/react';
+import { useMultilingualSearch } from '../../hooks/useMultilingualSearch';
 import type { Map, Marker, Popup } from 'mapbox-gl';
 
 // Helper function to add timeout to promises
@@ -973,21 +974,40 @@ export default function Search() {
   // Use user's location if available, otherwise fall back to selected city coordinates
   const effectiveLocationCoords = userLocation || getLocationCoords(filters.location);
   
+  // Multilingual search hook for Alibaba-style search
+  const { translateQuery, isTranslating: isSearchTranslating } = useMultilingualSearch();
+
   // Setup action for search
   const searchSuppliersAction = useAction(api.suppliers.searchSuppliers);
   const [searchResults, setSearchResults] = useState<any>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [translatedQuery, setTranslatedQuery] = useState<string | null>(null);
   
-  // Perform search when filters change
+  // Perform search when filters change (with multilingual support)
   useEffect(() => {
     const performSearch = async () => {
       setLoading(true);
       setPaginationLoading(currentPage > 0);
+      setTranslatedQuery(null);
       
       try {
+        // Translate query to English for search (Alibaba-style)
+        let searchQuery = filters.query;
+        if (filters.query && filters.query.trim()) {
+          const translationResult = await translateQuery(filters.query.trim(), {
+            skipIfEnglish: true,
+            detectSourceLang: true,
+          });
+          
+          if (translationResult.wasTranslated) {
+            searchQuery = translationResult.translatedQuery;
+            setTranslatedQuery(filters.query); // Store original query for display
+          }
+        }
+      
         const result = await withTimeout(
           searchSuppliersAction({
-            q: filters.query || undefined,
+            q: searchQuery || undefined,
             category: filters.category || undefined,
             location: filters.location || undefined,
             lat: effectiveLocationCoords?.lat,
@@ -1013,9 +1033,9 @@ export default function Search() {
     };
     
     void performSearch();
-  }, [filters, currentPage, sortBy, effectiveLocationCoords?.lat, effectiveLocationCoords?.lng]);
+  }, [filters, currentPage, sortBy, effectiveLocationCoords?.lat, effectiveLocationCoords?.lng, translateQuery]);
   
-  // Perform map search when viewMode changes to map
+  // Perform map search when viewMode changes to map (with multilingual support)
   useEffect(() => {
     if (viewMode !== 'map') return;
     
@@ -1023,9 +1043,22 @@ export default function Search() {
       setAllSuppliersLoading(true);
       
       try {
+        // Translate query to English for search (Alibaba-style)
+        let searchQuery = filters.query;
+        if (filters.query && filters.query.trim()) {
+          const translationResult = await translateQuery(filters.query.trim(), {
+            skipIfEnglish: true,
+            detectSourceLang: true,
+          });
+          
+          if (translationResult.wasTranslated) {
+            searchQuery = translationResult.translatedQuery;
+          }
+        }
+        
         const result = await withTimeout(
           searchSuppliersAction({
-            q: filters.query || undefined,
+            q: searchQuery || undefined,
             category: filters.category || undefined,
             location: filters.location || undefined,
             lat: effectiveLocationCoords?.lat,
@@ -1049,7 +1082,7 @@ export default function Search() {
     };
     
     void performMapSearch();
-  }, [viewMode, filters, sortBy, effectiveLocationCoords?.lat, effectiveLocationCoords?.lng]);
+  }, [viewMode, filters, sortBy, effectiveLocationCoords?.lat, effectiveLocationCoords?.lng, translateQuery]);
 
   // Process paginated suppliers for list view
   useEffect(() => {
@@ -1330,11 +1363,11 @@ export default function Search() {
                   <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
                     {t('search.results_title')}
                   </h1>
-                  <p className="text-gray-600 text-sm sm:text-base flex items-center">
-                    {loading ? (
+                  <p className="text-gray-600 text-sm sm:text-base flex items-center flex-wrap gap-2">
+                    {loading || isSearchTranslating ? (
                       <>
                         <i className="ri-loader-4-line animate-spin mr-2"></i>
-                        {t('search.loading')}
+                        {isSearchTranslating ? t('search.translating') || 'Traduction...' : t('search.loading')}
                       </>
                     ) : (
                       <>
@@ -1345,6 +1378,12 @@ export default function Search() {
                           <>
                             {currentPage * itemsPerPage + 1}-{Math.min((currentPage + 1) * itemsPerPage, totalCount)}/{totalCount} {t('search.suppliers')}
                           </>
+                        )}
+                        {translatedQuery && (
+                          <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full ml-2">
+                            <i className="ri-translate-2 mr-1"></i>
+                            {t('search.translated_from') || 'Traduit depuis'}: "{translatedQuery}"
+                          </span>
                         )}
                       </>
                     )}

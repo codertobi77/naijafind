@@ -2,6 +2,16 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { AppRoutes } from './router';
+import { useLanguageInit, useLanguageSync } from './hooks/useMultilingualSearch';
+
+function AppContent() {
+  // Initialize language from storage or browser
+  useLanguageInit();
+  // Sync language across tabs
+  useLanguageSync();
+
+  return <AppRoutes />;
+}
 
 function App() {
   const [showTop, setShowTop] = useState(false);
@@ -20,7 +30,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <AppRoutes />
+      <AppContent />
       {showTop && (
         <button
           style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 50 }}

@@ -14,6 +14,16 @@ export const supportedLanguages = [
 export type SupportedLanguageCode = typeof supportedLanguages[number]['code'];
 
 /**
+ * Normalize language code to supported format
+ * Converts 'en-US' to 'en', 'fr-FR' to 'fr', etc.
+ */
+export const normalizeLanguageCode = (lng: string): SupportedLanguageCode => {
+  const baseCode = lng.split('-')[0].toLowerCase();
+  const isSupported = supportedLanguages.some(l => l.code === baseCode);
+  return isSupported ? (baseCode as SupportedLanguageCode) : 'en';
+};
+
+/**
  * LocalStorage key for language preference
  */
 const LANGUAGE_STORAGE_KEY = 'suji_language_preference';
@@ -25,13 +35,19 @@ export const getStoredLanguage = (): SupportedLanguageCode | null => {
   if (typeof window === 'undefined') return null;
   try {
     const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
-    if (stored && supportedLanguages.some(l => l.code === stored)) {
-      return stored as SupportedLanguageCode;
+    if (stored) {
+      const normalized = normalizeLanguageCode(stored);
+      if (supportedLanguages.some(l => l.code === normalized)) {
+        return normalized;
+      }
     }
     // Also check i18next's storage
     const i18nextStored = localStorage.getItem('i18nextLng');
-    if (i18nextStored && supportedLanguages.some(l => l.code === i18nextStored)) {
-      return i18nextStored as SupportedLanguageCode;
+    if (i18nextStored) {
+      const normalized = normalizeLanguageCode(i18nextStored);
+      if (supportedLanguages.some(l => l.code === normalized)) {
+        return normalized;
+      }
     }
   } catch {
     // localStorage not available
@@ -53,17 +69,29 @@ export const setStoredLanguage = (lang: SupportedLanguageCode): void => {
 };
 
 /**
+ * Get browser language
+ */
+export const getBrowserLanguage = (): SupportedLanguageCode => {
+  if (typeof navigator === 'undefined') return 'en';
+  const browserLang = navigator.language || (navigator as any).userLanguage || 'en';
+  return normalizeLanguageCode(browserLang);
+};
+
+/**
  * Update HTML document attributes when language changes
  * - Sets the lang attribute for accessibility and SEO
  * - Sets the dir attribute for RTL language support
  */
 const updateDocumentLanguage = (lng: string) => {
   if (typeof document !== 'undefined') {
+    // Normalize language code
+    const normalizedLang = normalizeLanguageCode(lng);
+    
     // Set the lang attribute on the html element
-    document.documentElement.lang = lng;
+    document.documentElement.lang = normalizedLang;
     
     // Find the language config to get direction
-    const langConfig = supportedLanguages.find(l => l.code === lng);
+    const langConfig = supportedLanguages.find(l => l.code === normalizedLang);
     const dir = langConfig?.dir || 'ltr';
     
     // Set the dir attribute for RTL support
@@ -76,21 +104,33 @@ const updateDocumentLanguage = (lng: string) => {
       metaLang.setAttribute('http-equiv', 'content-language');
       document.head.appendChild(metaLang);
     }
-    metaLang.setAttribute('content', lng);
+    metaLang.setAttribute('content', normalizedLang);
     
     // Store the language preference
-    setStoredLanguage(lng as SupportedLanguageCode);
+    setStoredLanguage(normalizedLang);
   }
 };
 
-// Get stored language or default to 'en'
-const storedLanguage = getStoredLanguage();
+// Get initial language: stored preference > browser language > default 'en'
+const getInitialLanguage = (): SupportedLanguageCode => {
+  const stored = getStoredLanguage();
+  if (stored) return stored;
+  
+  const browser = getBrowserLanguage();
+  if (supportedLanguages.some(l => l.code === browser)) {
+    return browser;
+  }
+  
+  return 'en';
+};
+
+const initialLanguage = getInitialLanguage();
 
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    lng: storedLanguage || 'en',
+    lng: initialLanguage,
     fallbackLng: 'en',
     debug: false,
     resources: messages,
@@ -103,6 +143,7 @@ i18n
       caches: ['localStorage'],
       lookupLocalStorage: 'i18nextLng',
     },
+    load: 'languageOnly', // Only load 'en' not 'en-US'
   });
 
 // Set initial document language
@@ -111,6 +152,16 @@ updateDocumentLanguage(i18n.language);
 // Listen for language changes and update document
 i18n.on('languageChanged', (lng) => {
   updateDocumentLanguage(lng);
+});
+
+// Also listen for initialization to ensure correct language is set
+i18n.on('initialized', () => {
+  const currentLang = i18n.language;
+  const normalized = normalizeLanguageCode(currentLang);
+  if (currentLang !== normalized) {
+    i18n.changeLanguage(normalized);
+  }
+  updateDocumentLanguage(normalized);
 });
 
 export default i18n;
