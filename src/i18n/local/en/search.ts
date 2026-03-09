@@ -1,10 +1,10 @@
 export const search = {
   // Search page
-  "search.title": "Search Suppliers",
+  "search.title": "Search Suppliers by Product",
   "search.results": "results found",
   "search.results_title": "Search Results",
   "search.no_results": "No suppliers found",
-  "search.no_results_desc": "Try adjusting your filters or search terms",
+  "search.no_results_desc": "Try searching for a product name (e.g., iPhone, rice, car) or category",
   "search.filters": "Filters",
   "search.sort": "Sort by",
   "search.sort.relevance": "Relevance",
@@ -13,14 +13,19 @@ export const search = {
   "search.sort.name": "Name",
   "search.sort.alpha_asc": "Name (A-Z)",
   "search.sort.alpha_desc": "Name (Z-A)",
-  "search.placeholder": "Name or description...",
-  "search.suggestions": "Suggestions:",
+  "search.placeholder": "Search by product (iPhone, rice...) or category",
+  "search.suggestions": "Try searching for:",
   "search.loading": "Loading suppliers...",
   "search.showing": "Showing",
   "search.of": "of",
   "search.suppliers": "suppliers",
   "search.total_suppliers": "{{count}} total suppliers found",
   "search.total_suppliers_count": "{{count}} total suppliers",
+  "search.intelligent_hint": "Search any product to find all suppliers in that category",
+  
+  // Category match indicator
+  "search.category_match": "Showing suppliers in category: {{category}}",
+  "search.product_match": "Found from product: {{product}}",
   
   // Filters
   "filter.category": "Category",
@@ -65,7 +70,24 @@ export const search = {
   
   // Search translation (Alibaba-style)
   "search.translating": "Translating...",
-  "search.translated_from": "Translated from"
+  "search.translated_from": "Translated from",
+  
+  // Location and UI
+  "search.locating": "Locating...",
+  "search.use_my_location": "Use my location",
+  "search.my_location": "My location",
+  "search.reset": "Reset",
+  "search.hide_filters": "Hide filters",
+  "search.show_filters": "Show filters",
+  "search.verified": "Verified",
+  "search.full_address_available": "Full address available",
+  "search.call": "Call",
+  "search.send_email": "Send email",
+  "search.make_appointment": "Make appointment",
+  "search.view_details": "View details",
+  "search.distance_from": "Distance from your current position",
+  "search.distance_from_location": "Distance from {{location}}",
+  "search.select_city_or_use_position": "Select a city or use your position"
 };
 
 export default search;

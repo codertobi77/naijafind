@@ -1,10 +1,10 @@
 export const search = {
   // Search page
-  "search.title": "Rechercher des fournisseurs",
+  "search.title": "Rechercher des fournisseurs par produit",
   "search.results": "résultats trouvés",
   "search.results_title": "Résultats de recherche",
   "search.no_results": "Aucun fournisseur trouvé",
-  "search.no_results_desc": "Essayez d'ajuster vos filtres ou termes de recherche",
+  "search.no_results_desc": "Essayez de chercher un produit (ex: iPhone, riz, voiture) ou une catégorie",
   "search.filters": "Filtres",
   "search.sort": "Trier par",
   "search.sort.relevance": "Pertinence",
@@ -13,13 +13,19 @@ export const search = {
   "search.sort.name": "Nom",
   "search.sort.alpha_asc": "Nom (A-Z)",
   "search.sort.alpha_desc": "Nom (Z-A)",
-  "search.placeholder": "Nom ou description...",
-  "search.suggestions": "Suggestions :",
+  "search.placeholder": "Cherchez un produit (iPhone, riz...) ou catégorie",
+  "search.suggestions": "Essayez :",
   "search.loading": "Chargement des fournisseurs...",
   "search.showing": "Affichage de",
   "search.of": "sur",
   "search.suppliers": "fournisseurs",
   "search.total_suppliers": "{{count}} fournisseurs au total",
+  "search.total_suppliers_count": "{{count}} fournisseurs totaux",
+  "search.intelligent_hint": "Recherchez n'importe quel produit pour trouver tous les fournisseurs de cette catégorie",
+  
+  // Category match indicator
+  "search.category_match": "Fournisseurs dans la catégorie : {{category}}",
+  "search.product_match": "Trouvé via le produit : {{product}}",
   
   // Filters
   "filter.category": "Catégorie",
@@ -64,7 +70,24 @@ export const search = {
   
   // Search translation (Alibaba-style)
   "search.translating": "Traduction...",
-  "search.translated_from": "Traduit depuis"
+  "search.translated_from": "Traduit depuis",
+  
+  // Location and UI
+  "search.locating": "Localisation en cours...",
+  "search.use_my_location": "Utiliser ma position",
+  "search.my_location": "Ma position",
+  "search.reset": "Réinitialiser",
+  "search.hide_filters": "Masquer les filtres",
+  "search.show_filters": "Afficher les filtres",
+  "search.verified": "Vérifié",
+  "search.full_address_available": "Adresse complète disponible",
+  "search.call": "Appeler",
+  "search.send_email": "Envoyer un email",
+  "search.make_appointment": "Prendre rendez-vous",
+  "search.view_details": "Voir détails",
+  "search.distance_from": "Distance depuis votre position actuelle",
+  "search.distance_from_location": "Distance depuis {{location}}",
+  "search.select_city_or_use_position": "Sélectionnez une ville ou utilisez votre position"
 };
 
 export default search;

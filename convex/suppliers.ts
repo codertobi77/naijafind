@@ -228,8 +228,33 @@ export const _getProductsForSearch = internalQuery({
 });
 
 /**
- * Search suppliers - OPTIMIZED ACTION VERSION
- * Uses internal queries to minimize bandwidth and improve performance
+ * Internal query: Get categories with minimal fields for search
+ */
+export const _getCategoriesForSearch = internalQuery({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 500;
+    const categories = await ctx.db.query("categories").take(limit);
+    
+    return categories.map(c => ({
+      _id: c._id,
+      name: c.name,
+      description: c.description,
+    }));
+  },
+});
+
+/**
+ * Search suppliers by PRODUCT - INTELLIGENT SEARCH
+ * When searching for a product, finds the product's category and returns ALL suppliers in that category
+ * regardless of whether they have that specific product.
+ * 
+ * Examples:
+ * - Search "iPhone" → finds category "Electronics" → returns ALL Electronics suppliers
+ * - Search "rice" → finds category "Food" → returns ALL Food suppliers
+ * - Search "Electronics" directly → returns ALL Electronics suppliers
  */
 export const searchSuppliers = action({
   args: {
@@ -252,35 +277,68 @@ export const searchSuppliers = action({
 
     // Use internal query to fetch suppliers with minimal fields
     const suppliers = await ctx.runQuery(internal.suppliers._searchSuppliersInternal, {
-      limit: 5000, // Support 4000+ suppliers
+      limit: 5000,
       offset: 0,
     });
 
+    // Use internal query to fetch categories
+    const categories = await ctx.runQuery(internal.suppliers._getCategoriesForSearch, { limit: 500 });
+
+    // Use internal query to fetch products for intelligent category matching
+    const products = await ctx.runQuery(internal.suppliers._getProductsForSearch, { limit: 1000 });
+
     let all = [...suppliers];
 
+    // Determine target categories based on search query
+    let targetCategories: Set<string> = new Set();
+    let searchQueryUsed = false;
+
     if (args.q && args.q.trim()) {
-      const q = args.q.toLowerCase();
+      const q = args.q.toLowerCase().trim();
+      searchQueryUsed = true;
       
-      // Get products with minimal fields
-      const products = await ctx.runQuery(internal.suppliers._getProductsForSearch, { limit: 1000 });
-      
-      // Find suppliers that have matching products
-      const supplierIdsWithMatchingProducts = new Set<string>();
+      // STRATEGY 1: Find products matching the query → get their categories
+      const productMatchingCategories = new Set<string>();
       products.forEach(product => {
         if (product.name?.toLowerCase().includes(q) || 
             product.description?.toLowerCase().includes(q)) {
-          supplierIdsWithMatchingProducts.add(product.supplierId);
+          if (product.category) {
+            productMatchingCategories.add(product.category.toLowerCase());
+          }
         }
       });
       
-      all = all.filter(s =>
-        (s.business_name?.toLowerCase().includes(q)) ||
-        (s.description?.toLowerCase().includes(q)) ||
-        supplierIdsWithMatchingProducts.has(s._id as unknown as string)
-      );
+      // STRATEGY 2: Find categories directly matching the query
+      const directMatchingCategories = new Set<string>();
+      categories.forEach(cat => {
+        if (cat.name?.toLowerCase().includes(q) || 
+            cat.description?.toLowerCase().includes(q)) {
+          directMatchingCategories.add(cat.name.toLowerCase());
+        }
+      });
+      
+      // Combine all matching categories
+      targetCategories = new Set([...productMatchingCategories, ...directMatchingCategories]);
+      
+      // If no category match found, fall back to traditional supplier name/description search
+      if (targetCategories.size === 0) {
+        all = all.filter(s =>
+          (s.business_name?.toLowerCase().includes(q)) ||
+          (s.description?.toLowerCase().includes(q))
+        );
+      } else {
+        // Filter suppliers by matching categories
+        all = all.filter(s => {
+          const supplierCategory = s.category?.toLowerCase() || '';
+          return Array.from(targetCategories).some(targetCat => 
+            supplierCategory === targetCat || supplierCategory.includes(targetCat)
+          );
+        });
+      }
     }
 
-    if (args.category) {
+    // Apply explicit category filter if provided (and no search query used)
+    if (args.category && !searchQueryUsed) {
       all = all.filter(s => s.category === args.category);
     }
 
@@ -350,7 +408,7 @@ export const searchSuppliers = action({
   },
 });
 
-// Legacy query version kept for backward compatibility
+// Legacy query version - now with intelligent product search
 export const searchSuppliersQuery = query({
   args: {
     q: v.optional(v.string()),
@@ -373,32 +431,68 @@ export const searchSuppliersQuery = query({
 
     // Use internal query to fetch suppliers
     const suppliers = await ctx.runQuery(internal.suppliers._searchSuppliersInternal, {
-      limit: 5000, // Support 4000+ suppliers
+      limit: 5000,
       offset: 0,
     });
 
+    // Fetch categories for intelligent search
+    const categories = await ctx.runQuery(internal.suppliers._getCategoriesForSearch, { limit: 500 });
+
+    // Fetch products for intelligent category matching
+    const products = await ctx.runQuery(internal.suppliers._getProductsForSearch, { limit: 1000 });
+
     let all = [...suppliers];
 
+    // Determine target categories based on search query
+    let targetCategories: Set<string> = new Set();
+    let searchQueryUsed = false;
+
     if (args.q && args.q.trim()) {
-      const q = args.q.toLowerCase();
-      const products = await ctx.runQuery(internal.suppliers._getProductsForSearch, { limit: 1000 });
+      const q = args.q.toLowerCase().trim();
+      searchQueryUsed = true;
       
-      const supplierIdsWithMatchingProducts = new Set<string>();
+      // STRATEGY 1: Find products matching the query → get their categories
+      const productMatchingCategories = new Set<string>();
       products.forEach(product => {
         if (product.name?.toLowerCase().includes(q) || 
             product.description?.toLowerCase().includes(q)) {
-          supplierIdsWithMatchingProducts.add(product.supplierId);
+          if (product.category) {
+            productMatchingCategories.add(product.category.toLowerCase());
+          }
         }
       });
       
-      all = all.filter(s =>
-        (s.business_name?.toLowerCase().includes(q)) ||
-        (s.description?.toLowerCase().includes(q)) ||
-        supplierIdsWithMatchingProducts.has(s._id as unknown as string)
-      );
+      // STRATEGY 2: Find categories directly matching the query
+      const directMatchingCategories = new Set<string>();
+      categories.forEach(cat => {
+        if (cat.name?.toLowerCase().includes(q) || 
+            cat.description?.toLowerCase().includes(q)) {
+          directMatchingCategories.add(cat.name.toLowerCase());
+        }
+      });
+      
+      // Combine all matching categories
+      targetCategories = new Set([...productMatchingCategories, ...directMatchingCategories]);
+      
+      // If no category match found, fall back to traditional supplier name/description search
+      if (targetCategories.size === 0) {
+        all = all.filter(s =>
+          (s.business_name?.toLowerCase().includes(q)) ||
+          (s.description?.toLowerCase().includes(q))
+        );
+      } else {
+        // Filter suppliers by matching categories
+        all = all.filter(s => {
+          const supplierCategory = s.category?.toLowerCase() || '';
+          return Array.from(targetCategories).some(targetCat => 
+            supplierCategory === targetCat || supplierCategory.includes(targetCat)
+          );
+        });
+      }
     }
 
-    if (args.category) {
+    // Apply explicit category filter if provided (and no search query used)
+    if (args.category && !searchQueryUsed) {
       all = all.filter(s => s.category === args.category);
     }
 

@@ -166,7 +166,11 @@ export const common = {
   // Read more / Show less
   "common.read_more": "Lire la suite",
   "common.show_less": "Réduire",
-  "common.translated_from_english": "Traduit de l'anglais"
+  "common.translated_from_english": "Traduit de l'anglais",
+  
+  // Search translation (Alibaba-style)
+  "search.translating": "Traduction...",
+  "search.translated_from": "Traduit depuis"
 };
 
 export default common;

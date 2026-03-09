@@ -53,6 +53,7 @@ export const home = {
   "newsletter.name_placeholder": "Your full name",
   "newsletter.email_placeholder": "your@email.com",
   "newsletter.sector": "Sector",
+  "newsletter.select_sector": "Select your sector",
   "newsletter.sector_placeholder": "Select your sector",
   "newsletter.subscribe": "Subscribe to newsletter"
 };
