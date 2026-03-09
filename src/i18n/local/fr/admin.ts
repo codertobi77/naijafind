@@ -129,7 +129,28 @@ export const admin = {
   "admin.init_categories_disabled": "L'initialisation des catégories est désactivée",
   "admin.refresh": "Rafraîchir",
   "admin.refresh_suppliers": "Rafraîchir la liste des fournisseurs",
-  "admin.suppliers_refreshed": "Liste des fournisseurs rafraîchie"
+  "admin.suppliers_refreshed": "Liste des fournisseurs rafraîchie",
+  
+  // Filter and sorting
+  "admin.all": "Tous",
+  "admin.search": "Recherche",
+  "admin.sort_by": "Trier par",
+  "admin.reset": "Réinitialiser",
+  "admin.all_categories": "Toutes les catégories",
+  "admin.search_placeholder": "Rechercher par nom, email, ville...",
+  "admin.search_categories_placeholder": "Rechercher par nom ou description...",
+  "admin.search_products_placeholder": "Rechercher par nom ou description...",
+  "admin.newest_first": "Plus récents d'abord",
+  "admin.oldest_first": "Plus anciens d'abord",
+  "admin.name_az": "Nom (A-Z)",
+  "admin.name_za": "Nom (Z-A)",
+  "admin.category_az": "Catégorie (A-Z)",
+  "admin.city_az": "Ville (A-Z)",
+  "admin.price_low_high": "Prix (croissant)",
+  "admin.price_high_low": "Prix (décroissant)",
+  "admin.stock_low_high": "Stock (croissant)",
+  "admin.stock_high_low": "Stock (décroissant)",
+  "admin.out_of_stock": "Rupture de stock"
 };
 
 export default admin;

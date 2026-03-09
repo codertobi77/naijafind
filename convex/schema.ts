@@ -52,7 +52,11 @@ export default defineSchema({
     .index("featured", ["featured"])
     .index("approved_featured", ["approved", "featured"])
     .index("claimStatus", ["claimStatus"])
-    .index("business_name", ["business_name"]),
+    .index("business_name", ["business_name"])
+    .index("category", ["category"])
+    .index("approved_category", ["approved", "category"])
+    .index("city", ["city"])
+    .index("state", ["state"]),
   products: defineTable({
     supplierId: v.string(),
     name: v.string(),

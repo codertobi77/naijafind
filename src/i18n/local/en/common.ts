@@ -170,7 +170,19 @@ export const common = {
   
   // Search translation (Alibaba-style)
   "search.translating": "Translating...",
-  "search.translated_from": "Translated from"
+  "search.translated_from": "Translated from",
+
+  // Bug report
+  "bug_report.title": "Report a Bug",
+  "bug_report.description": "Help us improve the application",
+  "bug_report.label": "Describe the problem encountered",
+  "bug_report.placeholder": "Ex: The search button doesn't work on the page...",
+  "bug_report.note": "This will open your email client with the pre-filled report.",
+  "bug_report.sending": "Sending...",
+  "bug_report.send": "Send Report",
+  "bug_report.success_title": "Thank you!",
+  "bug_report.success_message": "Your report has been sent. We will review it quickly.",
+  "bug_report.button": "Report bug"
 };
 
 export default common;

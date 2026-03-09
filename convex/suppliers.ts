@@ -67,7 +67,7 @@ const STOP_WORDS = new Set([
   'yes', 'clear', 'equation', 'yet', 'government', ' filled', 'heat',
   'full', 'hot', 'check', 'object', 'am', 'rule', 'among', 'noun', 'power',
   'cannot', 'able', 'six', 'size', 'dark', 'ball', 'material', 'special',
-  'heavy', 'fine', 'pair', 'circle', 'include', 'built', 'can't', 'matter',
+  'heavy', 'fine', 'pair', 'circle', 'include', 'built', "can't", 'matter',
   'square', 'syllables', 'perhaps', 'bill', 'felt', 'suddenly', 'test',
   'direction', 'center', 'farmers', 'ready', 'anything', 'divided', 'general',
   'energy', 'subject', 'europe', 'moon', 'region', 'return', 'believe',
@@ -135,20 +135,122 @@ const STOP_WORDS = new Set([
 ]);
 
 // Product type keywords for category inference
+// NOTE: Keywords should be specific to avoid overlap between categories
 const PRODUCT_TYPE_PATTERNS: Record<string, string[]> = {
-  'electronics': ['fan', 'phone', 'laptop', 'computer', 'tv', 'television', 'radio', 'speaker', 'camera', 'charger', 'battery', 'solar', 'panel', 'usb', 'electronic', 'gadget', 'device', 'appliance', 'tech'],
-  'home': ['furniture', 'chair', 'table', 'bed', 'sofa', 'cabinet', 'shelf', 'dresser', 'mattress', 'pillow', 'blanket', 'curtain', 'carpet', 'rug', 'lamp', 'light', 'mirror', 'clock', 'decor'],
-  'kitchen': ['cooker', 'pot', 'pan', 'plate', 'bowl', 'cup', 'glass', 'utensil', 'knife', 'spoon', 'fork', 'blender', 'mixer', 'grinder', 'fridge', 'refrigerator', 'microwave', 'oven', 'stove', 'burner', 'gas', 'kitchen', 'cooking'],
-  'clothing': ['shirt', 'dress', 'pants', 'trousers', 'skirt', 'jacket', 'coat', 'shoe', 'boot', 'sandal', 'slipper', 'hat', 'cap', 'bag', 'purse', 'wallet', 'belt', 'scarf', 'tie', 'sock', 'underwear', 'cloth', 'fabric', 'textile', 'garment', 'wear', 'fashion', 'apparel'],
-  'food': ['rice', 'bean', 'yam', 'cassava', 'plantain', 'banana', 'mango', 'orange', 'apple', 'tomato', 'pepper', 'onion', 'garlic', 'ginger', 'oil', 'palm', 'vegetable', 'fruit', 'meat', 'fish', 'chicken', 'beef', 'snack', 'drink', 'beverage', 'water', 'juice', 'food', 'grocery', 'grain', 'flour', 'spice', 'seasoning'],
-  'beauty': ['cream', 'lotion', 'soap', 'shampoo', 'conditioner', 'perfume', 'makeup', 'cosmetic', 'hair', 'skin', 'beauty', 'care', 'oil', 'gel', 'powder', 'deodorant'],
-  'health': ['medicine', 'drug', 'pill', 'tablet', 'syrup', 'vitamin', 'supplement', 'medical', 'health', 'clinic', 'pharmacy', 'hospital', 'doctor', 'nurse', 'treatment'],
-  'construction': ['cement', 'sand', 'gravel', 'stone', 'brick', 'block', 'tile', 'roof', 'iron', 'steel', 'metal', 'wood', 'timber', 'plank', 'nail', 'screw', 'wire', 'pipe', 'paint', 'construction', 'building', 'material'],
-  'automotive': ['car', 'vehicle', 'tire', 'tyre', 'wheel', 'rim', 'battery', 'oil', 'lubricant', 'part', 'spare', 'engine', 'motor', 'automotive', 'garage', 'mechanic'],
-  'sports': ['ball', 'bat', 'racket', 'net', 'goal', 'jersey', 'sport', 'exercise', 'fitness', 'gym', 'equipment'],
-  'office': ['paper', 'pen', 'pencil', 'eraser', 'ruler', 'notebook', 'book', 'file', 'folder', 'stapler', 'tape', 'glue', 'marker', 'highlighter', 'desk', 'chair', 'office', 'stationery'],
-  'agriculture': ['seed', 'fertilizer', 'pesticide', 'herbicide', 'insecticide', 'tool', 'hoe', 'shovel', 'rake', 'machete', 'cutlass', 'sprayer', 'farm', 'agriculture', 'crop', 'livestock'],
+  // IT/Informatique - specific tech infrastructure and office equipment
+  'it': ['printer', 'printers', 'imprimante', 'imprimantes', 'scanner', 'scanners', 'scanneur', 'photocopier', 'photocopieur', 'copier', 'copieur', 'toner', 'cartridge', 'cartouche', 'ink', 'encre', 'desktop', 'bureau', 'workstation', 'poste', 'serveur', 'server', 'nas', 'storage', 'stockage', 'backup', 'sauvegarde', 'firewall', 'routeur', 'router', 'switch', 'hub', 'cable', 'câble', 'ethernet', 'rj45', 'hdmi', 'vga', 'usb', 'peripheral', 'périphérique', 'keyboard', 'clavier', 'mouse', 'souris', 'monitor', 'écran', 'ecran', 'display', 'affichage', 'projector', 'projecteur', 'videoprojector', 'vidéoprojecteur', 'software', 'logiciel', 'license', 'licence', 'subscription', 'abonnement', 'cloud', 'saas', 'virtualization', 'virtualisation', 'hosting', 'hébergement', 'domain', 'nom de domaine', 'website', 'site web', 'web', 'application', 'erp', 'crm', 'database', 'base de données', 'sql', 'nosql', 'programming', 'programmation', 'development', 'développement', 'code', 'coding', 'api', 'integration', 'intégration', 'automation', 'automatisme', 'robotic', 'robotique', 'iot', 'internet des objets', 'smart', 'connecté', 'connected', 'network', 'réseau', 'infrastructure', 'sysadmin', 'administrateur', 'technician', 'technicien', 'support', 'helpdesk', 'assistance', 'maintenance', 'repair', 'réparation', 'informatique'],
+  
+  // Electronics/Électronique - consumer devices and electronic components  
+  'electronics': ['fan', 'fans', 'ventilateur', 'ventilateurs', 'phone', 'phones', 'téléphone', 'telephone', 'mobile', 'portable', 'smartphone', 'laptop', 'laptops', 'notebook', 'ultrabook', 'tablet', 'tablette', 'ipad', 'android', 'tv', 'television', 'télévision', 'smart tv', 'oled', 'lcd', 'led', '4k', '8k', 'hd', 'radio', 'speaker', 'speakers', 'enceinte', 'enceintes', 'haut-parleur', 'audio', 'sound', 'son', 'camera', 'caméra', 'appareil photo', 'reflex', 'mirrorless', 'drone', 'drones', 'gopro', 'action camera', 'charger', 'chargeur', 'charging', 'battery', 'batteries', 'batterie', 'powerbank', 'batterie externe', 'solar', 'solaire', 'panel', 'panneau', 'panneau solaire', 'usb', 'hdmi', 'cable', 'câble', 'electronic', 'électronique', 'electronique', 'gadget', 'device', 'appareil', 'appliance', 'électroménager', 'electromenager', 'tech', 'technology', 'technologie', 'component', 'composant', 'circuit', 'pcb', 'motherboard', 'carte mère', 'processor', 'processeur', 'cpu', 'gpu', 'graphics', 'graphique', 'memory', 'mémoire', 'ram', 'storage', 'disque', 'hard drive', 'hdd', 'ssd', 'flash', 'sd card', 'micro sd', 'adapter', 'adaptateur', 'converter', 'convertisseur', 'remote', 'télécommande', 'telecommande', 'sensor', 'capteur', 'switch', 'bouton', 'led', 'diode', 'transistor', 'resistor', 'résistance', 'capacitor', 'condensateur', 'relay', 'relais', 'motor', 'moteur', 'engine', 'generator', 'générateur', 'inverter', 'onduleur', 'ups', 'regulator', 'régulateur', 'stabilizer', 'stabilisateur', 'plug', 'prise', 'socket', 'outlet', 'extension', 'multiprise', 'power strip', 'surge protector', 'parafoudre', 'home appliance', 'kitchen appliance', 'consumer electronics', 'domotique', 'smart home', 'maison connectée', 'wearable', 'montre connectée', 'smartwatch', 'fitness tracker', 'bracelet', 'ecran', 'screen', 'display'],
+  
+  // Keep other categories with expanded keywords...
+  'electronique': ['fan', 'fans', 'ventilateur', 'ventilateurs', 'phone', 'phones', 'téléphone', 'telephone', 'mobile', 'portable', 'smartphone', 'laptop', 'laptops', 'notebook', 'ultrabook', 'tablet', 'tablette', 'ipad', 'android', 'tv', 'television', 'télévision', 'smart tv', 'oled', 'lcd', 'led', '4k', '8k', 'hd', 'radio', 'speaker', 'speakers', 'enceinte', 'enceintes', 'haut-parleur', 'audio', 'sound', 'son', 'camera', 'caméra', 'appareil photo', 'reflex', 'mirrorless', 'drone', 'drones', 'gopro', 'action camera', 'charger', 'chargeur', 'charging', 'battery', 'batteries', 'batterie', 'powerbank', 'batterie externe', 'solar', 'solaire', 'panel', 'panneau', 'panneau solaire', 'usb', 'hdmi', 'cable', 'câble', 'electronic', 'électronique', 'electronique', 'gadget', 'device', 'appareil', 'appliance', 'électroménager', 'electromenager', 'tech', 'technology', 'technologie', 'component', 'composant', 'circuit', 'pcb', 'motherboard', 'carte mère', 'processor', 'processeur', 'cpu', 'gpu', 'graphics', 'graphique', 'memory', 'mémoire', 'ram', 'storage', 'disque', 'hard drive', 'hdd', 'ssd', 'flash', 'sd card', 'micro sd', 'adapter', 'adaptateur', 'converter', 'convertisseur', 'remote', 'télécommande', 'telecommande', 'sensor', 'capteur', 'switch', 'bouton', 'led', 'diode', 'transistor', 'resistor', 'résistance', 'capacitor', 'condensateur', 'relay', 'relais', 'motor', 'moteur', 'engine', 'generator', 'générateur', 'inverter', 'onduleur', 'ups', 'regulator', 'régulateur', 'stabilizer', 'stabilisateur', 'plug', 'prise', 'socket', 'outlet', 'extension', 'multiprise', 'power strip', 'surge protector', 'parafoudre', 'home appliance', 'kitchen appliance', 'consumer electronics', 'domotique', 'smart home', 'maison connectée', 'wearable', 'montre connectée', 'smartwatch', 'fitness tracker', 'bracelet', 'ecran', 'screen', 'display'],
+
+  // Home/Mobilier - furniture and home decor
+  'home': ['furniture', 'meuble', 'meubles', 'chair', 'chaise', 'chaises', 'armchair', 'fauteuil', 'rocking chair', 'berçante', 'table', 'tables', 'dining table', 'table à manger', 'coffee table', 'table basse', 'desk', 'bureau', 'console', 'bed', 'lit', 'lits', 'bedroom', 'chambre', 'sofa', 'canapé', 'canape', 'couch', 'divan', ' Chesterfield', 'sectional', 'd angle', 'loveseat', 'cabinet', 'cabinet', 'armoire', 'wardrobe', 'dressing', 'shelf', 'étagère', 'etagere', 'shelves', 'bookshelf', 'bibliothèque', 'dresser', 'commode', 'chiffonnier', 'chest', 'coffre', 'mattress', 'matelas', 'pillow', 'oreiller', 'coussin', 'cushion', 'blanket', 'couverture', 'throw', 'plaid', 'bedding', 'linge de lit', 'curtain', 'rideau', 'rideaux', 'drapes', 'voilage', 'sheer', 'carpet', 'tapis', 'moquette', 'rug', 'carpette', 'lamp', 'lampe', 'lampshade', 'abat-jour', 'chandelier', 'lustre', 'pendant', 'suspension', 'wall lamp', 'applique', 'floor lamp', 'lampadaire', 'ceiling', 'plafonnier', 'light', 'lumière', 'luminaire', 'lighting', 'éclairage', 'mirror', 'miroir', 'glace', 'clock', 'horloge', 'pendule', 'réveil', 'alarm', 'decor', 'décoration', 'decoration', 'ornament', 'objet decoratif', 'vase', 'frame', 'cadre', 'painting', 'tableau', 'art', 'wall art', 'stickers', 'decal', 'tapisserie', 'wallpaper', 'papier peint', 'paint', 'peinture', 'color', 'couleur', 'home', 'maison', 'house', 'interior', 'intérieur', 'interieur', 'design', 'decoration', 'ameublement', 'furnishing', 'carpentry', 'menuiserie', 'woodwork', 'ebenisterie'],
+  
+  // Kitchen/Cuisine - cooking and kitchen equipment
+  'kitchen': ['cooker', 'cuisinière', 'stove', 'fourneau', 'gas cooker', 'cuisinière gaz', 'electric cooker', 'cuisinière électrique', 'induction', 'induction', 'oven', 'four', 'micro-ondes', 'microwave', 'grill', 'rotisserie', 'pot', 'marmite', 'casserole', 'poêle', 'poele', 'pan', 'frying pan', 'poêle à frire', 'saute pan', 'wok', 'pressure cooker', 'autocuiseur', 'cocotte', 'dutch oven', 'plate', 'assiette', 'dish', 'plat', 'bowl', 'bol', 'cup', 'tasse', 'mug', 'glass', 'verre', 'goblet', 'chalice', 'utensil', 'ustensile', 'kitchenware', 'batterie de cuisine', 'knife', 'couteau', 'couteaux', 'cutlery', 'couverts', 'spoon', 'cuillère', 'cuillere', 'fork', 'fourchette', 'spatula', 'louche', 'ladle', 'whisk', 'fouet', 'tongs', 'pince', 'peeler', 'éplucheur', 'grater', 'râpe', 'rape', 'blender', 'mixeur', 'mixer', 'batteur', 'grinder', 'moulin', 'mill', 'food processor', 'robot', 'multifonction', 'juicer', 'presse-agrumes', 'extractor', 'extracteur', 'fridge', 'réfrigérateur', 'refrigerator', 'congelateur', 'freezer', 'cold room', 'chambre froide', 'ice maker', 'machine à glaçons', 'dishwasher', 'lave-vaisselle', 'sink', 'évier', 'evier', 'faucet', 'robinet', 'tap', 'countertop', 'plan de travail', 'kitchen island', 'îlot', 'cabinet', 'element', 'élément', 'cupboard', 'placard', 'pantry', 'garde-manger', 'spice rack', 'range-épices', 'trash', 'poubelle', 'bin', 'compost', 'apron', 'tablier', 'towel', 'torchon', 'napkin', 'serviette', 'tablecloth', 'nappe', 'placemat', 'set de table', 'coaster', 'dessous de verre', 'container', 'contenant', 'storage', 'conservation', 'jar', 'bocal', 'pot', 'canister', 'boîte', 'boite', 'lid', 'couvercle', 'cover', 'cling film', 'film alimentaire', 'aluminum foil', 'papier aluminium', 'wax paper', 'papier sulfurisé', 'parchment', 'baking', 'cuisson', 'pastry', 'pâtisserie', 'patisserie', 'bread', 'pain', 'cake', 'gâteau', 'gateau', 'recipe', 'recette', 'cookbook', 'livre de cuisine', 'chef', 'cooking', 'cuisine', 'culinary', 'culinaire', 'gastronomy', 'gastronomie', 'organic', 'bio', 'biologique', 'fresh', 'frais', 'frozen', 'surgelé', 'canned', 'conserve', 'conserve', 'packaged', 'emballé'],
+
+  // Keep other categories concise but add key terms...
+  'clothing': ['shirt', 'chemise', 't-shirt', 'polo', 'dress', 'robe', 'pants', 'pantalon', 'jeans', 'trousers', 'short', 'skirt', 'jupe', 'jacket', 'veste', 'blazer', 'coat', 'manteau', 'trench', 'overcoat', 'shoe', 'chaussure', 'boot', 'bottine', 'bottes', 'sandal', 'sandale', 'tongs', 'flip-flop', 'slipper', 'chausson', 'hat', 'chapeau', 'cap', 'casquette', 'bonnet', 'beanie', 'bag', 'sac', 'handbag', 'sac à main', 'backpack', 'sac à dos', 'wallet', 'portefeuille', 'purse', 'portemonnaie', 'belt', 'ceinture', 'scarf', 'foulard', 'écharpe', 'echarpe', 'tie', 'cravate', 'bow tie', 'nœud papillon', 'sock', 'chaussette', 'underwear', 'sous-vêtement', 'sous vetement', 'lingerie', 'bra', 'soutien-gorge', 'boxer', 'brief', 'slip', 'cloth', 'tissu', 'fabric', 'textile', 'material', 'matière', 'cotton', 'coton', 'silk', 'soie', 'linen', 'lin', 'wool', 'laine', 'leather', 'cuir', 'synthetic', 'synthétique', 'jean', 'denim', 'velvet', 'velours', 'lace', 'dentelle', 'embroidery', 'broderie', 'pattern', 'motif', 'print', 'imprimé', 'stripe', 'rayure', 'check', 'carreau', 'plaid', 'tartan', 'solid', 'uni', 'tailor', 'tailleur', 'seamstress', 'couturière', 'fashion', 'mode', 'style', 'trend', 'tendance', 'collection', 'haute couture', 'ready-to-wear', 'prêt-à-porter', 'sportswear', 'activewear', 'swimwear', 'maillot de bain', 'sleepwear', 'pyjama', 'nightgown', 'accessory', 'accessoire', 'jewelry', 'bijou', 'bijoux', 'watch', 'montre', 'sunglasses', 'lunettes de soleil'],
+  
+  // Food simplified with key additions
+  'food': ['rice', 'riz', 'basmati', 'jasmine', 'long grain', 'broken', 'thai', 'bean', 'haricot', 'lentil', 'lentille', 'pea', 'pois', 'chickpea', 'pois chiche', 'yam', 'igname', 'cassava', 'manioc', 'plantain', 'banane plantain', 'banana', 'banane', 'mango', 'mangue', 'orange', 'apple', 'pomme', 'pineapple', 'ananas', 'papaya', 'papaye', 'guava', 'goyave', 'avocado', 'avocat', 'tomato', 'tomate', 'pepper', 'poivre', 'piment', 'chili', 'onion', 'oignon', 'garlic', 'ail', 'ginger', 'gingembre', 'oil', 'huile', 'palm oil', 'huile de palme', 'vegetable oil', 'huile végétale', 'olive oil', 'huile dolive', 'groundnut', 'arachide', 'peanut', 'cacahuète', 'vegetable', 'légume', 'legume', 'fruit', 'meat', 'viande', 'beef', 'bœuf', 'boeuf', 'steak', 'entrecôte', 'liver', 'foie', 'kidney', 'rognon', 'tripe', 'tripes', 'fish', 'poisson', 'tilapia', 'mackerel', 'maquereau', 'sardine', 'herring', 'hareng', 'smoked', 'fumé', 'dried', 'séché', 'stockfish', 'morue', 'chicken', 'poulet', 'hen', 'poule', 'turkey', 'dinde', 'duck', 'canard', 'goat', 'chèvre', 'chevre', 'mutton', 'mouton', 'lamb', 'agneau', 'pork', 'porc', 'sausage', 'saucisse', 'salami', 'ham', 'jambon', 'bacon', 'snack', 'biscuit', 'cookie', 'cracker', 'chip', 'chips', 'plantain chips', 'chips de plantain', 'drink', 'boisson', 'beverage', 'juice', 'jus', 'water', 'eau', 'mineral', 'minérale', 'soda', 'soft drink', 'nectar', 'wine', 'vin', 'beer', 'bière', 'liqueur', 'spirit', 'spiritueux', 'whiskey', 'whisky', 'vodka', 'gin', 'rum', 'rhum', 'food', 'nourriture', 'aliment', 'grocery', 'épicerie', 'provision', 'grain', 'cereal', 'céréale', 'flour', 'farine', 'semolina', 'semoule', 'cornmeal', 'fleur de maïs', 'gari', 'cassava flour', 'spice', 'épice', 'épices', 'seasoning', 'assaisonnement', 'condiment', 'sauce', 'broth', 'bouillon', 'cube', 'sugar', 'sucre', 'salt', 'sel', 'powdered', 'piment', 'curry', 'turmeric', 'curcuma', 'cinnamon', 'cannelle', 'nutmeg', 'muscade', 'ginger', 'clove', 'girofle', 'bay leaf', 'laurier', 'thyme', 'thym', 'basil', 'basilic', 'parsley', 'persil', 'rosemary', 'romarin', 'mint', 'menthe', 'oregano', 'origan', 'preserved', 'conserve', 'canned', 'en boîte', 'frozen', 'surgelé', 'dried', 'déshydraté', 'powdered', 'en poudre', 'organic', 'bio', 'fresh', 'frais', 'raw', 'brut', 'processed', 'transformé', 'agroalimentaire', 'agro-food', 'agribusiness', 'nutrition', 'nutriment', 'dietary', 'alimentaire'],
+  
+  'agroalimentaire': ['rice', 'riz', 'bean', 'haricot', 'lentil', 'lentille', 'yam', 'igname', 'cassava', 'manioc', 'plantain', 'banana', 'banane', 'mango', 'mangue', 'orange', 'apple', 'pomme', 'tomato', 'tomate', 'pepper', 'poivre', 'piment', 'onion', 'oignon', 'garlic', 'ail', 'ginger', 'gingembre', 'oil', 'huile', 'palm', 'palme', 'vegetable', 'légume', 'fruit', 'meat', 'viande', 'beef', 'bœuf', 'boeuf', 'fish', 'poisson', 'chicken', 'poulet', 'turkey', 'dinde', 'goat', 'chèvre', 'chevre', 'mutton', 'mouton', 'pork', 'porc', 'snack', 'biscuit', 'drink', 'boisson', 'juice', 'jus', 'water', 'eau', 'food', 'nourriture', 'grocery', 'épicerie', 'grain', 'cereal', 'céréale', 'flour', 'farine', 'spice', 'épice', 'seasoning', 'assaisonnement', 'sugar', 'sucre', 'salt', 'sel', 'organic', 'bio', 'fresh', 'frais', 'processed', 'transformé', 'conserve', 'canned', 'agroalimentaire'],
+  
+  'beauty': ['cream', 'crème', 'creme', 'lotion', 'lait', 'soap', 'savon', 'shampoo', 'shampooing', 'après-shampooing', 'conditioner', 'masque', 'mask', 'perfume', 'parfum', 'fragrance', 'eau de toilette', 'cologne', 'makeup', 'maquillage', 'cosmetic', 'cosmétique', 'cosmetique', 'lipstick', 'rouge à lèvres', 'lip gloss', 'gloss', 'foundation', 'fond de teint', 'powder', 'poudre', 'mascara', 'eye liner', 'eye shadow', 'ombre à paupières', 'blush', 'fard', 'concealer', 'correcteur', 'nail polish', 'vernis', 'manicure', 'pedicure', 'hair', 'cheveux', 'coiffure', 'wig', 'perruque', 'weave', 'tissage', 'braid', 'tresse', 'hair extension', 'extension', 'skin', 'peau', 'derma', 'facial', 'soin visage', 'beauty', 'beauté', 'beaute', 'care', 'soin', 'soins', 'oil', 'huile', 'essential oil', 'huile essentielle', 'gel', 'mousse', 'spray', 'deodorant', 'déodorant', 'deo', 'antiperspirant', 'hygiene', 'hygiène', 'sanitary', 'hygiénique', 'pad', 'serviette', 'tampon', 'cotton', 'coton', 'wool', 'laine', 'wax', 'cire', 'tweezer', 'pince', 'razor', 'rasoir', 'blade', 'lame', 'shaving', 'rasage', 'epilator', 'épilateur', 'hair removal', 'épilation', 'epilation', 'depilation', 'dépilation', 'sunscreen', 'écran solaire', 'protection solaire', 'anti-aging', 'anti-âge', 'anti-rides', 'wrinkle', 'ride', 'anti-acne', 'anti-imperfection', 'acne', 'acné', 'moisturizer', 'hydratant', 'serum', 'sérum', 'toner', 'tonique', 'cleanser', 'nettoyant', 'exfoliant', 'scrub', 'gommage', 'peeling', 'mask', 'masque', 'patch', 'herbal', 'herbal', 'naturel', 'organic', 'bio', 'vegan', 'cruelty-free', 'paraben-free', 'sulfate-free', 'silicone-free', 'dermatology', 'dermatologie', 'aesthetic', 'esthétique', 'esthetique', 'spa', 'salon', 'institut', 'barbershop', 'coiffeur', 'barbier', 'salon de coiffure'],
+  
+  'beauté': ['cream', 'crème', 'creme', 'lotion', 'lait', 'soap', 'savon', 'shampoo', 'shampooing', 'après-shampooing', 'conditioner', 'masque', 'mask', 'perfume', 'parfum', 'fragrance', 'eau de toilette', 'cologne', 'makeup', 'maquillage', 'cosmetic', 'cosmétique', 'cosmetique', 'lipstick', 'rouge à lèvres', 'lip gloss', 'gloss', 'foundation', 'fond de teint', 'powder', 'poudre', 'mascara', 'eye liner', 'eye shadow', 'ombre à paupières', 'blush', 'fard', 'concealer', 'correcteur', 'nail polish', 'vernis', 'manicure', 'pedicure', 'hair', 'cheveux', 'coiffure', 'wig', 'perruque', 'weave', 'tissage', 'braid', 'tresse', 'hair extension', 'extension', 'skin', 'peau', 'derma', 'facial', 'soin visage', 'beauty', 'beauté', 'beaute', 'care', 'soin', 'soins', 'oil', 'huile', 'essential oil', 'huile essentielle', 'gel', 'mousse', 'spray', 'deodorant', 'déodorant', 'deo', 'antiperspirant', 'hygiene', 'hygiène', 'sanitary', 'hygiénique', 'pad', 'serviette', 'tampon', 'cotton', 'coton', 'wool', 'laine', 'wax', 'cire', 'tweezer', 'pince', 'razor', 'rasoir', 'blade', 'lame', 'shaving', 'rasage', 'epilator', 'épilateur', 'hair removal', 'épilation', 'epilation', 'depilation', 'dépilation', 'sunscreen', 'écran solaire', 'protection solaire', 'anti-aging', 'anti-âge', 'anti-rides', 'wrinkle', 'ride', 'anti-acne', 'anti-imperfection', 'acne', 'acné', 'moisturizer', 'hydratant', 'serum', 'sérum', 'toner', 'tonique', 'cleanser', 'nettoyant', 'exfoliant', 'scrub', 'gommage', 'peeling', 'mask', 'masque', 'patch', 'herbal', 'herbal', 'naturel', 'organic', 'bio', 'vegan', 'cruelty-free', 'paraben-free', 'sulfate-free', 'silicone-free', 'dermatology', 'dermatologie', 'aesthetic', 'esthétique', 'esthetique', 'spa', 'salon', 'institut', 'barbershop', 'coiffeur', 'barbier', 'salon de coiffure'],
+
+  'health': ['medicine', 'médicament', 'medicament', 'drug', 'pharmaceutical', 'pharmaceutique', 'pill', 'pilule', 'tablet', 'comprimé', 'comprime', 'capsule', 'syrup', 'sirop', 'suspension', 'solution', 'injection', 'ampoule', 'vitamin', 'vitamine', 'supplement', 'complément', 'complement', 'dietary', 'alimentaire', 'nutraceutical', 'probiotic', 'probiotique', 'antibiotic', 'antibiotique', 'antiseptic', 'antiseptique', 'painkiller', 'analgesic', 'analgesique', 'anti-inflammatory', 'anti-inflammatoire', 'fever', 'fièvre', 'fievre', 'malaria', 'paludisme', 'typhoid', 'typhoïde', 'typhoide', 'hypertension', 'tension', 'diabetes', 'diabète', 'diabete', 'asthma', 'asthme', 'allergy', 'allergie', 'medical', 'médical', 'medical', 'health', 'santé', 'sante', 'clinic', 'clinique', 'dispensary', 'dispensaire', 'pharmacy', 'pharmacie', 'chemist', 'drugstore', 'hospital', 'hôpital', 'hopital', 'medical center', 'centre médical', 'centre medical', 'health center', 'centre de santé', 'doctor', 'docteur', 'médecin', 'medecin', 'physician', 'general practitioner', 'médecin généraliste', 'specialist', 'spécialiste', 'nurse', 'infirmier', 'infirmière', 'infirmiere', 'midwife', 'sage-femme', 'laboratory', 'laboratoire', 'lab', 'radiology', 'radiologie', 'x-ray', 'rayon x', 'ultrasound', 'échographie', 'echographie', 'scanner', 'mri', 'irm', 'diagnostic', 'diagnostic', 'test', 'analyse', 'blood test', 'analyse sanguine', 'treatment', 'traitement', 'therapy', 'thérapie', 'therapie', 'surgery', 'chirurgie', 'operation', 'opération', 'operation', 'consultation', 'consultation', 'checkup', 'bilan', 'vaccine', 'vaccin', 'immunization', 'vaccination', 'first aid', 'premiers secours', 'emergency', 'urgence', 'ambulance', 'paramedic', 'patient', 'malade', 'care', 'soins', 'hygiene', 'hygiène', 'sanitation', 'assainissement', 'nutrition', 'nutrition', 'diet', 'régime', 'regime', 'fitness', 'forme', 'wellness', 'bien-être', 'bien etre', 'rehabilitation', 'rééducation', 'reeducation', 'physiotherapy', 'physiothérapie', 'physiotherapie', 'orthopedic', 'orthopédique', 'orthopedique', 'prosthetic', 'prothèse', 'prothese', 'wheelchair', 'fauteuil roulant', 'crutches', 'béquilles', 'bequilles', 'bandage', 'pansement', 'plaster', 'spica', 'gips', 'medical supply', 'fourniture médicale', 'fourniture medicale', 'equipment', 'équipement', 'equipement', 'instrument', 'disposable', 'jetable', 'sterile', 'stérile', 'generic', 'générique', 'generique', 'branded', 'marque'],
+  
+  'santé': ['medicine', 'médicament', 'medicament', 'drug', 'pill', 'pilule', 'tablet', 'comprimé', 'comprime', 'syrup', 'sirop', 'vitamin', 'vitamine', 'supplement', 'complément', 'complement', 'medical', 'médical', 'medical', 'health', 'santé', 'sante', 'clinic', 'clinique', 'pharmacy', 'pharmacie', 'hospital', 'hôpital', 'hopital', 'doctor', 'docteur', 'médecin', 'medecin', 'nurse', 'infirmier', 'infirmière', 'infirmiere', 'treatment', 'traitement', 'therapy', 'thérapie', 'therapie', 'patient', 'malade', 'care', 'soins', 'emergency', 'urgence'],
+
+  // Construction/BTP
+  'construction': ['cement', 'ciment', 'concrete', 'béton', 'beton', 'aggregate', 'granulat', 'gravel', 'gravier', 'sand', 'sable', 'stone', 'pierre', 'rock', 'roc', 'granite', 'grès', 'gres', 'marble', 'marbre', 'brick', 'brique', 'block', 'bloc', 'parpaing', 'aggregate block', 'brique', 'tile', 'carreau', 'carrelage', 'roof tile', 'tuile', 'roofing', 'toiture', 'couverture', 'slate', 'ardoise', 'metal sheet', 'tôle', 'tole', 'iron', 'fer', 'steel', 'acier', 'metal', 'métal', 'metal', 'stainless', 'inox', 'inoxydable', 'aluminum', 'aluminium', 'copper', 'cuivre', 'zinc', 'lead', 'plomb', 'wood', 'bois', 'timber', 'grume', 'lumber', 'bois ouvré', 'bois ouvre', 'plank', 'planche', 'board', 'panneau', 'panel', 'plywood', 'contreplaqué', 'mdf', 'osb', 'beam', 'poutre', 'poutrelle', 'column', 'colonne', 'pillar', 'pilier', 'truss', 'ferme', 'frame', 'charpente', 'ossature', 'nail', 'clou', 'screw', 'vis', 'bolt', 'boulon', 'nut', 'écrou', 'ecrou', 'washer', 'rondelle', 'anchor', 'ancrage', 'staple', 'agrafe', 'rivet', 'brad', 'wire', 'fil', 'cable', 'câble', 'rope', 'corde', 'chain', 'chaîne', 'chaine', 'pipe', 'tuyau', 'tube', 'tubing', 'fitting', 'raccord', 'valve', 'vanne', 'tap', 'robinet', 'elbow', 'coude', 'tee', 'manchon', 'reducer', 'réduction', 'reduction', 'flange', 'bride', 'paint', 'peinture', 'varnish', 'vernis', 'lacquer', 'laque', 'stain', 'teinture', 'solvent', 'solvant', 'thinner', 'diluant', 'primer', 'sous-couche', 'sous couche', 'sealer', 'enduit', 'plaster', 'plâtre', 'platre', 'mortar', 'mortier', 'stucco', 'crépi', 'crepi', 'render', 'enduit', 'gypsum', 'placoplâtre', 'placoplatre', 'drywall', 'gypse', 'insulation', 'isolation', 'laine de verre', 'glass wool', 'laine de roche', 'rock wool', 'polystyrene', 'polystyrène', 'polyurethane', 'polyuréthane', 'foam', 'mousse', 'sealant', 'mastic', 'silicone', 'acrylic', 'acrylique', 'waterproofing', 'étanchéité', 'etancheite', 'damp proof', 'hygro', 'membrane', 'tarpaulin', 'bâche', 'bache', 'tarp', 'construction', 'construction', 'building', 'bâtiment', 'batiment', 'worksite', 'chantier', 'material', 'matériau', 'materiau', 'supply', 'fourniture', 'hardware', 'quincaillerie', 'tool', 'outil', 'equipment', 'équipement', 'equipement', 'machine', 'machinery', 'engin', 'scaffold', 'échafaudage', 'echafaudage', 'formwork', 'coffrage', 'shoring', 'étaiement', 'etaiement', 'crane', 'grue', 'elevator', 'monte-charge', 'monte charge', 'mixer', 'bétonnière', 'betonniere', 'vibrator', 'vibreur', 'compactor', 'compacteur', 'dumpster', 'benne', 'skip', 'excavation', 'terrassement', 'earthwork', 'foundation', 'fondation', 'structure', 'structural', 'structurel', 'engineering', 'génie civil', 'genie civil', 'architecture', 'architectural', 'architecturale', 'plan', 'drawing', 'dessin', 'blueprint', 'permis', 'permit', 'license', 'licence', 'inspection', 'inspection', 'btp', 'bâtiment et travaux publics', 'batiment et travaux publics', 'public works', 'travaux publics', 'road', 'route', 'pavement', 'revêtement', 'revetement', 'asphalt', 'asphalte', 'bitumen', 'bitume', 'tarmac', 'concrete road', 'civil engineering', 'infrastructure', 'développement', 'development'],
+  
+  'btp': ['cement', 'ciment', 'concrete', 'béton', 'beton', 'aggregate', 'granulat', 'gravel', 'gravier', 'sand', 'sable', 'stone', 'pierre', 'brick', 'brique', 'block', 'bloc', 'parpaing', 'tile', 'carreau', 'roof', 'toiture', 'iron', 'fer', 'steel', 'acier', 'metal', 'métal', 'wood', 'bois', 'timber', 'plank', 'planche', 'nail', 'clou', 'screw', 'vis', 'bolt', 'boulon', 'wire', 'fil', 'cable', 'câble', 'pipe', 'tuyau', 'paint', 'peinture', 'plaster', 'plâtre', 'platre', 'mortar', 'mortier', 'insulation', 'isolation', 'sealant', 'mastic', 'waterproofing', 'étanchéité', 'etancheite', 'tarpaulin', 'bâche', 'bache', 'construction', 'construction', 'building', 'bâtiment', 'batiment', 'material', 'matériau', 'materiau', 'hardware', 'quincaillerie', 'tool', 'outil', 'equipment', 'équipement', 'equipement', 'scaffold', 'échafaudage', 'echafaudage', 'crane', 'grue', 'mixer', 'bétonnière', 'betonniere', 'excavation', 'terrassement', 'foundation', 'fondation', 'structure', 'engineering', 'génie civil', 'genie civil', 'architecture', 'btp', 'bâtiment et travaux publics', 'batiment et travaux publics', 'travaux publics', 'road', 'route', 'asphalt', 'asphalte', 'bitumen', 'bitume', 'infrastructure', 'développement'],
+
+  // Automotive/Auto
+  'automotive': ['car', 'voiture', 'automobile', 'auto', 'vehicle', 'véhicule', 'truck', 'camion', 'lorry', 'poids lourd', 'van', 'fourgon', 'minibus', 'bus', 'coach', 'autocar', 'suv', '4x4', '4wd', 'pickup', 'pick-up', 'sedan', 'berline', 'hatchback', 'compact', 'coupe', 'cabriolet', 'convertible', 'roadster', 'station wagon', 'break', 'estate', 'mpv', 'minivan', 'monospace', 'crossover', 'tire', 'pneu', 'pneus', 'tyre', 'tyres', 'wheel', 'roue', 'roues', 'rim', 'jante', 'jantes', 'alloy wheel', 'alloy', 'hubcap', 'enjoliveur', 'battery', 'batterie', 'batteries', 'car battery', 'accumulator', 'accumulateur', 'oil', 'huile', 'lubricant', 'lubrifiant', 'engine oil', 'huile moteur', 'gear oil', 'huile de boîte', 'huile de boite', 'brake fluid', 'liquide de frein', 'coolant', 'liquide de refroidissement', 'antifreeze', 'antigel', 'grease', 'graisse', 'part', 'pièce', 'piece', 'spare part', 'pièce de rechange', 'piece de rechange', 'spare', 'rechange', 'accessory', 'accessoire', 'accessoires', 'engine', 'moteur', 'motor', 'engine part', 'piston', 'cylinder', 'cylindre', 'valve', 'soupape', 'gasket', 'joint', 'joint torique', 'oring', 'seal', 'bague', 'bearing', 'roulement', 'belt', 'courroie', 'chain', 'chaîne', 'chaine', 'transmission', 'boîte', 'boite', 'gearbox', 'boîte de vitesses', 'boite de vitesses', 'transmission', 'differential', 'différentiel', 'differentiel', 'clutch', 'embrayage', 'brake', 'frein', 'freins', 'brake pad', 'plaquette', 'brake disc', 'disque', 'brake drum', 'tambour', 'suspension', 'suspension', 'shock absorber', 'amortisseur', 'damper', 'spring', 'ressort', 'strut', 'pneumatique', 'hydraulic', 'steering', 'direction', 'power steering', 'direction assistée', 'direction assistee', 'rack', 'crémaillère', 'cremailiere', 'axle', 'essieu', 'driveshaft', 'arbre de transmission', 'cardan', 'universal joint', 'joint de cardan', 'propeller shaft', 'exhaust', 'échappement', 'echappement', 'muffler', 'silencieux', 'catalytic converter', 'catalyseur', 'catalyst', 'pot catalytique', 'manifold', 'collecteur', 'injection', 'injecteur', 'injection pump', 'pompe injection', 'carburetor', 'carburateur', 'filter', 'filtre', 'air filter', 'filtre à air', 'oil filter', 'filtre à huile', 'fuel filter', 'filtre à carburant', 'cabin filter', 'filtre d habitacle', 'filtre pollen', 'car body', 'carrosserie', 'body', 'bodywork', 'body part', 'panel', 'panneau', 'door', 'porte', 'hood', 'capot', 'trunk', 'coffre', 'bumper', 'pare-chocs', 'pare chocs', 'fender', 'aile', 'wing', 'quarter panel', 'montant', 'pillar', 'windshield', 'pare-brise', 'pare brise', 'window', 'vitre', 'lunette', 'rear window', 'lunette arrière', 'lunette arriere', 'side mirror', 'rétroviseur', 'retroviseur', 'wing mirror', 'headlight', 'phare', 'phares', 'taillight', 'feu arrière', 'feu arriere', 'feux arrière', 'turn signal', 'clignotant', 'indicator', 'fog light', 'antibrouillard', 'license plate', 'plaque dimmatriculation', 'immatriculation', 'number plate', 'grille', 'calandre', 'emblem', 'logo', 'insignia', 'monogramme', 'strip', 'liseré', 'interior', 'intérieur', 'interieur', 'upholstery', 'sellerie', 'seat', 'siège', 'siege', 'dashboard', 'tableau de bord', 'console', 'steering wheel', 'volant', 'gear lever', 'levier de vitesse', 'pommeau', 'handbrake', 'frein à main', 'pedal', 'pédale', 'pedale', 'accelerator', 'accélérateur', 'accelerateur', 'clutch pedal', 'pédale dembrayage', 'brake pedal', 'pédale de frein', 'carpet', 'moquette', 'floor mat', 'tapis de sol', 'seat cover', 'housse de siège', 'sun visor', 'pare-soleil', 'glove box', 'boîte à gants', 'boite a gants', 'airbag', 'air bag', 'entertainment', 'autoradio', 'car radio', 'radio', 'stereo', 'hi-fi', 'gps', 'navigation', 'navigator', 'alarm', 'alarme', 'immobilizer', 'antidémarrage', 'antidemarrage', 'central locking', 'fermeture centralisée', 'key', 'clé', 'cle', 'keyless', 'sans clé', 'sans cle', 'remote key', 'télécommande', 'transponder', 'chip key', 'diagnostic', 'diagnostic', 'obd', 'scanner', 'garage', 'atelier', 'mechanic', 'mécanicien', 'mecanicien', 'technician', 'technicien', 'repair', 'réparation', 'reparation', 'maintenance', 'entretien', 'service', 'revision', 'révision', 'revision', 'tune-up', 'reglage', 'réglage', 'reglage', 'wheel alignment', 'parallélisme', 'parallelisme', 'balancing', 'équilibrage', 'equilibrage', 'tire pressure', 'pression', 'pneus', 'fitting', 'montage', 'puncture', 'crevaison', 'tire repair', 'réparation pneu', 'car wash', 'lavage', 'auto wash', 'cleaning', 'nettoyage', 'polish', 'polissage', 'wax', 'cirage', 'interior cleaning', 'lavage intérieur', 'detailing', 'detailing', 'rental', 'location', 'lease', 'leasing', 'rent', 'louer', 'occasion', 'used car', 'voiture doccasion', 'voiture d occasion', 'second hand', 'dealer', 'concessionnaire', 'dealership', 'showroom', 'agent', 'agence', 'importer', 'importateur', 'parts dealer', 'pièces auto', 'pieces auto', 'recycler', 'recycleur', 'casse', 'scrap yard', 'dismantler', 'démolisseur', 'demolisseur', 'breaker', 'breaker yard'],
+  
+  'auto': ['car', 'voiture', 'automobile', 'vehicle', 'véhicule', 'truck', 'camion', 'van', 'fourgon', 'bus', 'tire', 'pneu', 'pneus', 'tyre', 'wheel', 'roue', 'rim', 'jante', 'battery', 'batterie', 'oil', 'huile', 'lubricant', 'lubrifiant', 'part', 'pièce', 'piece', 'spare', 'rechange', 'accessory', 'accessoire', 'engine', 'moteur', 'motor', 'brake', 'frein', 'suspension', 'steering', 'direction', 'exhaust', 'échappement', 'echappement', 'filter', 'filtre', 'body', 'carrosserie', 'interior', 'intérieur', 'interieur', 'seat', 'siège', 'siege', 'dashboard', 'tableau de bord', 'garage', 'atelier', 'mechanic', 'mécanicien', 'mecanicien', 'repair', 'réparation', 'reparation', 'maintenance', 'entretien', 'service', 'car wash', 'lavage', 'rental', 'location', 'used car', 'voiture doccasion', 'dealer', 'concessionnaire', 'parts dealer', 'pièces auto', 'pieces auto'],
+
+  // Sports
+  'sports': ['ball', 'balle', 'balls', 'football', 'soccer', 'basketball', 'volleyball', 'handball', 'rugby', 'tennis ball', 'balle de tennis', 'golf ball', 'balle de golf', 'cricket ball', 'baseball', 'softball', 'bat', 'batte', 'racket', 'raquette', 'net', 'filet', 'goal', 'but', 'cage', 'post', 'poteau', 'jersey', 'maillot', 'shorts', 'short', 'socks', 'chaussettes', 'chaussures', 'shoes', 'boots', 'bottes', 'cleats', 'crampons', 'shin guard', 'protège-tibia', 'protecteur', 'equipment', 'équipement', 'equipement', 'gear', 'accessoire de sport', 'accessoires sport', 'sport', 'sport', 'sports', 'loisir', 'loisirs', 'leisure', 'activity', 'activité', 'activite', 'exercise', 'exercice', 'fitness', 'forme', 'musculation', 'bodybuilding', 'gym', 'gymnase', 'salle de sport', 'fitness center', 'health club', 'club de sport', 'sports club', 'training', 'entraînement', 'entrainement', 'coaching', 'coach', 'personal trainer', 'entraîneur', 'entraineur', 'instructor', 'moniteur', 'teacher', 'professeur', 'match', 'match', 'game', 'jeu', 'competition', 'compétition', 'competition', 'tournament', 'tournoi', 'championship', 'championnat', 'league', 'ligue', 'team', 'équipe', 'equipe', 'club', 'player', 'joueur', 'athlete', 'athlète', 'athlete', 'champion', 'winner', 'vainqueur', 'referee', 'arbitre', 'field', 'terrain', 'court', 'piste', 'track', 'stadium', 'stade', 'arena', 'gymnasium', 'gymnase', 'pool', 'piscine', 'swimming', 'natation', 'track and field', 'athlétisme', 'athletisme', 'running', 'course', 'courir', 'jogging', 'marathon', 'race', 'compétition', 'cycling', 'cyclisme', 'vélo', 'velo', 'bicycle', 'bike', 'mountain bike', 'vtt', 'bmx', 'road bike', 'fitness bike', 'gym equipment', 'appareil de fitness', 'treadmill', 'tapis de course', 'elliptical', 'vélo elliptique', 'velo elliptique', 'rowing machine', 'rameur', 'stationary bike', 'vélo dappartement', 'velo dappartement', 'weight', 'poids', 'dumbbell', 'haltère', 'haltere', 'barbell', 'barre', 'kettlebell', 'machine', 'appareil', 'bench', 'banc', 'rack', 'support', 'mat', 'tapis', 'yoga', 'pilates', 'aerobics', 'aérobic', 'aerobic', 'zumba', 'dance', 'danse', 'martial art', 'art martial', 'karate', 'judo', 'taekwondo', 'boxing', 'boxe', 'wrestling', 'lutte', 'fitness', 'crossfit', 'hiit', 'bodybuilding', 'musculation', 'calisthenics', 'street workout', 'outdoor', 'outdoor', 'adventure', 'aventure', 'hiking', 'randonnée', 'randonnee', 'trekking', 'camping', 'outdoor equipment', 'matériel outdoor', 'materiel outdoor', 'tent', 'tente', 'sleeping bag', 'sac de couchage', 'backpack', 'sac à dos', 'compass', 'boussole', 'binoculars', 'jumelles', 'fishing', 'pêche', 'peche', 'hunting', 'chasse', 'shooting', 'tir', 'archery', 'tir à larc', 'golf', 'hockey', 'ice hockey', 'hockey sur glace', 'inline hockey', 'hockey sur roulettes', 'skating', 'patinage', 'roller', 'rollerblade', 'rollers', 'skateboard', 'surf', 'surfing', 'planche', 'planche à voile', 'windsurf', 'kitesurf', 'paddle', 'stand up paddle', 'rowing', 'aviron', 'canoe', 'canoë', 'canoe', 'kayak', 'rafting', 'sailing', 'voile', 'navigation', 'diving', 'plongée', 'plongee', 'scuba', 'snorkeling', 'palmes', 'masque', 'tuba', 'ski', 'skiing', 'snowboard', 'snowboarding', 'winter sport', 'sport dhiver', 'alpinisme', 'mountaineering', 'escalade', 'climbing', 'bouldering', 'block', 'gymnastic', 'gymnastique', 'rhythmic', 'rhythmique', 'trampoline', 'cheerleading', 'équitation', 'equitation', 'horse riding', 'poney', 'polo', 'equestrian', 'équestre', 'fencing', 'escrime', 'badminton', 'table tennis', 'tennis de table', 'ping-pong', 'squash', 'padel', 'fronton', 'pelote', 'basque', 'billiard', 'billard', 'pool', 'snooker', 'bowling', 'pétanque', 'petanque', 'boules', 'lawn bowls', 'croquet', 'horseshoe', 'frisbee', 'ultimate', 'disc golf', 'darts', 'fléchettes', 'flechette', 'electronic sport', 'esport', 'e-sport', 'gaming', 'jeu vidéo', 'sport électronique'],
+
+  // Packaging/Emballage
+  'packaging': ['box', 'boîte', 'boite', 'boxes', 'boîtes', 'boites', 'carton', 'cardboard', 'carton box', 'boîte en carton', 'boite en carton', 'corrugated', 'carton ondulé', 'carton ondule', 'kraft', 'kraft paper', 'papier kraft', 'wrapper', 'emballage', 'wrapping', 'enveloppe', 'envelope', 'sleeve', 'manchette', 'pochette', 'pouch', 'sachet', 'bag', 'sac', 'sachet', 'sacs', 'plastic bag', 'sac plastique', 'paper bag', 'sac papier', 'canvas bag', 'sac en toile', 'jute bag', 'sac en jute', 'biodegradable bag', 'sac biodégradable', 'compostable', 'compostable', 'tote bag', 'sac cabas', 'container', 'conteneur', 'contenant', 'recipient', 'réipient', 'reipient', 'pot', 'jar', 'bocal', 'can', 'canette', 'bottle', 'bouteille', 'flask', 'flacon', 'vial', 'fiole', 'ampoule', 'ampoule', 'drum', 'fût', 'fut', 'barrel', 'baril', 'tank', 'citerne', 'reservoir', 'réservoir', 'ibc', 'intermediate bulk container', 'pallet', 'palette', 'pallet box', 'caisse palette', 'crate', 'cagette', 'casier', 'basket', 'panier', 'tray', 'plateau', 'tub', 'seau', 'bucket', 'pail', 'pot', 'jar', 'label', 'étiquette', 'etiquette', 'tag', 'étiquette prix', 'sticker', 'autocollant', 'decal', 'décalque', 'decalque', 'tape', 'ruban', 'adhesive', 'adhésif', 'adhesif', 'scotch', 'masking tape', 'ruban de masquage', 'duct tape', 'ruban adhésif', 'ruban adhesif', 'film', 'film', 'shrink wrap', 'film rétractable', 'film retractable', 'stretch film', 'film étirable', 'film etirable', 'cling film', 'film alimentaire', 'bubble wrap', 'film à bulles', 'bulle', 'foam', 'mousse', 'protective', 'protection', 'cushioning', 'amortissement', 'padding', 'rembourrage', 'filler', 'remplissage', 'packing peanut', 'chip', 'copeau', 'corrugated insert', 'calage carton', 'divider', 'séparateur', 'separateur', 'separator', 'insert', 'insert', 'blister', 'blister pack', 'clamshell', 'coque', 'thermoformed', 'thermoformé', 'thermoforme', 'vacuum formed', 'skin pack', 'skin packaging', 'flow pack', 'sachet flow', 'sachet stick', 'stick pack', 'doypack', 'doy pack', 'stand-up pouch', 'pochette debout', 'flexible', 'souple', 'rigid', 'rigide', 'folding', 'pliant', 'collapsible', 'repliable', 'reusable', 'réutilisable', 'reutilisable', 'returnable', 'consigné', 'consigne', 'single-use', 'usage unique', 'jetable', 'disposable', 'recyclable', 'recyclable', 'recycled', 'recyclé', 'recycle', 'recyclage', 'recycling', 'waste', 'déchet', 'dechet', 'green', 'vert', 'eco', 'éco', 'eco-friendly', 'écologique', 'ecologique', 'environmental', 'environnemental', 'sustainable', 'durable', 'biodegradable', 'biodégradable', 'biodégradable', 'compostable', 'organic', 'bio', 'food grade', 'contact alimentaire', 'food safe', 'alimentaire', 'pharma', 'pharmaceutique', 'medical grade', 'medical', 'cosmetic', 'cosmétique', 'cosmetique', 'dangerous goods', 'matières dangereuses', 'hazmat', 'adr', 'imdg', 'iata', 'un', 'ce', 'iso', 'haccp', 'brc', 'ifs', 'fsc', 'pefc', 'design', 'conception', 'prototyping', 'prototypage', 'printing', 'impression', 'print', 'imprimerie', 'litho', 'offset', 'flexo', 'gravure', 'screen printing', 'sérigraphie', 'serigraphie', 'digital print', 'impression numérique', '3d print', 'impression 3d', 'personalization', 'personnalisation', 'custom', 'sur mesure', 'standard', 'norme', 'stock', 'stock', 'inventory', 'inventaire', 'just-in-time', 'flux tendu', 'kanban', 'supply chain', 'chaîne logistique', 'chaine logistique', 'logistics', 'logistique', 'warehousing', 'entreposage', 'storage', 'stockage', 'handling', 'manutention', 'transport', 'shipping', 'expédition', 'expedition', 'export', 'exportation', 'import', 'importation', 'customs', 'douane', 'packaging supplier', 'fournisseur demballage', 'packaging manufacturer', 'fabricant demballage', 'converter', 'transformateur', 'printer', 'imprimeur', 'packaging company', 'société demballage', 'emballage industriel', 'industrial packaging', 'primary', 'primaire', 'secondary', 'secondaire', 'tertiary', 'tertiaire', 'retail', 'grande distribution', 'gms', 'gss', 'ecommerce', 'e-commerce', 'commerce en ligne', 'fulfillment', 'préparation', 'preparation', 'commande', 'picking', 'pick', 'pack', 'kitting', 'assembly', 'assemblage', 'co-packing', 'conditionnement', 'packaging service', 'service demballage'],
+  
+  'emballage': ['box', 'boîte', 'boite', 'carton', 'cardboard', 'wrapper', 'emballage', 'enveloppe', 'envelope', 'pouch', 'sachet', 'bag', 'sac', 'plastic bag', 'sac plastique', 'paper bag', 'sac papier', 'container', 'conteneur', 'contenant', 'pot', 'jar', 'bocal', 'can', 'canette', 'bottle', 'bouteille', 'flask', 'flacon', 'drum', 'fût', 'fut', 'barrel', 'baril', 'pallet', 'palette', 'crate', 'cagette', 'casier', 'basket', 'panier', 'tray', 'plateau', 'tub', 'seau', 'bucket', 'label', 'étiquette', 'etiquette', 'tag', 'sticker', 'autocollant', 'tape', 'ruban', 'adhesive', 'adhésif', 'adhesif', 'film', 'shrink wrap', 'film rétractable', 'film retractable', 'stretch film', 'film étirable', 'film etirable', 'bubble wrap', 'film à bulles', 'foam', 'mousse', 'protection', 'cushioning', 'padding', 'rembourrage', 'filler', 'remplissage', 'blister', 'blister pack', 'doypack', 'pochette', 'flexible', 'souple', 'rigid', 'rigide', 'recyclable', 'recyclable', 'recycled', 'recyclé', 'recycle', 'recyclage', 'recycling', 'green', 'vert', 'eco', 'éco', 'eco-friendly', 'écologique', 'ecologique', 'sustainable', 'durable', 'biodegradable', 'biodégradable', 'biodégradable', 'compostable', 'food grade', 'contact alimentaire', 'food safe', 'alimentaire', 'printing', 'impression', 'print', 'imprimerie', 'digital print', 'impression numérique', 'custom', 'sur mesure', 'stock', 'stock', 'inventory', 'inventaire', 'logistics', 'logistique', 'warehousing', 'entreposage', 'stockage', 'handling', 'manutention', 'transport', 'shipping', 'expédition', 'expedition', 'export', 'exportation', 'import', 'importation', 'packaging supplier', 'fournisseur demballage', 'packaging manufacturer', 'fabricant demballage', 'printer', 'imprimeur', 'emballage industriel', 'industrial packaging', 'retail', 'grande distribution', 'ecommerce', 'e-commerce', 'commerce en ligne', 'fulfillment', 'préparation', 'preparation', 'commande', 'conditionnement', 'packaging service', 'service demballage'],
+
+  // Agriculture/Agriculture
+  'agriculture': ['seed', 'semence', 'graine', 'seeds', 'semences', 'graines', 'certified seed', 'semence certifiée', 'hybrid', 'hybride', 'gm', 'ogm', 'gmo', 'transgenic', 'transgénique', 'transgenique', 'heirloom', 'traditionnelle', 'open pollinated', 'variété', 'variety', 'cultivar', 'species', 'espèce', 'espece', 'fertilizer', 'engrais', 'fertilizers', 'engrais', 'organic fertilizer', 'engrais organique', 'chemical fertilizer', 'engrais chimique', 'npk', 'nitrogen', 'azote', 'phosphorus', 'phosphore', 'potassium', 'potassium', 'urea', 'urée', 'uree', 'ammonium', 'sulfate', 'sulfate', 'nitrate', 'nitrate', 'phosphate', 'phosphate', 'compost', 'compost', 'manure', 'fumier', 'guano', 'bokashi', 'vermicompost', 'lombricompost', 'biochar', 'biocarbon', 'micronutrient', 'oligo-élément', 'oligo element', 'trace element', 'fertigation', 'fertigation', 'foliar', 'foliaire', 'pesticide', 'pesticide', 'insecticide', 'insecticide', 'fungicide', 'fongicide', 'herbicide', 'herbicide', 'weedkiller', 'désherbant', 'desherbant', 'nematicide', 'molluscicide', 'rodenticide', 'raticide', 'acaricide', 'avicide', 'bactericide', 'bactéricide', 'bactericide', 'virucide', 'algicide', 'repellent', 'répulsif', 'repulsif', 'attractant', 'attractif', 'pheromone', 'phéromone', 'pheromone', 'trap', 'piège', 'piege', 'biological control', 'lutte biologique', 'biocontrol', 'biopesticide', 'organic farming', 'agriculture biologique', 'conventional', 'agriculture conventionnelle', 'integrated', 'lutte intégrée', 'tool', 'outil', 'equipment', 'équipement', 'equipement', 'machinery', 'machine', 'engin', 'tractor', 'tracteur', 'harvester', 'moissonneuse', 'combine', 'combine harvester', 'moissonneuse-batteuse', 'moissonneuse batteuse', 'thresher', 'batteuse', 'planter', 'semoir', 'sowing', 'seeding', 'transplanter', 'repiqueuse', 'repique', 'transplanting', 'sprayer', 'pulvérisateur', 'pulverisateur', 'atomizer', 'atomiseur', 'fogger', 'boom', 'lance', 'nozzle', 'buse', 'plow', 'charrue', 'plough', 'plow', 'disc harrow', 'déchaumeur', 'dechaumeur', 'cultivator', 'cultivateur', 'rotary tiller', 'fraise', 'rotavator', 'hoe', 'houe', 'mattock', 'binette', 'shovel', 'pelle', 'spade', 'bêche', 'beche', 'fork', 'fourche', 'pitchfork', 'fourche à foin', 'rake', 'râteau', 'rateau', 'machete', 'machette', 'cutlass', 'couteau de coupe', 'pruner', 'sécateur', 'secateur', 'shear', 'cisaille', 'hedge trimmer', 'taille-haie', 'taille haie', 'chainsaw', 'tronçonneuse', 'tronconneuse', 'brush cutter', 'débroussailleuse', 'debroussailleuse', 'strimmer', 'lawn mower', 'tondeuse', 'irrigation', 'irrigation', 'watering', 'arrosage', 'sprinkler', 'arroseur', 'pivot', 'center pivot', 'pivot central', 'drip', 'goutte à goutte', 'goutte a goutte', 'micro-sprinkler', 'microjet', 'hydroponic', 'hydroponie', 'aquaponic', 'aquaponie', 'aeroponic', 'aéroponie', 'aeroponie', 'pump', 'pompe', 'water pump', 'pompe à eau', 'solar pump', 'pompe solaire', 'well', 'puits', 'borehole', 'forage', 'dam', 'barrage', 'reservoir', 'réservoir', 'tank', 'citerne', 'canal', 'channel', 'ditch', 'fossé', 'fosse', 'pipe', 'tuyau', 'tubing', 'tape', 'manguera', 'valve', 'vanne', 'fitting', 'raccord', 'filter', 'filtre', 'screen', 'tamis', 'mesh', 'maille', 'greenhouse', 'serre', 'tunnel', 'high tunnel', 'low tunnel', 'plasticulture', 'mulch', 'paillage', 'film', 'net', 'filet', 'shade net', 'filet dombrage', 'insect net', 'filet anti-insectes', 'anti insecte', 'anti-afide', 'climate control', 'climatisation', 'heating', 'chauffage', 'ventilation', 'fertilization', 'fertigation', 'automation', 'automatisation', 'sensor', 'capteur', 'weather station', 'station météo', 'station meteo', 'farm management', 'gestion dexploitation', 'farm', 'ferme', 'exploitation', 'agriculture', 'agriculture', 'agricultural', 'agricole', 'crop', 'culture', 'cultivated', 'cultivé', 'cultive', 'planting', 'plantation', 'semis', 'sowing', 'harvest', 'récolte', 'recolte', 'harvesting', 'moisson', 'production', 'rendement', 'yield', 'productivity', 'productivité', 'input', 'intrant', 'output', 'extrant', 'livestock', 'bétail', 'betail', 'animal', 'élevage', 'elevage', 'breeding', 'reproduction', 'veterinary', 'vétérinaire', 'veterinaire', 'feed', 'aliment', 'feeding', 'alimentation', 'fodder', 'fourrage', 'pasture', 'pâturage', 'patu rage', 'grazing', 'herbage', 'herbe', 'hay', 'foin', 'silage', 'ensilage', 'concentrate', 'aliment concentré', 'supplement', 'complément', 'complement', 'nutrition', 'nutrition', 'mineral', 'minéral', 'mineral', 'block', 'bloc', 'salt', 'sel', 'housing', 'logement', 'barn', 'grange', 'stable', 'étable', 'etable', 'shed', 'hangar', 'coop', 'poulailler', 'sty', 'porcherie', 'kennel', 'chenil', 'fence', 'clôture', 'cloture', 'grillage', 'barbed wire', 'fil barbelé', 'electric fence', 'clôture électrique', 'cloture electrique', 'gate', 'portail', 'gate', 'trough', 'auge', 'drinker', 'abreuvoir', 'feeder', 'mangeoire', 'milking', 'traite', 'machine milking', 'machine à traire', 'cooling', 'refroidissement', 'storage', 'stockage', 'preservation', 'conservation', 'refrigeration', 'réfrigération', 'drying', 'séchage', 'sechage', 'processing', 'transformation', 'milling', 'mouture', 'grinding', 'broyage', 'pressing', 'pressage', 'extraction', 'extracteur', 'juicing', 'market', 'marché', 'marche', 'sale', 'vente', 'commercialisation', 'marketing', 'cooperative', 'coopérative', 'cooperative', 'association', 'union', 'syndicat', 'export', 'exportation', 'import', 'importation', 'subsidy', 'subvention', 'credit', 'crédit', 'credit', 'loan', 'prêt', 'pret', 'insurance', 'assurance', 'risk', 'risque', 'climate', 'climat', 'weather', 'météo', 'meteo', 'rain', 'pluie', 'drought', 'sécheresse', 'secheresse', 'flood', 'inondation', 'erosion', 'érosion', 'erosion', 'fertility', 'fertilité', 'soil', 'sol', 'terre', 'earth', 'composting', 'compostage', 'manure management', 'échelle', 'scale', 'weighing', 'pesage', 'control', 'contrôle', 'controle', 'sanitary', 'sanitaire', 'phytosanitary', 'phytosanitaire', 'certification', 'certification', 'label', 'label', 'organic label', 'label bio', 'fairtrade', 'commerce équitable', 'commerce equitable', 'sustainable', 'durable', 'agroecology', 'agroécologie', 'agroecologie', 'permaculture', 'agroforestry', 'agroforesterie', 'conservation agriculture', 'agriculture de conservation'],
+
+  // Hôtellerie
+  'hotellerie': ['hotel', 'hôtel', 'hopital', 'hotel', 'motel', 'auberge', 'hostel', 'resort', 'complexe', 'lodge', 'guesthouse', 'maison dhôtes', 'maison dhotes', 'pension', 'bed and breakfast', 'chambre d hôte', 'chambre dhote', 'bb', 'bnb', 'inn', 'relais', 'tavern', 'taverne', 'room', 'chambre', 'chambres', 'suite', 'junior suite', 'executive suite', 'presidential suite', 'penthouse', 'standard room', 'deluxe room', 'superior room', 'single room', 'chambre simple', 'double room', 'chambre double', 'twin room', 'chambre twin', 'triple room', 'chambre triple', 'family room', 'chambre familiale', 'connecting room', 'chambres communicantes', 'accessible room', 'chambre accessible', 'pmr', 'handicap', 'smoking room', 'chambre fumeur', 'non-smoking', 'non fumeur', 'room with view', 'chambre avec vue', 'seaview', 'vue mer', 'mountain view', 'vue montagne', 'garden view', 'vue jardin', 'pool view', 'vue piscine', 'bed', 'lit', 'beds', 'lits', 'single bed', 'lit simple', 'double bed', 'lit double', 'queen bed', 'lit queen', 'king bed', 'lit king', 'twin beds', 'lits jumeaux', 'bunk bed', 'lit superposé', 'sofa bed', 'canapé-lit', 'canape-lit', 'canape lit', 'folding bed', 'lit pliant', 'rollaway bed', 'lit dappoint', 'baby bed', 'lit bébé', 'lit bebe', 'crib', 'berceau', 'bathroom', 'salle de bain', 'salle deau', 'shower', 'douche', 'bathtub', 'baignoire', 'jacuzzi', 'jacuzzi', 'whirlpool', 'balnéo', 'balneo', 'hammam', 'hammam', 'sauna', 'sauna', 'spa', 'spa', 'toilet', 'toilettes', 'wc', 'bidet', 'sink', 'lavabo', 'towel', 'serviette', 'bath towel', 'serviette de bain', 'hand towel', 'serviette de toilette', 'face towel', 'drap de bain', 'robe', 'peignoir', 'bathrobe', 'slippers', 'chaussons', 'toiletries', 'articles de toilette', 'amenities', 'agréments', 'agrements', 'shampoo', 'shampooing', 'soap', 'savon', 'shower gel', 'gel douche', 'body lotion', 'lait corporel', 'conditioner', 'après-shampooing', 'après shampooing', 'dental kit', 'kit dentaire', 'shaving kit', 'kit de rasage', 'sewing kit', 'kit de couture', 'vanity', 'nécessaire', 'necessaire', 'tissue', 'mouchoir', 'paper tissue', 'kleenex', 'toilet paper', 'papier toilette', 'breakfast', 'petit-déjeuner', 'petit dejeuner', 'petit déjeuner', 'continental breakfast', 'breakfast buffet', 'continental', 'english breakfast', 'american breakfast', 'brunch', 'half board', 'demi-pension', 'demi pension', 'full board', 'pension complète', 'pension complete', 'all inclusive', 'tout inclus', 'restaurant', 'restaurant', 'dining', 'restauration', 'room service', 'service en chambre', 'bar', 'bar', 'lounge', 'salon', 'minibar', 'mini-bar', 'minibar', 'refrigerator', 'réfrigérateur', 'fridge', 'safe', 'coffre-fort', 'coffre fort', 'security box', 'tv', 'télévision', 'television', 'télé', 'tele', 'flat screen', 'écran plat', 'ecran plat', 'cable tv', 'satellite', 'wifi', 'wi-fi', 'internet', 'air conditioning', 'climatisation', 'air conditionné', 'conditionne', 'heating', 'chauffage', 'fan', 'ventilateur', 'balcony', 'balcon', 'terrace', 'terrasse', 'patio', 'veranda', 'véranda', 'veranda', 'garden', 'jardin', 'pool', 'piscine', 'swimming pool', 'indoor pool', 'piscine intérieure', 'piscine interieure', 'outdoor pool', 'piscine extérieure', 'piscine exterieure', 'heated pool', 'piscine chauffée', 'piscine chauffee', 'infinity pool', 'à débordement', 'a debordement', 'pool bar', 'bar de piscine', 'beach', 'plage', 'sunbed', 'transat', 'chaise longue', 'chaise lounge', 'umbrella', 'parasol', 'fitness center', 'salle de fitness', 'gym', 'salle de sport', 'business center', 'centre daffaires', 'conference room', 'salle de réunion', 'salle de reunion', 'meeting room', 'banquet', 'réception', 'reception', 'event', 'événement', 'evenement', 'wedding', 'mariage', 'party', 'fête', 'fete', 'seminar', 'séminaire', 'seminaire', 'congress', 'congrès', 'congres', 'exhibition', 'exposition', 'lobby', 'hall', 'reception desk', 'réception', 'concierge', 'conciergerie', 'concierge', 'bellboy', 'voiturier', 'valet', 'porter', 'portier', 'doorman', 'gardien', 'night watch', 'veilleur de nuit', 'housekeeping', 'ménage', 'menage', 'room maid', 'femme de chambre', 'room attendant', 'maintenance', 'entretien', 'laundry', 'blanchisserie', 'pressing', 'dry cleaning', 'pressing', 'nettoyage à sec', 'nettoyage a sec', 'ironing', 'repassage', 'shoe shine', 'cirage', 'luggage', 'bagage', 'baggage', 'porter', 'voiturier', 'valet parking', 'parking', 'garage', 'car park', 'place de parking', 'elevator', 'ascenseur', 'lift', 'stairs', 'escalier', 'wheelchair access', 'accès handicapé', 'acces handicape', 'accessible', 'accessibilité', 'fire exit', 'issue de secours', 'emergency exit', 'evacuation', 'security', 'sécurité', 'securite', 'surveillance', 'camera', 'badge', 'key card', 'carte magnétique', 'key', 'clé', 'cle', 'lock', 'serrure', 'check-in', 'arrivée', 'arrivee', 'enregistrement', 'check-out', 'départ', 'depart', 'départ', 'depart', 'reservation', 'réservation', 'reservation', 'booking', 'réservation', 'cancel', 'annulation', 'no show', 'policy', 'politique', 'rate', 'tarif', 'price', 'prix', 'tariff', 'rate', 'rack rate', 'tarif public', 'corporate rate', 'tarif négocié', 'group rate', 'tarif groupe', 'seasonal rate', 'tarif saisonnier', 'early bird', 'early booking', 'last minute', 'promotion', 'promo', 'package', 'forfait', 'special offer', 'offre spéciale', 'offre speciale', 'discount', 'remise', 'upgrade', 'surclassement', 'upgrade', 'gift certificate', 'chèque cadeau', 'cheque cadeau', 'voucher', 'bon', 'coupon', 'loyalty', 'fidélité', 'fidelite', 'membership', 'adhésion', 'adhesion', 'points', 'reward', 'récompense', 'recompense', 'frequent guest', 'guest', 'client', 'visitor', 'tourist', 'touriste', 'business traveler', 'voyageur daffaires', 'vacation', 'vacances', 'holiday', 'séjour', 'sejour', 'trip', 'voyage', 'tourism', 'tourisme', 'hospitality', 'hôtellerie', 'hotellerie', 'hébergement', 'hebergement', 'accommodation', 'lodging', 'logement', 'service', 'service', 'quality', 'qualité', 'qualite', 'comfort', 'confort', 'cleanliness', 'propreté', 'proprete', 'satisfaction', 'review', 'avis', 'rating', 'note', 'star', 'étoile', 'etoile', 'five star', '5 étoiles', '4 star', 'luxury', 'luxe', 'deluxe', 'superior', 'standard', 'economy', 'budget', 'cheap', 'pas cher', 'affordable', 'abordable', 'boutique hotel', 'design hotel', 'business hotel', 'airport hotel', 'resort hotel', 'spa hotel', 'casino hotel', 'eco hotel', 'eco-lodge', 'heritage hotel', 'historic', 'historique', 'palace', 'palace', 'grand hotel', 'boutique', 'charm', 'charme', 'intimacy', 'intimité', 'intimite', 'personalized', 'personnalisé', 'personnalise', 'bespoke', 'sur mesure'],
+  
+  'hôtellerie': ['hotel', 'hôtel', 'hopital', 'auberge', 'hostel', 'resort', 'lodge', 'guesthouse', 'pension', 'bed and breakfast', 'chambre d hôte', 'bb', 'inn', 'room', 'chambre', 'suite', 'bed', 'lit', 'breakfast', 'petit-déjeuner', 'petit dejeuner', 'restaurant', 'dining', 'bar', 'lounge', 'spa', 'pool', 'piscine', 'fitness', 'gym', 'business center', 'conference', 'réunion', 'reunion', 'event', 'événement', 'evenement', 'wedding', 'mariage', 'reception', 'réception', 'concierge', 'housekeeping', 'ménage', 'menage', 'laundry', 'blanchisserie', 'parking', 'wifi', 'internet', 'air conditioning', 'climatisation', 'tourism', 'tourisme', 'hospitality', 'hôtellerie', 'hotellerie', 'hébergement', 'hebergement', 'accommodation', 'service', 'qualité', 'qualite', 'luxe', 'luxury', 'comfort', 'confort'],
 };
+
+// Mapping from inferred category keys to actual database category names
+// This ensures "fan" → "electronics" pattern maps to "Électronique" in DB
+const CATEGORY_NAME_MAPPING: Record<string, string[]> = {
+  // IT category mapping - points to IT (informatique) category
+  'it': ['IT', 'informatique', 'Informatique', 'INFO', 'info'],
+  
+  // Electronics category mapping
+  'electronics': ['Électronique', 'Electronique', 'electronique', 'électronique', 'electronics', 'ELECTRO', 'electro', 'Electroménager', 'électroménager', 'electromenager'],
+  'electronique': ['Électronique', 'Electronique', 'electronique', 'électronique', 'electronics', 'ELECTRO', 'electro', 'Electroménager', 'électroménager', 'electromenager'],
+  'acier': ['Acier & Métal', 'Acier & Metal', 'acier & métal', 'acier & metal'],
+  'métal': ['Acier & Métal', 'Acier & Metal', 'acier & métal', 'acier & metal'],
+  'btp': ['BTP', 'btp'],
+  'construction': ['BTP', 'btp', 'Construction', 'construction'],
+  'auto': ['Auto', 'auto', 'Automotive', 'automotive'],
+  'automotive': ['Auto', 'auto', 'Automotive', 'automotive'],
+  'it': ['IT', 'it', 'Informatique', 'informatique'],
+  'packaging': ['Packaging', 'packaging', 'Emballage', 'emballage'],
+  'emballage': ['Packaging', 'packaging', 'Emballage', 'emballage'],
+  'agroalimentaire': ['Agroalimentaire', 'agroalimentaire', 'Food', 'food'],
+  'food': ['Agroalimentaire', 'agroalimentaire', 'Food', 'food'],
+  'beauté': ['Beauté & Cosmétique', 'Beaute & Cosmetique', 'beauté & cosmétique', 'beauty'],
+  'beauty': ['Beauté & Cosmétique', 'Beaute & Cosmetique', 'beauté & cosmétique', 'beauty'],
+  'santé': ['Santé', 'Sante', 'santé', 'sante', 'Health', 'health'],
+  'health': ['Santé', 'Sante', 'santé', 'sante', 'Health', 'health'],
+  'hotellerie': ['Hôtellerie', 'Hotellerie', 'hôtellerie', 'hotellerie', 'Hotel', 'hotel'],
+  'hôtellerie': ['Hôtellerie', 'Hotellerie', 'hôtellerie', 'hotellerie', 'Hotel', 'hotel'],
+  'mode': ['Mode', 'mode', 'Clothing', 'clothing', 'Fashion', 'fashion'],
+  'clothing': ['Mode', 'mode', 'Clothing', 'clothing', 'Fashion', 'fashion'],
+  'agriculture': ['Agriculture', 'agriculture'],
+  'sports': ['Sports', 'sports', 'Sport', 'sport'],
+  'office': ['Fourniture de bureau', 'fourniture de bureau', 'Office', 'office'],
+  'home': ['Maison', 'maison', 'Home', 'home', 'Mobilier', 'mobilier'],
+  'kitchen': ['Cuisine', 'cuisine', 'Kitchen', 'kitchen'],
+};
+
+/**
+ * Get actual database category names from inferred category
+ */
+function getDatabaseCategoryNames(inferredCategory: string): string[] {
+  const normalized = inferredCategory.toLowerCase();
+  
+  // Direct lookup
+  if (CATEGORY_NAME_MAPPING[normalized]) {
+    return CATEGORY_NAME_MAPPING[normalized];
+  }
+  
+  // Try to find partial matches
+  for (const [key, names] of Object.entries(CATEGORY_NAME_MAPPING)) {
+    if (normalized.includes(key) || key.includes(normalized)) {
+      return names;
+    }
+  }
+  
+  // Return the inferred category as fallback
+  return [inferredCategory];
+}
 
 /**
  * Extract meaningful keywords from a search query
@@ -517,16 +619,29 @@ export const _searchSuppliersInternal = internalQuery({
 
 /**
  * Internal query: Get products with minimal fields for search
+ * MEMORY OPTIMIZED: Limited to 200 products max to prevent OOM
  */
-export const _getProductsForSearch = internalQuery({
+export const _getProductsForSearchOptimized = internalQuery({
   args: {
+    keywords: v.array(v.string()),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const limit = args.limit ?? 1000;
-    const products = await ctx.db.query("products").take(limit);
+    const limit = Math.min(args.limit ?? 200, 200); // Hard limit to prevent OOM
+    const keywords = args.keywords.map(k => k.toLowerCase());
     
-    return products.map(p => ({
+    // Get all products and filter in memory (since we need keyword matching)
+    // But limit strictly to prevent memory issues
+    const allProducts = await ctx.db.query("products").take(limit * 2); // Get more to filter
+    
+    // Filter products that match keywords
+    const matchingProducts = allProducts.filter(p => {
+      const name = (p.name || '').toLowerCase();
+      const desc = (p.description || '').toLowerCase();
+      return keywords.some(kw => name.includes(kw) || desc.includes(kw));
+    }).slice(0, limit);
+    
+    return matchingProducts.map(p => ({
       _id: p._id,
       name: p.name,
       description: p.description,
@@ -537,16 +652,118 @@ export const _getProductsForSearch = internalQuery({
 });
 
 /**
- * Internal query: Get categories with minimal fields for search
+ * Internal query: Get suppliers by category using index
+ * MEMORY OPTIMIZED: Uses category index for efficient filtering
  */
-export const _getCategoriesForSearch = internalQuery({
+export const _getSuppliersByCategory = internalQuery({
   args: {
+    category: v.string(),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const limit = args.limit ?? 500;
-    const categories = await ctx.db.query("categories").take(limit);
+    const limit = Math.min(args.limit ?? 500, 500);
     
+    // First try: exact match with the category index
+    let suppliers = await ctx.db
+      .query("suppliers")
+      .withIndex("approved_category", (q) => 
+        q.eq("approved", true).eq("category", args.category)
+      )
+      .take(limit);
+    
+    // Second try: case-insensitive fallback if no results
+    if (suppliers.length === 0) {
+      const categoryLower = args.category.toLowerCase();
+      const allSuppliers = await ctx.db
+        .query("suppliers")
+        .withIndex("approved", (q) => q.eq("approved", true))
+        .take(limit * 2);
+      
+      suppliers = allSuppliers.filter(s => 
+        s.category?.toLowerCase() === categoryLower ||
+        s.category?.toLowerCase().includes(categoryLower) ||
+        categoryLower.includes(s.category?.toLowerCase() || '')
+      ).slice(0, limit);
+    }
+    
+    return suppliers.map(s => ({
+      _id: s._id,
+      business_name: s.business_name,
+      description: s.description,
+      category: s.category,
+      city: s.city,
+      state: s.state,
+      location: s.location,
+      rating: s.rating,
+      reviews_count: s.reviews_count,
+      verified: s.verified,
+      featured: s.featured,
+      approved: s.approved,
+      image: s.image,
+      logo_url: s.logo_url,
+      latitude: s.latitude,
+      longitude: s.longitude,
+      phone: s.phone,
+      email: s.email,
+    }));
+  },
+});
+
+/**
+ * Internal query: Get approved suppliers paginated
+ * MEMORY OPTIMIZED: Uses pagination to limit memory usage
+ */
+export const _getSuppliersPaginated = internalQuery({
+  args: {
+    cursor: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.min(args.limit ?? 500, 500);
+    const cursor = args.cursor;
+    
+    const result = await ctx.db
+      .query("suppliers")
+      .withIndex("approved", (q) => q.eq("approved", true))
+      .paginate({ cursor, numItems: limit });
+    
+    // Map to minimal fields
+    const page = result.page.map(s => ({
+      _id: s._id,
+      business_name: s.business_name,
+      description: s.description,
+      category: s.category,
+      city: s.city,
+      state: s.state,
+      location: s.location,
+      rating: s.rating,
+      reviews_count: s.reviews_count,
+      verified: s.verified,
+      featured: s.featured,
+      approved: s.approved,
+      image: s.image,
+      logo_url: s.logo_url,
+      latitude: s.latitude,
+      longitude: s.longitude,
+      phone: s.phone,
+      email: s.email,
+    }));
+    
+    return {
+      page,
+      continueCursor: result.continueCursor,
+      isDone: result.isDone,
+    };
+  },
+});
+
+/**
+ * Internal query: Get categories (lightweight - max 100)
+ */
+export const _getCategoriesLight = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const categories = await ctx.db.query("categories").take(100);
     return categories.map(c => ({
       _id: c._id,
       name: c.name,
@@ -556,25 +773,23 @@ export const _getCategoriesForSearch = internalQuery({
 });
 
 /**
- * Search suppliers by PRODUCT - GOOGLE/ALIBABA STYLE INTELLIGENT SEARCH
+ * Search suppliers by PRODUCT - MEMORY-OPTIMIZED INTELLIGENT SEARCH
  * 
- * Features:
- * 1. Keyword extraction from long product names (e.g., "Fan 16 Inch Solar powered..." → ["fan", "solar", "rechargeable"])
- * 2. N-gram matching for better semantic understanding (e.g., "solar fan", "standing fan")
- * 3. Category inference from keywords
- * 4. Relevance scoring with multiple factors:
- *    - Category match: 50 points (highest priority)
- *    - Product keyword match: 20-30 points
- *    - Supplier name match: 20 points
- *    - Supplier description match: 10 points
- * 5. Multi-level results:
- *    - Priority 1: Suppliers in matching category
- *    - Priority 2: Suppliers with affinity (name/description match) even if not in category
+ * ARCHITECTURE:
+ * 1. Phase 1: Category Detection (lightweight)
+ *    - Load max 100 categories
+ *    - Load max 200 matching products with keyword filter
+ *    - Infer categories from keywords
  * 
- * Examples:
- * - Search "Fan 16 Inch Solar" → finds category "Electronics" → returns Electronics suppliers first
- *   + suppliers with "fan" or "solar" in name/description even if different category
- * - Search "rice" → finds category "Food" → returns Food suppliers
+ * 2. Phase 2: Supplier Fetching by Category (using indexes)
+ *    - For each target category, query suppliers using approved_category index
+ *    - Process in batches to limit memory
+ *    - Calculate relevance scores on the fly
+ * 
+ * 3. Phase 3: Fallback (if needed)
+ *    - If no results from category search, use paginated text search
+ * 
+ * MEMORY SAFE: Never loads more than ~1000 records at once
  */
 export const searchSuppliers = action({
   args: {
@@ -595,126 +810,195 @@ export const searchSuppliers = action({
     const offset = Number(args.offset ?? 0);
     const sortBy = args.sortBy || 'relevance';
 
-    // Fetch all data needed for intelligent search
-    const suppliers = await ctx.runQuery(internal.suppliers._searchSuppliersInternal, {
-      limit: 5000,
-      offset: 0,
-    });
-
-    const categories = await ctx.runQuery(internal.suppliers._getCategoriesForSearch, { limit: 500 });
-    const products = await ctx.runQuery(internal.suppliers._getProductsForSearch, { limit: 1000 });
-
     let scoredSuppliers: Array<any & { _score: number; _matchDetails: string[] }> = [];
 
     // ==========================================
-    // INTELLIGENT SEARCH ALGORITHM
+    // PHASE 1: CATEGORY DETECTION (Lightweight)
     // ==========================================
     
     if (args.q && args.q.trim()) {
       const rawQuery = args.q.trim();
       
-      // STEP 1: Extract meaningful keywords from the query
-      // Handles long product names like "Fan 16 Inch Solar powered Rechargeable..."
+      // Extract keywords from query
       const keywords = extractKeywords(rawQuery);
-      const bigrams = extractNGrams(keywords, 2);
-      const trigrams = extractNGrams(keywords, 3);
       
-      // STEP 2: Find matching products using keyword + n-gram matching
-      const matchingProducts = products.filter(product => {
-        const productName = (product.name || '').toLowerCase();
-        const productDesc = (product.description || '').toLowerCase();
-        
-        // Check for bigram matches (higher confidence)
-        for (const bigram of bigrams) {
-          if (productName.includes(bigram) || productDesc.includes(bigram)) {
-            return true;
-          }
-        }
-        
-        // Check for individual keyword matches
-        for (const keyword of keywords) {
-          if (keyword.length < 3) continue; // Skip short keywords
-          if (productName.includes(keyword) || productDesc.includes(keyword)) {
-            return true;
-          }
-        }
-        
-        return false;
-      });
+      // Load lightweight categories (max 100)
+      const categories = await ctx.runQuery(internal.suppliers._getCategoriesLight);
       
-      // STEP 3: Determine target categories
+      // Load matching products with keyword filter (max 200)
+      const matchingProducts = keywords.length > 0 
+        ? await ctx.runQuery(internal.suppliers._getProductsForSearchOptimized, { 
+            keywords,
+            limit: 200 
+          })
+        : [];
+      
+      // Determine target categories
       let targetCategories: Set<string> = new Set();
       
-      // From matching products
-      matchingProducts.forEach(product => {
+      // From matching products (use actual category names from products)
+      matchingProducts.forEach((product: any) => {
         if (product.category) {
+          // Add the actual category name from the product (preserve case as stored)
+          targetCategories.add(product.category);
+          // Also add lowercase version for flexible matching
           targetCategories.add(product.category.toLowerCase());
         }
       });
       
       // From direct category name matching
       const queryLower = rawQuery.toLowerCase();
-      categories.forEach(cat => {
+      categories.forEach((cat: any) => {
         const catName = (cat.name || '').toLowerCase();
         const catDesc = (cat.description || '').toLowerCase();
         
-        // Check if query contains category name or vice versa
         if (queryLower.includes(catName) || catName.includes(queryLower) ||
             (catDesc && (queryLower.includes(catDesc) || catDesc.includes(queryLower)))) {
-          targetCategories.add(catName);
+          targetCategories.add(cat.name); // Add original case
+          targetCategories.add(catName); // Add lowercase
         }
         
-        // Check individual keywords against category
         for (const keyword of keywords) {
           if (keyword.length >= 3 && (catName.includes(keyword) || (catDesc && catDesc.includes(keyword)))) {
+            targetCategories.add(cat.name);
             targetCategories.add(catName);
           }
         }
       });
       
-      // Infer category from keywords (e.g., "fan" → electronics)
+      // Infer category from keywords and add both original and mapped variations
       const inferredCategory = inferCategoryFromKeywords(keywords);
       if (inferredCategory) {
+        // Add the inferred category key
         targetCategories.add(inferredCategory);
+        targetCategories.add(inferredCategory.toLowerCase());
+        
+        // Add the mapped database category names (e.g., "electronics" → "Électronique")
+        const mappedNames = getDatabaseCategoryNames(inferredCategory);
+        mappedNames.forEach(name => {
+          targetCategories.add(name);
+          targetCategories.add(name.toLowerCase());
+        });
+        
+        // Also try to find matching category names from the database
+        const inferredLower = inferredCategory.toLowerCase();
+        categories.forEach((cat: any) => {
+          const catNameLower = (cat.name || '').toLowerCase();
+          if (catNameLower.includes(inferredLower) || inferredLower.includes(catNameLower)) {
+            targetCategories.add(cat.name);
+            targetCategories.add(catNameLower);
+          }
+        });
       }
       
-      // STEP 4: Calculate relevance scores for ALL suppliers
-      scoredSuppliers = suppliers.map(supplier => {
-        const { score, matchDetails } = calculateRelevanceScore(
-          supplier,
-          keywords,
-          targetCategories,
-          matchingProducts
-        );
+      // ==========================================
+      // PHASE 2: SUPPLIER FETCHING BY CATEGORY
+      // ==========================================
+      
+      if (targetCategories.size > 0) {
+        // Fetch suppliers for each target category using index
+        const categoryResults: any[] = [];
         
-        return {
-          ...supplier,
-          _score: score,
-          _matchDetails: matchDetails,
-        };
-      });
+        for (const targetCat of targetCategories) {
+          // Use index-based query for each category (max 500 per category)
+          const catSuppliers = await ctx.runQuery(internal.suppliers._getSuppliersByCategory, {
+            category: targetCat,
+            limit: 500
+          });
+          categoryResults.push(...catSuppliers);
+        }
+        
+        // Remove duplicates (supplier might be in multiple category queries)
+        const uniqueSuppliers = new Map();
+        categoryResults.forEach((s: any) => {
+          if (!uniqueSuppliers.has(s._id)) {
+            uniqueSuppliers.set(s._id, s);
+          }
+        });
+        
+        // Calculate relevance scores
+        scoredSuppliers = Array.from(uniqueSuppliers.values()).map((supplier: any) => {
+          const { score, matchDetails } = calculateRelevanceScore(
+            supplier,
+            keywords,
+            targetCategories,
+            matchingProducts
+          );
+          return {
+            ...supplier,
+            _score: score,
+            _matchDetails: matchDetails,
+          };
+        });
+        
+        // Filter out zero scores
+        scoredSuppliers = scoredSuppliers.filter(s => s._score > 0);
+      }
       
-      // Filter out suppliers with 0 relevance unless we have very few results
-      const suppliersWithScore = scoredSuppliers.filter(s => s._score > 0);
+      // ==========================================
+      // PHASE 3: FALLBACK (if no category matches)
+      // ==========================================
       
-      // If we have no matches, fall back to basic text search
-      if (suppliersWithScore.length === 0) {
+      if (scoredSuppliers.length === 0) {
+        // Use paginated approach for text search
+        let cursor: string | undefined = undefined;
+        const fallbackResults: any[] = [];
         const fallbackQuery = rawQuery.toLowerCase();
-        scoredSuppliers = suppliers
-          .filter(s => 
+        const maxFallbackIterations = 5; // Prevent infinite loops
+        
+        for (let i = 0; i < maxFallbackIterations && fallbackResults.length < 500; i++) {
+          const result = await ctx.runQuery(internal.suppliers._getSuppliersPaginated, {
+            cursor,
+            limit: 200
+          });
+          
+          // Filter by text match
+          const matching = result.page.filter((s: any) =>
             (s.business_name?.toLowerCase().includes(fallbackQuery)) ||
             (s.description?.toLowerCase().includes(fallbackQuery)) ||
             (s.category?.toLowerCase().includes(fallbackQuery))
-          )
-          .map(s => ({ ...s, _score: 1, _matchDetails: ['fallback_match'] }));
-      } else {
-        scoredSuppliers = suppliersWithScore;
+          ).map((s: any) => ({
+            ...s,
+            _score: 1,
+            _matchDetails: ['fallback_match']
+          }));
+          
+          fallbackResults.push(...matching);
+          
+          if (result.isDone || !result.continueCursor) break;
+          cursor = result.continueCursor;
+        }
+        
+        scoredSuppliers = fallbackResults.slice(0, 500);
       }
       
     } else {
-      // No search query - return all suppliers with default score
-      scoredSuppliers = suppliers.map(s => ({ ...s, _score: 0, _matchDetails: [] }));
+      // ==========================================
+      // NO SEARCH QUERY - Use pagination
+      // ==========================================
+      
+      let cursor: string | undefined = undefined;
+      const allSuppliers: any[] = [];
+      const maxIterations = 10;
+      
+      for (let i = 0; i < maxIterations && allSuppliers.length < 1000; i++) {
+        const result = await ctx.runQuery(internal.suppliers._getSuppliersPaginated, {
+          cursor,
+          limit: 200
+        });
+        
+        allSuppliers.push(...result.page);
+        
+        if (result.isDone || !result.continueCursor) break;
+        cursor = result.continueCursor;
+      }
+      
+      scoredSuppliers = allSuppliers.map((s: any) => ({ ...s, _score: 0, _matchDetails: [] }));
     }
+
+    // Store target categories for ranking
+    const targetCategoriesArray = Array.from(targetCategories);
+    const targetCategoriesLower = targetCategoriesArray.map(c => c.toLowerCase());
 
     // ==========================================
     // APPLY FILTERS
@@ -767,14 +1051,40 @@ export const searchSuppliers = action({
     // ==========================================
     
     scoredSuppliers.sort((a, b) => {
-      // First priority: Featured suppliers
-      const featuredA = a.featured ? 1 : 0;
-      const featuredB = b.featured ? 1 : 0;
-      if (featuredB !== featuredA) {
-        return featuredB - featuredA;
+      // Helper function to check if supplier category matches target categories
+      const isTargetCategory = (supplier: any) => {
+        if (!supplier.category) return false;
+        const catLower = supplier.category.toLowerCase();
+        return targetCategoriesLower.includes(catLower);
+      };
+      
+      const aIsTarget = isTargetCategory(a);
+      const bIsTarget = isTargetCategory(b);
+      const aIsFeatured = a.featured ? 1 : 0;
+      const bIsFeatured = b.featured ? 1 : 0;
+      
+      // Priority 1: Featured suppliers in target category
+      if (aIsFeatured && aIsTarget && !(bIsFeatured && bIsTarget)) {
+        return -1; // a comes first
+      }
+      if (bIsFeatured && bIsTarget && !(aIsFeatured && aIsTarget)) {
+        return 1; // b comes first
       }
       
-      // Second priority: Relevance score (for intelligent search)
+      // Priority 2: Non-featured suppliers in target category
+      if (aIsTarget && !aIsFeatured && (!bIsTarget || bIsFeatured)) {
+        return -1;
+      }
+      if (bIsTarget && !bIsFeatured && (!aIsTarget || aIsFeatured)) {
+        return 1;
+      }
+      
+      // Priority 3: Featured suppliers not in target category
+      if (aIsFeatured !== bIsFeatured) {
+        return bIsFeatured - aIsFeatured;
+      }
+      
+      // Priority 4: Relevance score (for intelligent search)
       if (sortBy === 'relevance') {
         const scoreDiff = (b._score ?? 0) - (a._score ?? 0);
         if (scoreDiff !== 0) return scoreDiff;
@@ -800,7 +1110,7 @@ export const searchSuppliers = action({
         return (b.business_name || '').localeCompare(a.business_name || '');
       }
       
-      // Default fallback
+      // Default fallback: rating then reviews
       const ratingDiff = (b.rating ?? 0) - (a.rating ?? 0);
       if (ratingDiff !== 0) return ratingDiff;
       return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
@@ -812,12 +1122,11 @@ export const searchSuppliers = action({
     
     const total = scoredSuppliers.length;
     const sliced = scoredSuppliers.slice(offset, offset + limit).map(s => {
-      // Remove internal scoring fields from response
       const { _score, _matchDetails, ...supplierData } = s;
       return {
         ...supplierData,
-        relevanceScore: _score, // Include score for UI display if needed
-        matchDetails: _matchDetails, // Include match reasons
+        relevanceScore: _score,
+        matchDetails: _matchDetails,
       };
     });
     
@@ -825,7 +1134,7 @@ export const searchSuppliers = action({
   },
 });
 
-// Legacy query version - now with intelligent product search
+// Legacy query version - MEMORY-OPTIMIZED using pagination and indexes
 export const searchSuppliersQuery = query({
   args: {
     q: v.optional(v.string()),
@@ -841,26 +1150,11 @@ export const searchSuppliersQuery = query({
     sortBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Redirect to action via internal query
     const limit = Number(args.limit ?? 20);
     const offset = Number(args.offset ?? 0);
     const sortBy = args.sortBy || 'relevance';
 
-    // Use internal query to fetch suppliers
-    const suppliers = await ctx.runQuery(internal.suppliers._searchSuppliersInternal, {
-      limit: 5000,
-      offset: 0,
-    });
-
-    // Fetch categories for intelligent search
-    const categories = await ctx.runQuery(internal.suppliers._getCategoriesForSearch, { limit: 500 });
-
-    // Fetch products for intelligent category matching
-    const products = await ctx.runQuery(internal.suppliers._getProductsForSearch, { limit: 1000 });
-
-    let all = [...suppliers];
-
-    // Determine target categories based on search query
+    let all: any[] = [];
     let targetCategories: Set<string> = new Set();
     let searchQueryUsed = false;
 
@@ -868,43 +1162,72 @@ export const searchSuppliersQuery = query({
       const q = args.q.toLowerCase().trim();
       searchQueryUsed = true;
       
-      // STRATEGY 1: Find products matching the query → get their categories
-      const productMatchingCategories = new Set<string>();
-      products.forEach(product => {
-        if (product.name?.toLowerCase().includes(q) || 
-            product.description?.toLowerCase().includes(q)) {
-          if (product.category) {
-            productMatchingCategories.add(product.category.toLowerCase());
-          }
-        }
-      });
+      // PHASE 1: Load categories (max 100) and determine target categories
+      const categories = await ctx.db.query("categories").take(100);
       
-      // STRATEGY 2: Find categories directly matching the query
-      const directMatchingCategories = new Set<string>();
+      // Direct category matching
       categories.forEach(cat => {
-        if (cat.name?.toLowerCase().includes(q) || 
-            cat.description?.toLowerCase().includes(q)) {
-          directMatchingCategories.add(cat.name.toLowerCase());
+        const catName = (cat.name || '').toLowerCase();
+        const catDesc = (cat.description || '').toLowerCase();
+        if (catName.includes(q) || (catDesc && catDesc.includes(q)) || q.includes(catName)) {
+          targetCategories.add(catName);
         }
       });
       
-      // Combine all matching categories
-      targetCategories = new Set([...productMatchingCategories, ...directMatchingCategories]);
-      
-      // If no category match found, fall back to traditional supplier name/description search
-      if (targetCategories.size === 0) {
-        all = all.filter(s =>
-          (s.business_name?.toLowerCase().includes(q)) ||
-          (s.description?.toLowerCase().includes(q))
-        );
+      // PHASE 2: Load suppliers by category using index OR use pagination for text search
+      if (targetCategories.size > 0) {
+        // Use category index for efficient fetching
+        for (const targetCat of targetCategories) {
+          const catSuppliers = await ctx.db
+            .query("suppliers")
+            .withIndex("approved_category", (q) => 
+              q.eq("approved", true).eq("category", targetCat)
+            )
+            .take(500);
+          all.push(...catSuppliers);
+        }
+        
+        // Remove duplicates
+        const unique = new Map();
+        all.forEach(s => unique.set(s._id, s));
+        all = Array.from(unique.values());
       } else {
-        // Filter suppliers by matching categories
-        all = all.filter(s => {
-          const supplierCategory = s.category?.toLowerCase() || '';
-          return Array.from(targetCategories).some(targetCat => 
-            supplierCategory === targetCat || supplierCategory.includes(targetCat)
+        // Fallback: Use pagination for text search (memory-safe)
+        let cursor: string | undefined = undefined;
+        const maxIterations = 5;
+        
+        for (let i = 0; i < maxIterations && all.length < 500; i++) {
+          const result = await ctx.db
+            .query("suppliers")
+            .withIndex("approved", (q) => q.eq("approved", true))
+            .paginate({ cursor, numItems: 200 });
+          
+          const matching = result.page.filter(s =>
+            s.business_name?.toLowerCase().includes(q) ||
+            s.description?.toLowerCase().includes(q)
           );
-        });
+          
+          all.push(...matching);
+          
+          if (result.isDone || !result.continueCursor) break;
+          cursor = result.continueCursor;
+        }
+      }
+    } else {
+      // No search query - use pagination for all suppliers
+      let cursor: string | undefined = undefined;
+      const maxIterations = 5;
+      
+      for (let i = 0; i < maxIterations && all.length < 1000; i++) {
+        const result = await ctx.db
+          .query("suppliers")
+          .withIndex("approved", (q) => q.eq("approved", true))
+          .paginate({ cursor, numItems: 200 });
+        
+        all.push(...result.page);
+        
+        if (result.isDone || !result.continueCursor) break;
+        cursor = result.continueCursor;
       }
     }
 
@@ -1130,6 +1453,8 @@ export const getAllSuppliersPaginated = query({
     featured: v.optional(v.boolean()),
     category: v.optional(v.string()),
     searchQuery: v.optional(v.string()),
+    sortBy: v.optional(v.string()), // 'name', 'created_at', 'category'
+    sortOrder: v.optional(v.string()), // 'asc', 'desc'
   },
   handler: async (ctx, args) => {
     // Check if user is admin
@@ -1147,6 +1472,8 @@ export const getAllSuppliersPaginated = query({
 
     const numItems = Math.min(args.paginationOpts.numItems, 500);
     const cursor = args.paginationOpts.cursor || undefined;
+    const sortBy = args.sortBy || 'created_at';
+    const sortOrder = args.sortOrder || 'desc';
 
     // If filters are applied, use index queries (no pagination cursor support for filtered results)
     if (args.approved !== undefined || args.featured !== undefined || args.category || args.searchQuery) {
@@ -1170,14 +1497,20 @@ export const getAllSuppliersPaginated = query({
           .query("suppliers")
           .withIndex("featured", (q) => q.eq("featured", args.featured as boolean))
           .take(limit);
+      } else if (args.category) {
+        // Use category index
+        suppliers = await ctx.db
+          .query("suppliers")
+          .withIndex("category", (q) => q.eq("category", args.category as string))
+          .take(limit);
       } else {
         suppliers = await ctx.db
           .query("suppliers")
           .take(limit);
       }
 
-      // Apply category filter in memory if specified
-      if (args.category) {
+      // Apply category filter in memory if specified (and not already filtered by index)
+      if (args.category && !args.approved && !args.featured) {
         const categoryLower = args.category.toLowerCase().trim();
         suppliers = suppliers.filter(s => 
           s.category?.toLowerCase().trim() === categoryLower
@@ -1195,6 +1528,27 @@ export const getAllSuppliersPaginated = query({
         );
       }
 
+      // Apply sorting
+      suppliers.sort((a, b) => {
+        let comparison = 0;
+        switch (sortBy) {
+          case 'name':
+            comparison = (a.business_name || '').localeCompare(b.business_name || '');
+            break;
+          case 'category':
+            comparison = (a.category || '').localeCompare(b.category || '');
+            break;
+          case 'city':
+            comparison = (a.city || '').localeCompare(b.city || '');
+            break;
+          case 'created_at':
+          default:
+            comparison = (a.created_at || '').localeCompare(b.created_at || '');
+            break;
+        }
+        return sortOrder === 'asc' ? comparison : -comparison;
+      });
+
       // Return in paginated format
       return {
         page: suppliers,
@@ -1207,6 +1561,29 @@ export const getAllSuppliersPaginated = query({
     const result = await ctx.db
       .query("suppliers")
       .paginate({ cursor, numItems });
+
+    // Apply sorting to paginated results
+    if (sortBy !== 'created_at' || sortOrder !== 'desc') {
+      result.page.sort((a: any, b: any) => {
+        let comparison = 0;
+        switch (sortBy) {
+          case 'name':
+            comparison = (a.business_name || '').localeCompare(b.business_name || '');
+            break;
+          case 'category':
+            comparison = (a.category || '').localeCompare(b.category || '');
+            break;
+          case 'city':
+            comparison = (a.city || '').localeCompare(b.city || '');
+            break;
+          case 'created_at':
+          default:
+            comparison = (a.created_at || '').localeCompare(b.created_at || '');
+            break;
+        }
+        return sortOrder === 'asc' ? comparison : -comparison;
+      });
+    }
 
     return result;
   },

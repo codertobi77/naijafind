@@ -129,7 +129,28 @@ export const admin = {
   "admin.init_categories_disabled": "Categories initialization is disabled",
   "admin.refresh": "Refresh",
   "admin.refresh_suppliers": "Refresh suppliers list",
-  "admin.suppliers_refreshed": "Suppliers list refreshed"
+  "admin.suppliers_refreshed": "Suppliers list refreshed",
+  
+  // Filter and sorting
+  "admin.all": "All",
+  "admin.search": "Search",
+  "admin.sort_by": "Sort by",
+  "admin.reset": "Reset",
+  "admin.all_categories": "All Categories",
+  "admin.search_placeholder": "Search by name, email, city...",
+  "admin.search_categories_placeholder": "Search by name or description...",
+  "admin.search_products_placeholder": "Search by name or description...",
+  "admin.newest_first": "Newest First",
+  "admin.oldest_first": "Oldest First",
+  "admin.name_az": "Name (A-Z)",
+  "admin.name_za": "Name (Z-A)",
+  "admin.category_az": "Category (A-Z)",
+  "admin.city_az": "City (A-Z)",
+  "admin.price_low_high": "Price (Low to High)",
+  "admin.price_high_low": "Price (High to Low)",
+  "admin.stock_low_high": "Stock (Low to High)",
+  "admin.stock_high_low": "Stock (High to Low)",
+  "admin.out_of_stock": "Out of Stock"
 };
 
 export default admin;

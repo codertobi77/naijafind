@@ -170,7 +170,19 @@ export const common = {
   
   // Search translation (Alibaba-style)
   "search.translating": "Traduction...",
-  "search.translated_from": "Traduit depuis"
+  "search.translated_from": "Traduit depuis",
+
+  // Bug report
+  "bug_report.title": "Signaler un bug",
+  "bug_report.description": "Aidez-nous à améliorer l'application",
+  "bug_report.label": "Décrivez le problème rencontré",
+  "bug_report.placeholder": "Ex: Le bouton de recherche ne fonctionne pas sur la page...",
+  "bug_report.note": "Cela ouvrira votre client email avec le rapport pré-rempli.",
+  "bug_report.sending": "Envoi...",
+  "bug_report.send": "Envoyer le rapport",
+  "bug_report.success_title": "Merci !",
+  "bug_report.success_message": "Votre rapport a été envoyé. Nous l'examinerons rapidement.",
+  "bug_report.button": "Signaler un bug"
 };
 
 export default common;

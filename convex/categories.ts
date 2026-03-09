@@ -65,6 +65,8 @@ export const getFilteredCategories = query({
   args: {
     isActive: v.optional(v.boolean()),
     searchQuery: v.optional(v.string()),
+    sortBy: v.optional(v.string()), // 'name', 'order', 'created_at'
+    sortOrder: v.optional(v.string()), // 'asc', 'desc'
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -73,6 +75,8 @@ export const getFilteredCategories = query({
     }
 
     const limit = Math.min(args.limit ?? 100, 100);
+    const sortBy = args.sortBy || 'order';
+    const sortOrder = args.sortOrder || 'asc';
     let categories: any[] = [];
 
     // Use is_active index when possible
@@ -97,15 +101,33 @@ export const getFilteredCategories = query({
       );
     }
 
-    // Sort by order
-    return categories.sort((a, b) => {
-      if (a.order !== undefined && b.order !== undefined) {
-        return Number(a.order) - Number(b.order);
+    // Apply sorting
+    categories.sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'name':
+          comparison = (a.name || '').localeCompare(b.name || '');
+          break;
+        case 'created_at':
+          comparison = (a.created_at || '').localeCompare(b.created_at || '');
+          break;
+        case 'order':
+        default:
+          if (a.order !== undefined && b.order !== undefined) {
+            comparison = Number(a.order) - Number(b.order);
+          } else if (a.order !== undefined) {
+            comparison = -1;
+          } else if (b.order !== undefined) {
+            comparison = 1;
+          } else {
+            comparison = (a.name || '').localeCompare(b.name || '');
+          }
+          break;
       }
-      if (a.order !== undefined) return -1;
-      if (b.order !== undefined) return 1;
-      return a.name.localeCompare(b.name);
+      return sortOrder === 'asc' ? comparison : -comparison;
     });
+
+    return categories;
   },
 });
 

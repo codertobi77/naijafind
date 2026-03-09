@@ -99,10 +99,10 @@ export default function Header() {
                 <button
                   onClick={() => setBugReportOpen(true)}
                   className="hidden sm:flex items-center gap-2 text-gray-600 hover:text-red-600 font-medium px-3 py-2 rounded-lg transition-colors"
-                  title="Signaler un bug"
+                  title={t('bug_report.button')}
                 >
                   <i className="ri-bug-line text-lg"></i>
-                  <span className="hidden lg:inline">Report bug</span>
+                  <span className="hidden lg:inline">{t('bug_report.button')}</span>
                 </button>
               )}
               
@@ -214,10 +214,10 @@ export default function Header() {
         </nav>
       </div>
 
-      {/* Bug Report Modal */}
+      {/* Bug Report Modal - Centered */}
       {bugReportOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4 overflow-y-auto"
           onClick={() => {
             setBugReportOpen(false);
             setBugSent(false);
@@ -225,7 +225,7 @@ export default function Header() {
           }}
         >
           <div 
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden my-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -233,7 +233,7 @@ export default function Header() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <i className="ri-bug-line text-2xl"></i>
-                  <h3 className="text-xl font-bold">Signaler un bug</h3>
+                  <h3 className="text-xl font-bold">{t('bug_report.title')}</h3>
                 </div>
                 <button 
                   onClick={() => {
@@ -246,7 +246,7 @@ export default function Header() {
                   <i className="ri-close-line text-lg"></i>
                 </button>
               </div>
-              <p className="text-white/90 text-sm mt-1">Aidez-nous à améliorer l'application</p>
+              <p className="text-white/90 text-sm mt-1">{t('bug_report.description')}</p>
             </div>
 
             {/* Content */}
@@ -256,8 +256,8 @@ export default function Header() {
                   <div className="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-4">
                     <i className="ri-check-line text-3xl"></i>
                   </div>
-                  <h4 className="font-semibold text-gray-900 mb-2">Merci !</h4>
-                  <p className="text-gray-500 text-sm">Votre rapport a été envoyé. Nous l'examinerons rapidement.</p>
+                  <h4 className="font-semibold text-gray-900 mb-2">{t('bug_report.success_title')}</h4>
+                  <p className="text-gray-500 text-sm">{t('bug_report.success_message')}</p>
                 </div>
               ) : (
                 <form
@@ -277,19 +277,19 @@ export default function Header() {
                 >
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Décrivez le problème rencontré
+                      {t('bug_report.label')}
                     </label>
                     <textarea
                       value={bugDescription}
                       onChange={(e) => setBugDescription(e.target.value)}
-                      placeholder="Ex: Le bouton de recherche ne fonctionne pas sur la page..."
+                      placeholder={t('bug_report.placeholder')}
                       className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all resize-none h-32"
                       required
                     />
                   </div>
                   <div className="text-sm text-gray-500 mb-4">
                     <i className="ri-information-line mr-1"></i>
-                    Cela ouvrira votre client email avec le rapport pré-rempli.
+                    {t('bug_report.note')}
                   </div>
                   <button
                     type="submit"
@@ -299,12 +299,12 @@ export default function Header() {
                     {isSendingBug ? (
                       <>
                         <i className="ri-loader-4-line animate-spin"></i>
-                        Envoi...
+                        {t('bug_report.sending')}
                       </>
                     ) : (
                       <>
                         <i className="ri-send-plane-line"></i>
-                        Envoyer le rapport
+                        {t('bug_report.send')}
                       </>
                     )}
                   </button>

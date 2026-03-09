@@ -104,7 +104,7 @@ function AdBannerCarousel({ banners }: { banners: AdBanner[] }) {
   // Dynamic banner width based on count
   const bannerWidth = bannerCount === 1 ? 'w-full' : 
     bannerCount === 2 ? 'w-[48%]' : 
-    'w-[400px] sm:w-[500px] md:w-[600px] lg:w-[700px]';
+    'w-[400px] sm:w-[550px] md:w-[700px] lg:w-[900px] xl:w-[1000px]';
 
   // Only duplicate for seamless loop if we have more than 2 banners
   const displayBanners = bannerCount > 2 ? [...banners, ...banners] : banners;

@@ -128,6 +128,8 @@ export const getFilteredProducts = query({
     searchQuery: v.optional(v.string()),
     minPrice: v.optional(v.float64()),
     maxPrice: v.optional(v.float64()),
+    sortBy: v.optional(v.string()), // 'name', 'price', 'created_at', 'stock'
+    sortOrder: v.optional(v.string()), // 'asc', 'desc'
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -143,6 +145,8 @@ export const getFilteredProducts = query({
     }
 
     const limit = Math.min(args.limit ?? 500, 500);
+    const sortBy = args.sortBy || 'created_at';
+    const sortOrder = args.sortOrder || 'desc';
     let products: any[] = [];
 
     // Use index-based filtering when possible
@@ -198,6 +202,27 @@ export const getFilteredProducts = query({
         p.description?.toLowerCase().includes(q)
       );
     }
+
+    // Apply sorting
+    products.sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'name':
+          comparison = (a.name || '').localeCompare(b.name || '');
+          break;
+        case 'price':
+          comparison = (a.price || 0) - (b.price || 0);
+          break;
+        case 'stock':
+          comparison = (a.stock || 0) - (b.stock || 0);
+          break;
+        case 'created_at':
+        default:
+          comparison = (a.created_at || '').localeCompare(b.created_at || '');
+          break;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
     return products;
   },
