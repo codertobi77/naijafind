@@ -680,7 +680,7 @@ export default function Home() {
   // Using React Query cached queries instead of direct Convex queries
   const { data: meData } = useConvexQuery(api.users.me, {}, { staleTime: 2 * 60 * 1000 });
   const { data: featuredSuppliersData, isLoading: featuredSuppliersLoading } = useConvexQuery(
-    api.admin.getFeaturedSuppliers,
+    api.admin.getFeaturedSuppliersPublic,
     {},
     { staleTime: 10 * 60 * 1000 }
   );

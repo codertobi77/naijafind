@@ -246,7 +246,26 @@ export const getPendingSuppliersPaginated = query({
   },
 });
 
-// Get featured suppliers
+// Get featured suppliers (PUBLIC - for homepage)
+export const getFeaturedSuppliersPublic = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Limit to prevent bandwidth issues (default 6 for homepage, max 50)
+    const limit = Math.min(args.limit ?? 6, 50);
+    const suppliers = await ctx.db
+      .query("suppliers")
+      .withIndex("approved_featured", (q: any) => 
+        q.eq("approved", true).eq("featured", true)
+      )
+      .take(limit);
+    
+    return suppliers;
+  }
+});
+
+// Get featured suppliers (ADMIN ONLY - for admin panel)
 export const getFeaturedSuppliers = query({
   args: {
     limit: v.optional(v.number()),
@@ -259,10 +278,9 @@ export const getFeaturedSuppliers = query({
     const limit = Math.min(args.limit ?? 100, 500);
     const suppliers = await ctx.db
       .query("suppliers")
-      .filter((q: any) => q.and(
-        q.eq(q.field("approved"), true),
-        q.eq(q.field("featured"), true)
-      ))
+      .withIndex("approved_featured", (q: any) => 
+        q.eq("approved", true).eq("featured", true)
+      )
       .take(limit);
     
     return suppliers;

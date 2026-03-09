@@ -50,6 +50,7 @@ export default defineSchema({
     .index("userId", ["userId"])
     .index("approved", ["approved"])
     .index("featured", ["featured"])
+    .index("approved_featured", ["approved", "featured"])
     .index("claimStatus", ["claimStatus"])
     .index("business_name", ["business_name"]),
   products: defineTable({
