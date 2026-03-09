@@ -9,6 +9,8 @@ import { useAction } from 'convex/react';
 import { useMultilingualSearch } from '../../hooks/useMultilingualSearch';
 import type { Map, Marker, Popup } from 'mapbox-gl';
 
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
+
 // Helper function to add timeout to promises
 const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
   return Promise.race([
@@ -63,7 +65,7 @@ function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; u
   const [mapCenter, setMapCenter] = useState({ lat: 9.0820, lng: 8.6753 }); // Default Nigeria center
   const [mapZoom, setMapZoom] = useState(6);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
-  const approximatedSuppliersRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
+  const approximatedSuppliersRef = useRef(new Map<string, { lat: number; lng: number }>());
   const userMarkerRef = useRef<Marker | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -341,7 +343,7 @@ function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; u
     const initMap = async () => {
       if (mapRef.current && !mapInstanceRef.current) {
         const mapboxgl = await getMapboxgl();
-        mapboxgl.accessToken = MAPBOX_TOKEN;
+        (mapboxgl as any).accessToken = MAPBOX_TOKEN;
         
         const map = new mapboxgl.Map({
           container: mapRef.current,
@@ -681,7 +683,7 @@ function ExpandedMapView({
   const mapInstanceRef = useRef<Map | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
-  const approximatedSuppliersRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
+  const approximatedSuppliersRef = useRef(new Map<string, { lat: number; lng: number }>());
 
   const getApproximateCoordinates = (supplier: Supplier): { lat: number; lng: number } | null => {
     if (approximatedSuppliersRef.current.has(supplier.id)) {
@@ -727,7 +729,7 @@ function ExpandedMapView({
     const initMap = async () => {
       if (mapRef.current && !mapInstanceRef.current) {
         const mapboxgl = await getMapboxgl();
-        mapboxgl.accessToken = MAPBOX_TOKEN;
+        (mapboxgl as any).accessToken = MAPBOX_TOKEN;
         const map = new mapboxgl.Map({
           container: mapRef.current,
           style: 'mapbox://styles/mapbox/dark-v11',
@@ -842,7 +844,9 @@ export default function Search() {
   const [allMapSuppliers, setAllMapSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [paginationLoading, setPaginationLoading] = useState(false);
+  const [allSuppliersLoading, setAllSuppliersLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
+  const [mapSearchResults, setMapSearchResults] = useState<any>(null);
   const [filters, setFilters] = useState({
     category: searchParams.get('category') || '',
     location: searchParams.get('location') || '',
@@ -1195,7 +1199,7 @@ export default function Search() {
                       <button key={c} className="underline text-green-700 hover:text-green-900 px-2"
                         onClick={()=>setFilters({...filters, query: c})}>{c}</button>
                     ))}
-                    {categories && categories.slice(0,2).map(cat => (
+                    {categories && categories.slice(0,2).map((cat: any) => (
                       <button key={cat._id} className="underline text-blue-700 hover:text-blue-900 px-2"
                         onClick={()=>setFilters({...filters, category: cat.name})}>{cat.name}</button>
                     ))}

@@ -29,6 +29,11 @@ export const home = {
   "premium.no_businesses_desc": "Il n'y a actuellement aucun fournisseur premium. Revenez plus tard !",
   "premium.no_suppliers": "Aucun fournisseur premium",
   "premium.no_suppliers_desc": "Il n'y a actuellement aucun fournisseur premium. Revenez plus tard !",
+  "premium.verified_badge": "Vérifié",
+  "premium.view_details": "Voir détails",
+  "premium.retry": "Réessayer",
+  "premium.contact": "Contact",
+  "premium.full_address_available": "Adresse complète disponible",
 
   // How it works
   "how.title": "Comment ça marche",
@@ -55,7 +60,46 @@ export const home = {
   "newsletter.sector": "Secteur d'activité",
   "newsletter.select_sector": "Sélectionnez votre secteur",
   "newsletter.sector_placeholder": "Sélectionnez votre secteur",
-  "newsletter.subscribe": "S'abonner à la newsletter"
+  "newsletter.form_title": "Inscription à la newsletter",
+  "newsletter.description": "Recevez les dernières actualités sur les fournisseurs, les nouvelles entreprises et les opportunités d'affaires au Nigeria.",
+  "newsletter.full_name": "Nom complet",
+  "newsletter.submitting": "Inscription en cours...",
+  "newsletter.success_title": "Inscription réussie !",
+  "newsletter.success_message": "Merci de vous être abonné à notre newsletter. Un email de confirmation vous a été envoyé.",
+  "newsletter.already_subscribed": "Vous êtes déjà inscrit à notre newsletter.",
+  "newsletter.error_title": "Erreur",
+  "newsletter.error_message": "Erreur lors de l'inscription. Veuillez réessayer.",
+  "newsletter.subscribe_button": "S'abonner à la newsletter",
+  "contact.title": "Vous êtes fournisseur ?",
+  "contact.subtitle": "Rejoignez des milliers de fournisseurs et développez votre activité",
+  "contact.register_free": "Inscrire mon entreprise gratuitement",
+  "contact.talk_advisor": "Parler à un conseiller",
+  "contact.modal.title": "Parler à un conseiller",
+  "contact.modal.subtitle": "Olufona est là pour vous aider",
+  "contact.modal.email": "Email",
+  "contact.modal.whatsapp": "WhatsApp",
+  "contact.modal.message": "Message",
+  "contact.modal.internal_message": "Messagerie interne",
+  "contact.modal.back": "Retour",
+  "contact.modal.send_message": "Envoyer un message à Olufona",
+  "contact.modal.sent_title": "Message envoyé !",
+  "contact.modal.sent_message": "Nous vous répondrons dans les plus brefs délais.",
+  "contact.modal.placeholder": "Écrivez votre message ici...",
+  "contact.modal.sending": "Envoi en cours...",
+  "contact.modal.send_button": "Envoyer le message",
+  // Stats section - additional labels
+  "stats.product_categories": "Catégories de produits",
+  "stats.monthly_searches": "Recherches mensuelles",
+  "stats.loading": "Chargement des fournisseurs...",
+  "stats.loading_slow": "Le chargement prend plus de temps que prévu",
+  "stats.retry": "Réessayer",
+
+  // Featured/Premium section - additional
+  "featured.title": "Fournisseurs en vedette",
+  "featured.subtitle": "Découvrez les fournisseurs les mieux notés près de chez vous",
+  "featured.verified": "Vérifié",
+  "featured.contact": "Contact",
+  "featured.view_details": "Voir détails"
 };
 
 export default home;

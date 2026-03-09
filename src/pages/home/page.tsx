@@ -805,9 +805,9 @@ export default function Home() {
 
   const stats = [
     { icon: 'ri-building-line', iconColor: 'text-green-600', iconBg: 'from-green-100 to-emerald-100', value: '25,000+', label: t('stats.suppliers') },
-    { icon: 'ri-folder-line', iconColor: 'text-green-600', iconBg: 'from-green-100 to-emerald-100', value: '500+', label: 'Catégories de produits' },
+    { icon: 'ri-folder-line', iconColor: 'text-green-600', iconBg: 'from-green-100 to-emerald-100', value: '500+', label: t('stats.product_categories') },
     { icon: 'ri-map-pin-line', iconColor: 'text-green-600', iconBg: 'from-green-100 to-emerald-100', value: '36', label: t('stats.states') },
-    { icon: 'ri-search-line', iconColor: 'text-green-600', iconBg: 'from-green-100 to-emerald-100', value: '1M+', label: 'Recherches mensuelles' },
+    { icon: 'ri-search-line', iconColor: 'text-green-600', iconBg: 'from-green-100 to-emerald-100', value: '1M+', label: t('stats.monthly_searches') },
   ];
 
   const newsletterBenefits = [
@@ -876,8 +876,8 @@ export default function Home() {
       <Section background="white" padding="md">
         <Container>
           <div className="text-center mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">Fournisseurs en vedette</h2>
-            <p className="text-gray-600">Découvrez les fournisseurs les mieux notés près de chez vous</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">{t('featured.title')}</h2>
+            <p className="text-gray-600">{t('featured.subtitle')}</p>
           </div>
 
           {(featuredSuppliersLoading && !featuredSuppliersTimeout) ? (
@@ -888,17 +888,17 @@ export default function Home() {
             <div className="text-center py-12">
               <i className="ri-time-line text-4xl text-yellow-500 mb-4"></i>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Chargement des fournisseurs...
+                {t('stats.loading')}
               </h3>
               <p className="text-gray-600 mb-4">
-                Le chargement prend plus de temps que prévu
+                {t('stats.loading_slow')}
               </p>
               <button
                 onClick={() => window.location.reload()}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
                 <i className="ri-refresh-line mr-2"></i>
-                Réessayer
+                {t('stats.retry')}
               </button>
             </div>
           ) : featuredSuppliers.length > 0 ? (
@@ -921,7 +921,7 @@ export default function Home() {
                     />
                     <div className="absolute top-3 right-3 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center">
                       <i className="ri-shield-check-line mr-1"></i>
-                      Vérifié
+                      {t('featured.verified')}
                     </div>
                   </div>
                   <div className="p-5">
@@ -947,13 +947,13 @@ export default function Home() {
                         onClick={(e) => !supplier.phone && e.preventDefault()}
                       >
                         <i className="ri-phone-line mr-1"></i>
-                        {supplier.phone || 'Contact'}
+                        {supplier.phone || t('featured.contact')}
                       </a>
                       <Link
                         to={`/supplier/${supplier._id}`}
                         className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
                       >
-                        Voir détails
+                        {t('featured.view_details')}
                       </Link>
                     </div>
                   </div>
@@ -975,8 +975,8 @@ export default function Home() {
         <Container>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="text-white">
-              <h2 className="text-2xl sm:text-3xl font-bold mb-4">Restez informé des nouveautés</h2>
-              <p className="text-white/90 mb-6 leading-relaxed">Recevez les dernières actualités sur les fournisseurs, les nouvelles entreprises et les opportunités d'affaires au Nigeria.</p>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-4">{t('newsletter.stay_informed')}</h2>
+              <p className="text-white/90 mb-6 leading-relaxed">{t('newsletter.description')}</p>
               <ul className="space-y-3 text-white/90">
                 <li className="flex items-center">
                   <i className="ri-check-line text-lg mr-3"></i>
@@ -994,7 +994,7 @@ export default function Home() {
             </div>
 
             <div className="bg-white rounded-xl p-6 sm:p-8 shadow-lg">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">Inscription à la newsletter</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-6">{t('newsletter.form_title')}</h3>
               <form className="space-y-4" onSubmit={async (e) => {
                 e.preventDefault();
                 const formData = new FormData(e.target as HTMLFormElement);
@@ -1012,26 +1012,26 @@ export default function Home() {
 
                   if (result.success) {
                     setModalConfig({
-                      title: 'Inscription réussie !',
+                      title: t('newsletter.success_title'),
                       message: result.alreadySubscribed
-                        ? 'Vous êtes déjà inscrit à notre newsletter.'
-                        : 'Merci de vous être abonné à notre newsletter. Un email de confirmation vous a été envoyé.',
+                        ? t('newsletter.already_subscribed')
+                        : t('newsletter.success_message'),
                       icon: 'success'
                     });
                     setModalOpen(true);
                     (e.target as HTMLFormElement).reset();
                   } else {
                     setModalConfig({
-                      title: 'Erreur',
-                      message: result.message || 'Erreur lors de l\'inscription. Veuillez réessayer.',
+                      title: t('newsletter.error_title'),
+                      message: result.message || t('newsletter.error_message'),
                       icon: 'warning'
                     });
                     setModalOpen(true);
                   }
                 } catch (error: any) {
-                  const errorMessage = error?.message || 'Erreur lors de l\'inscription. Veuillez réessayer.';
+                  const errorMessage = error?.message || t('newsletter.error_message');
                   setModalConfig({
-                    title: 'Erreur',
+                    title: t('newsletter.error_title'),
                     message: errorMessage,
                     icon: 'warning'
                   });
@@ -1041,20 +1041,20 @@ export default function Home() {
                 }
               }}>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('newsletter.full_name')}</label>
                   <input
                     type="text"
                     name="name"
-                    placeholder="Votre nom complet"
+                    placeholder={t('newsletter.name_placeholder')}
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('label.email')}</label>
                   <input
                     type="email"
                     name="email"
-                    placeholder="votre@email.com"
+                    placeholder={t('newsletter.email_placeholder')}
                     required
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-1 focus:ring-green-500 text-sm"
                   />
@@ -1077,7 +1077,7 @@ export default function Home() {
                   className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                 >
                   <i className="ri-mail-line mr-2"></i>
-                  {isSubscribing ? 'Inscription en cours...' : "S'abonner à la newsletter"}
+                  {isSubscribing ? t('newsletter.submitting') : t('newsletter.subscribe_button')}
                 </button>
               </form>
             </div>
@@ -1088,15 +1088,15 @@ export default function Home() {
       {/* CTA Section */}
       <CTASection
         variant="dark"
-        title="Vous êtes fournisseur ?"
-        subtitle="Rejoignez des milliers de fournisseurs et développez votre activité"
+        title={t('contact.title')}
+        subtitle={t('contact.subtitle')}
         primaryAction={{
           onClick: handleAddBusinessClick,
-          label: "Inscrire mon entreprise gratuitement",
+          label: t('contact.register_free'),
         }}
         secondaryAction={{
           onClick: () => setContactModalOpen(true),
-          label: "Parler à un conseiller",
+          label: t('contact.talk_advisor'),
           icon: 'ri-chat-3-line',
         }}
       />
@@ -1132,8 +1132,8 @@ export default function Home() {
             <div className="bg-gradient-to-r from-green-600 to-emerald-600 p-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-bold">Parler à un conseiller</h3>
-                  <p className="text-green-100 text-sm mt-1">Olufona est là pour vous aider</p>
+                  <h3 className="text-xl font-bold">{t('contact.modal.title')}</h3>
+                  <p className="text-green-100 text-sm mt-1">{t('contact.modal.subtitle')}</p>
                 </div>
                 <button 
                   onClick={() => {
@@ -1161,7 +1161,7 @@ export default function Home() {
                     <i className="ri-mail-line text-2xl"></i>
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900">Email</h4>
+                    <h4 className="font-semibold text-gray-900">{t('contact.modal.email')}</h4>
                     <p className="text-sm text-gray-500">contact@olufona.com</p>
                   </div>
                   <i className="ri-arrow-right-line text-gray-400 group-hover:text-green-600"></i>
@@ -1193,8 +1193,8 @@ export default function Home() {
                     <i className="ri-message-3-line text-2xl"></i>
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900">Message</h4>
-                    <p className="text-sm text-gray-500">Messagerie interne</p>
+                    <h4 className="font-semibold text-gray-900">{t('contact.modal.message')}</h4>
+                    <p className="text-sm text-gray-500">{t('contact.modal.internal_message')}</p>
                   </div>
                   <i className="ri-arrow-right-line text-gray-400 group-hover:text-green-600"></i>
                 </button>
@@ -1213,18 +1213,18 @@ export default function Home() {
                   className="flex items-center text-gray-500 hover:text-gray-700 mb-4 transition-colors"
                 >
                   <i className="ri-arrow-left-line mr-2"></i>
-                  Retour
+                  {t('contact.modal.back')}
                 </button>
                 
-                <h4 className="font-semibold text-gray-900 mb-4">Envoyer un message à Olufona</h4>
+                <h4 className="font-semibold text-gray-900 mb-4">{t('contact.modal.send_message')}</h4>
                 
                 {messageSent ? (
                   <div className="text-center py-8">
                     <div className="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-4">
                       <i className="ri-check-line text-3xl"></i>
                     </div>
-                    <h5 className="font-semibold text-gray-900 mb-2">Message envoyé !</h5>
-                    <p className="text-gray-500 text-sm">Nous vous répondrons dans les plus brefs délais.</p>
+                    <h5 className="font-semibold text-gray-900 mb-2">{t('contact.modal.sent_title')}</h5>
+                    <p className="text-gray-500 text-sm">{t('contact.modal.sent_message')}</p>
                   </div>
                 ) : (
                   <form
@@ -1242,7 +1242,7 @@ export default function Home() {
                     <textarea
                       value={contactMessage}
                       onChange={(e) => setContactMessage(e.target.value)}
-                      placeholder="Écrivez votre message ici..."
+                      placeholder={t('contact.modal.placeholder')}
                       className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all resize-none h-32 mb-4"
                       required
                     />
@@ -1254,12 +1254,12 @@ export default function Home() {
                       {isSendingMessage ? (
                         <>
                           <i className="ri-loader-4-line animate-spin"></i>
-                          Envoi en cours...
+                          {t('contact.modal.sending')}
                         </>
                       ) : (
                         <>
                           <i className="ri-send-plane-line"></i>
-                          Envoyer le message
+                          {t('contact.modal.send_button')}
                         </>
                       )}
                     </button>
@@ -1272,7 +1272,7 @@ export default function Home() {
             {contactView === 'options' && (
               <div className="px-6 py-4 bg-gray-50 text-center">
                 <p className="text-xs text-gray-500">
-                  Disponible du lundi au vendredi, 9h - 18h
+                  {t('contact.modal.availability')}
                 </p>
               </div>
             )}
