@@ -173,4 +173,6 @@ export const dashboard = {
   "status.inactive": "Inactif",
   "status.pending": "En attente",
 
+};
+
 export default dashboard;
