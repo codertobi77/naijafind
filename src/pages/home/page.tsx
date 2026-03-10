@@ -1173,7 +1173,7 @@ export default function Home() {
 
                 {/* WhatsApp */}
                 <a
-                  href="https://wa.me/234XXXXXXXXXX"
+                  href="https://wa.me/2349128227800"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-4 p-4 rounded-xl border-2 border-gray-100 hover:border-green-500 hover:bg-green-50 transition-all group"
