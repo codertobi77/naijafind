@@ -1183,7 +1183,7 @@ export default function Home() {
                   </div>
                   <div className="flex-1">
                     <h4 className="font-semibold text-gray-900">WhatsApp</h4>
-                    <p className="text-sm text-gray-500">+234 XXX XXX XXXX</p>
+                    <p className="text-sm text-gray-500">+234 9128227800</p>
                   </div>
                   <i className="ri-arrow-right-line text-gray-400 group-hover:text-green-600"></i>
                 </a>
