@@ -453,6 +453,7 @@ export default function Dashboard() {
   const loading = dashboardData === undefined;
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [profileData, setProfileData] = useState(DEFAULT_PROFILE);
   const [editMode, setEditMode] = useState(false);
@@ -1127,13 +1128,17 @@ export default function Dashboard() {
         }}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
+        collapsed={sidebarCollapsed}
+        setCollapsed={setSidebarCollapsed}
       />
 
-      <div className="flex-1 flex flex-col min-h-screen lg:pl-64">
+      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-64'}`}>
         <DashboardHeader
           activeTab={activeTab}
           sidebarOpen={sidebarOpen}
           toggleSidebar={() => setSidebarOpen((open) => !open)}
+          toggleCollapse={() => setSidebarCollapsed((c) => !c)}
+          collapsed={sidebarCollapsed}
           currentPlan={currentPlan}
           planLabel={planConfig.name}
           businessName={dashboardData?.profile?.business_name || 'Utilisateur'}
@@ -1272,6 +1277,8 @@ function DashboardSidebar({
   onChange,
   sidebarOpen,
   setSidebarOpen,
+  collapsed,
+  setCollapsed,
 }: {
   businessName: string;
   planName: string;
@@ -1280,35 +1287,45 @@ function DashboardSidebar({
   onChange: (tab: DashboardTab, requiresUpgrade: boolean) => void;
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  collapsed: boolean;
+  setCollapsed: (collapsed: boolean) => void;
 }) {
   return (
     <>
       <aside
-        className={`fixed left-0 top-0 z-40 h-full w-64 border-r border-green-100 bg-gradient-to-b from-green-50 to-white transition-transform duration-300 lg:translate-x-0 dashboard-sidebar ${
+        className={`fixed left-0 top-0 z-40 h-full border-r border-green-100 bg-gradient-to-b from-green-50 to-white transition-all duration-300 lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        } ${collapsed ? 'w-16' : 'w-64'}`}
       >
         <div className="flex h-full flex-col">
-          <div className="border-b border-green-100 p-6">
-            <LogoLink variant="supplier" size="sm" to="/" />
+          <div className="border-b border-green-100 p-4 flex items-center justify-between">
+            {!collapsed && <LogoLink variant="supplier" size="sm" to="/" />}
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              className="hidden lg:flex rounded-lg p-1.5 text-gray-500 hover:bg-green-100 hover:text-green-600 transition-colors"
+              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              <i className={`ri-arrow-${collapsed ? 'right' : 'left'}-line text-lg`} />
+            </button>
           </div>
 
-          <nav className="flex-1 overflow-y-auto px-4 py-6">
-            <div className="space-y-2">
+          <nav className="flex-1 overflow-y-auto px-2 py-4">
+            <div className="space-y-1">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => onChange(tab.id, Boolean(tab.premium))}
-                  className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                  className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                     activeTab === tab.id
                       ? 'bg-green-600 text-white shadow'
                       : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
-                  } ${tab.premium ? 'opacity-60' : ''}`}
+                  } ${tab.premium ? 'opacity-60' : ''} ${collapsed ? 'justify-center' : 'space-x-3'}`}
                   data-tour={`${tab.id}-tab`}
+                  title={collapsed ? tab.label : undefined}
                 >
-                  <i className={`${tab.icon} text-lg`} />
-                  <span className="font-medium">{tab.label}</span>
-                  {tab.premium && (
+                  <i className={`${tab.icon} text-lg ${collapsed ? '' : ''}`} />
+                  {!collapsed && <span className="font-medium">{tab.label}</span>}
+                  {!collapsed && tab.premium && (
                     <i className="ri-lock-line ml-auto text-sm text-current" />
                   )}
                 </button>
@@ -1316,17 +1333,19 @@ function DashboardSidebar({
             </div>
           </nav>
 
-          <div className="border-t border-green-100 p-4">
-            <div className="flex items-center space-x-3 rounded-lg px-2 py-2 hover:bg-green-50">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white">
-                <i className="ri-user-line" />
+          <div className="border-t border-green-100 p-3">
+            <div className={`flex items-center rounded-lg px-2 py-2 hover:bg-green-50 ${collapsed ? 'justify-center' : 'space-x-3'}`}>
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-white flex-shrink-0">
+                <i className="ri-user-line text-sm" />
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-gray-900">
-                  {businessName}
-                </p>
-                <p className="truncate text-xs text-gray-500">{planName}</p>
-              </div>
+              {!collapsed && (
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-gray-900">
+                    {businessName}
+                  </p>
+                  <p className="truncate text-xs text-gray-500">{planName}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1346,6 +1365,8 @@ function DashboardHeader({
   activeTab,
   sidebarOpen,
   toggleSidebar,
+  toggleCollapse,
+  collapsed,
   currentPlan,
   planLabel,
   businessName,
@@ -1361,6 +1382,8 @@ function DashboardHeader({
   activeTab: DashboardTab;
   sidebarOpen: boolean;
   toggleSidebar: () => void;
+  toggleCollapse: () => void;
+  collapsed: boolean;
   currentPlan: string;
   planLabel: string;
   businessName: string;
@@ -1383,6 +1406,14 @@ function DashboardHeader({
             aria-label="Toggle sidebar"
           >
             <i className="ri-menu-line text-xl" />
+          </button>
+          <button
+            onClick={toggleCollapse}
+            className="hidden lg:flex rounded-lg p-2 text-gray-600 hover:bg-gray-100"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <i className={`ri-arrow-${collapsed ? 'right' : 'left'}-line text-lg`} />
           </button>
           <h1 className="text-xl font-bold text-gray-900">
             {activeTab === 'overview' && 'Aperçu'}

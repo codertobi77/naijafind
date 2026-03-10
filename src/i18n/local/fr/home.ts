@@ -1,7 +1,7 @@
 export const home = {
   // Hero section
   "hero.title": "Trouvez les meilleurs fournisseurs au Nigeria",
-  "hero.subtitle": "Découvrez des entreprises locales vérifiées près de chez vous",
+  "hero.subtitle": "Découvrez et contactez directement des entreprises selon vos critères.",
   "hero.search_placeholder": "Recherche des produits, services ou entreprises",
   "hero.location_placeholder": "Votre localisation",
   "hero.cta": "Rechercher maintenant",

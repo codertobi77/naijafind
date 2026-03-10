@@ -31,7 +31,8 @@ export default function Header() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100">
+    <>
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 md:h-20">
           {/* Logo */}
@@ -213,107 +214,107 @@ export default function Header() {
           </div>
         </nav>
       </div>
+    </header>
 
-      {/* Bug Report Modal - Centered */}
-      {bugReportOpen && (
+    {/* Bug Report Modal - Centered */}
+    {bugReportOpen && (
+      <div 
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4 overflow-y-auto"
+        onClick={() => {
+          setBugReportOpen(false);
+          setBugSent(false);
+          setBugDescription('');
+        }}
+      >
         <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4 overflow-y-auto"
-          onClick={() => {
-            setBugReportOpen(false);
-            setBugSent(false);
-            setBugDescription('');
-          }}
+          className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden my-auto"
+          onClick={(e) => e.stopPropagation()}
         >
-          <div 
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden my-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="bg-gradient-to-r from-red-500 to-orange-500 p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <i className="ri-bug-line text-2xl"></i>
-                  <h3 className="text-xl font-bold">{t('bug_report.title')}</h3>
-                </div>
-                <button 
-                  onClick={() => {
-                    setBugReportOpen(false);
-                    setBugSent(false);
-                    setBugDescription('');
-                  }}
-                  className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
-                >
-                  <i className="ri-close-line text-lg"></i>
-                </button>
+          {/* Header */}
+          <div className="bg-gradient-to-r from-red-500 to-orange-500 p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <i className="ri-bug-line text-2xl"></i>
+                <h3 className="text-xl font-bold">{t('bug_report.title')}</h3>
               </div>
-              <p className="text-white/90 text-sm mt-1">{t('bug_report.description')}</p>
+              <button 
+                onClick={() => {
+                  setBugReportOpen(false);
+                  setBugSent(false);
+                  setBugDescription('');
+                }}
+                className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+              >
+                <i className="ri-close-line text-lg"></i>
+              </button>
             </div>
+            <p className="text-white/90 text-sm mt-1">{t('bug_report.description')}</p>
+          </div>
 
-            {/* Content */}
-            <div className="p-6">
-              {bugSent ? (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-4">
-                    <i className="ri-check-line text-3xl"></i>
-                  </div>
-                  <h4 className="font-semibold text-gray-900 mb-2">{t('bug_report.success_title')}</h4>
-                  <p className="text-gray-500 text-sm">{t('bug_report.success_message')}</p>
+          {/* Content */}
+          <div className="p-6">
+            {bugSent ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-4">
+                  <i className="ri-check-line text-3xl"></i>
                 </div>
-              ) : (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setIsSendingBug(true);
-                    // Send email to admin
-                    const subject = encodeURIComponent(`[BUG REPORT] - ${window.location.pathname}`);
-                    const body = encodeURIComponent(`Bug signalé par: ${meData?.user?.email || 'Utilisateur'}\n\nPage: ${window.location.href}\n\nDescription:\n${bugDescription}`);
-                    window.open(`mailto:admin@olufona.com?subject=${subject}&body=${body}`, '_blank');
-                    setTimeout(() => {
-                      setIsSendingBug(false);
-                      setBugSent(true);
-                      setBugDescription('');
-                    }, 500);
-                  }}
+                <h4 className="font-semibold text-gray-900 mb-2">{t('bug_report.success_title')}</h4>
+                <p className="text-gray-500 text-sm">{t('bug_report.success_message')}</p>
+              </div>
+            ) : (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setIsSendingBug(true);
+                  // Send email to admin
+                  const subject = encodeURIComponent(`[BUG REPORT] - ${window.location.pathname}`);
+                  const body = encodeURIComponent(`Bug signalé par: ${meData?.user?.email || 'Utilisateur'}\n\nPage: ${window.location.href}\n\nDescription:\n${bugDescription}`);
+                  window.open(`mailto:admin@olufona.com?subject=${subject}&body=${body}`, '_blank');
+                  setTimeout(() => {
+                    setIsSendingBug(false);
+                    setBugSent(true);
+                    setBugDescription('');
+                  }, 500);
+                }}
+              >
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('bug_report.label')}
+                  </label>
+                  <textarea
+                    value={bugDescription}
+                    onChange={(e) => setBugDescription(e.target.value)}
+                    placeholder={t('bug_report.placeholder')}
+                    className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all resize-none h-32"
+                    required
+                  />
+                </div>
+                <div className="text-sm text-gray-500 mb-4">
+                  <i className="ri-information-line mr-1"></i>
+                  {t('bug_report.note')}
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSendingBug || !bugDescription.trim()}
+                  className="w-full py-3 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-xl font-medium hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('bug_report.label')}
-                    </label>
-                    <textarea
-                      value={bugDescription}
-                      onChange={(e) => setBugDescription(e.target.value)}
-                      placeholder={t('bug_report.placeholder')}
-                      className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all resize-none h-32"
-                      required
-                    />
-                  </div>
-                  <div className="text-sm text-gray-500 mb-4">
-                    <i className="ri-information-line mr-1"></i>
-                    {t('bug_report.note')}
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isSendingBug || !bugDescription.trim()}
-                    className="w-full py-3 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-xl font-medium hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {isSendingBug ? (
-                      <>
-                        <i className="ri-loader-4-line animate-spin"></i>
-                        {t('bug_report.sending')}
-                      </>
-                    ) : (
-                      <>
-                        <i className="ri-send-plane-line"></i>
-                        {t('bug_report.send')}
-                      </>
-                    )}
-                  </button>
-                </form>
-              )}
-            </div>
+                  {isSendingBug ? (
+                    <>
+                      <i className="ri-loader-4-line animate-spin"></i>
+                      {t('bug_report.sending')}
+                    </>
+                  ) : (
+                    <>
+                      <i className="ri-send-plane-line"></i>
+                      {t('bug_report.send')}
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
           </div>
         </div>
-      )}
-    </header>
-  );
+      </div>
+    )}
+  </>);
 }

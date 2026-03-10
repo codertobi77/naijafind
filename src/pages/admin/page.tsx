@@ -457,7 +457,8 @@ export default function AdminPage(){
   const { formatCurrency } = useCurrency();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications' | 'import' | 'productImport' | 'adBanners' | 'claims'>('overview');
-  // Suppression de l'état fournisseurs simulé (on utilise allSuppliers de Convex)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Filter states for Suppliers, Categories, and Products
   const [supplierFilters, setSupplierFilters] = useState({
@@ -2615,153 +2616,199 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Admin Sidebar */}
-      <aside className="fixed left-0 top-0 z-40 h-full w-64 border-r border-green-100 bg-gradient-to-b from-green-50 to-white transition-transform duration-300 lg:translate-x-0">
+      <aside className={`fixed left-0 top-0 z-40 h-full border-r border-green-100 bg-gradient-to-b from-green-50 to-white transition-all duration-300 lg:translate-x-0 ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      } ${sidebarCollapsed ? 'w-16' : 'w-64'}`}>
         <div className="flex h-full flex-col">
-          <div className="border-b border-green-100 p-6">
-            <Link to="/" className="flex items-center space-x-2">
-              <img src="/Suji Logo.webp" alt="Suji Logo" className="h-12 w-auto" />
-              <span className="text-2xl font-bold text-green-600" style={{ fontFamily: 'Pacifico, serif' }}>
-                Suji
-              </span>
-            </Link>
+          <div className="border-b border-green-100 p-4 flex items-center justify-between">
+            {!sidebarCollapsed && (
+              <Link to="/" className="flex items-center space-x-2">
+                <img src="/Suji Logo.webp" alt="Suji Logo" className="h-8 w-auto" />
+                <span className="text-xl font-bold text-green-600" style={{ fontFamily: 'Pacifico, serif' }}>
+                  Suji
+                </span>
+              </Link>
+            )}
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="hidden lg:flex rounded-lg p-1.5 text-gray-500 hover:bg-green-100 hover:text-green-600 transition-colors"
+              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              <i className={`ri-arrow-${sidebarCollapsed ? 'right' : 'left'}-line text-lg`} />
+            </button>
           </div>
 
-          <nav className="flex-1 overflow-y-auto px-4 py-6">
-            <div className="space-y-2">
+          <nav className="flex-1 overflow-y-auto px-2 py-4">
+            <div className="space-y-1">
               <button
-                onClick={() => setActiveTab('overview')}
-                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                onClick={() => { setActiveTab('overview'); setSidebarOpen(false); }}
+                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                   activeTab === 'overview'
                     ? 'bg-green-600 text-white shadow'
                     : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
-                }`}
+                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
+                title={sidebarCollapsed ? t('admin.overview') : undefined}
               >
                 <i className="ri-dashboard-line text-lg" />
-                <span className="font-medium">{t('admin.overview')}</span>
+                {!sidebarCollapsed && <span className="font-medium">{t('admin.overview')}</span>}
               </button>
               <button
-                onClick={() => setActiveTab('suppliers')}
-                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                onClick={() => { setActiveTab('suppliers'); setSidebarOpen(false); }}
+                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                   activeTab === 'suppliers'
                     ? 'bg-green-600 text-white shadow'
                     : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
-                }`}
+                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
+                title={sidebarCollapsed ? t('admin.suppliers') : undefined}
               >
                 <i className="ri-store-line text-lg" />
-                <span className="font-medium">{t('admin.suppliers')}</span>
+                {!sidebarCollapsed && <span className="font-medium">{t('admin.suppliers')}</span>}
               </button>
               <button
-                onClick={() => setActiveTab('categories')}
-                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                onClick={() => { setActiveTab('categories'); setSidebarOpen(false); }}
+                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                   activeTab === 'categories'
                     ? 'bg-green-600 text-white shadow'
                     : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
-                }`}
+                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
+                title={sidebarCollapsed ? t('admin.categories') : undefined}
               >
                 <i className="ri-list-check text-lg" />
-                <span className="font-medium">{t('admin.categories')}</span>
+                {!sidebarCollapsed && <span className="font-medium">{t('admin.categories')}</span>}
               </button>
               <button
-                onClick={() => setActiveTab('products')}
-                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                onClick={() => { setActiveTab('products'); setSidebarOpen(false); }}
+                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                   activeTab === 'products'
                     ? 'bg-green-600 text-white shadow'
                     : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
-                }`}
+                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
+                title={sidebarCollapsed ? t('admin.products') : undefined}
               >
                 <i className="ri-shopping-bag-line text-lg" />
-                <span className="font-medium">{t('admin.products')}</span>
+                {!sidebarCollapsed && <span className="font-medium">{t('admin.products')}</span>}
               </button>
               <button
-                onClick={() => setActiveTab('featured')}
-                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                onClick={() => { setActiveTab('featured'); setSidebarOpen(false); }}
+                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                   activeTab === 'featured'
                     ? 'bg-green-600 text-white shadow'
                     : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
-                }`}
+                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
+                title={sidebarCollapsed ? t('admin.premium_suppliers') : undefined}
               >
                 <i className="ri-star-line text-lg" />
-                <span className="font-medium">{t('admin.premium_suppliers')}</span>
+                {!sidebarCollapsed && <span className="font-medium">{t('admin.premium_suppliers')}</span>}
               </button>
               <button
-                onClick={() => setActiveTab('notifications')}
-                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                onClick={() => { setActiveTab('notifications'); setSidebarOpen(false); }}
+                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                   activeTab === 'notifications'
                     ? 'bg-green-600 text-white shadow'
                     : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
-                }`}
+                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
+                title={sidebarCollapsed ? 'Notifications' : undefined}
               >
                 <i className="ri-notification-3-line text-lg" />
-                <span className="font-medium">Notifications</span>
+                {!sidebarCollapsed && <span className="font-medium">Notifications</span>}
               </button>
               <button
-                onClick={() => setActiveTab('import')}
-                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                onClick={() => { setActiveTab('import'); setSidebarOpen(false); }}
+                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                   activeTab === 'import'
                     ? 'bg-green-600 text-white shadow'
                     : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
-                }`}
+                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
+                title={sidebarCollapsed ? 'Import Fournisseurs' : undefined}
               >
                 <i className="ri-upload-cloud-line text-lg" />
-                <span className="font-medium">Import Fournisseurs</span>
+                {!sidebarCollapsed && <span className="font-medium">Import Fournisseurs</span>}
               </button>
               <button
-                onClick={() => setActiveTab('productImport')}
-                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                onClick={() => { setActiveTab('productImport'); setSidebarOpen(false); }}
+                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                   activeTab === 'productImport'
                     ? 'bg-green-600 text-white shadow'
                     : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
-                }`}
+                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
+                title={sidebarCollapsed ? 'Import Produits' : undefined}
               >
                 <i className="ri-archive-line text-lg" />
-                <span className="font-medium">Import Produits</span>
+                {!sidebarCollapsed && <span className="font-medium">Import Produits</span>}
               </button>
               <button
-                onClick={() => setActiveTab('adBanners')}
-                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                onClick={() => { setActiveTab('adBanners'); setSidebarOpen(false); }}
+                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                   activeTab === 'adBanners'
                     ? 'bg-green-600 text-white shadow'
                     : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
-                }`}
+                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
+                title={sidebarCollapsed ? 'Ad Banners' : undefined}
               >
                 <i className="ri-image-line text-lg" />
-                <span className="font-medium">Ad Banners</span>
+                {!sidebarCollapsed && <span className="font-medium">Ad Banners</span>}
               </button>
               <button
-                onClick={() => setActiveTab('claims')}
-                className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 text-left text-sm transition-colors ${
+                onClick={() => { setActiveTab('claims'); setSidebarOpen(false); }}
+                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                   activeTab === 'claims'
                     ? 'bg-green-600 text-white shadow'
                     : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
-                }`}
+                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
+                title={sidebarCollapsed ? t('claims.sidebar.menu') : undefined}
               >
                 <i className="ri-shield-user-line text-lg" />
-                <span className="font-medium">{t('claims.sidebar.menu')}</span>
+                {!sidebarCollapsed && <span className="font-medium">{t('claims.sidebar.menu')}</span>}
               </button>
             </div>
           </nav>
 
-          <div className="border-t border-green-100 p-4">
-            <div className="flex items-center space-x-3 rounded-lg px-2 py-2 hover:bg-green-50">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white">
-                <i className="ri-user-line" />
+          <div className="border-t border-green-100 p-3">
+            <div className={`flex items-center rounded-lg px-2 py-2 hover:bg-green-50 ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}>
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-white flex-shrink-0">
+                <i className="ri-user-line text-sm" />
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-gray-900">
-                  Admin
-                </p>
-                <p className="truncate text-xs text-gray-500">{t('admin.admin_panel')}</p>
-              </div>
+              {!sidebarCollapsed && (
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-gray-900">
+                    Admin
+                  </p>
+                  <p className="truncate text-xs text-gray-500">{t('admin.admin_panel')}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </aside>
 
+      {/* Mobile Sidebar Overlay */}
+      <div
+        className={`fixed inset-0 z-30 bg-black/40 transition-opacity lg:hidden ${
+          sidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen lg:pl-64">
+      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-64'}`}>
         <header className="sticky top-0 z-20 border-b border-gray-200 bg-white shadow-sm">
           <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
             <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 lg:hidden"
+                aria-label="Open sidebar"
+              >
+                <i className="ri-menu-line text-xl" />
+              </button>
+              <button
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                className="hidden lg:flex rounded-lg p-2 text-gray-600 hover:bg-gray-100"
+                aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              >
+                <i className={`ri-arrow-${sidebarCollapsed ? 'right' : 'left'}-line text-lg`} />
+              </button>
               <h1 className="text-xl font-bold text-gray-900">
                 {activeTab === 'overview' && t('admin.overview')}
                 {activeTab === 'suppliers' && t('admin.suppliers')}

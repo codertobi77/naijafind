@@ -980,9 +980,9 @@ export const searchSuppliers = action({
       
       let cursor: string | undefined = undefined;
       const allSuppliers: any[] = [];
-      const maxIterations = 10;
+      const maxIterations = 25;
       
-      for (let i = 0; i < maxIterations && allSuppliers.length < 1000; i++) {
+      for (let i = 0; i < maxIterations && allSuppliers.length < 10000; i++) {
         const result = await ctx.runQuery(internal.suppliers._getSuppliersPaginated, {
           cursor,
           limit: 200
@@ -1243,9 +1243,9 @@ export const searchSuppliersQuery = query({
     } else {
       // No search query - use pagination for all suppliers
       let cursor: string | undefined = undefined;
-      const maxIterations = 5;
+      const maxIterations = 25;
       
-      for (let i = 0; i < maxIterations && all.length < 1000; i++) {
+      for (let i = 0; i < maxIterations && all.length < 10000; i++) {
         const result = await ctx.db
           .query("suppliers")
           .withIndex("approved", (q) => q.eq("approved", true))

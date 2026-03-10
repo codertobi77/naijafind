@@ -1,7 +1,7 @@
 export const home = {
   // Hero section
   "hero.title": "Find the Best Suppliers in Nigeria",
-  "hero.subtitle": "Discover verified local businesses near you",
+  "hero.subtitle": "Discover and contact businesses directly based on your criteria.",
   "hero.search_placeholder": "Search for products, services or businesses",
   "hero.location_placeholder": "Your location",
   "hero.cta": "Search Now",
