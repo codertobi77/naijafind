@@ -91,6 +91,8 @@ export const supplier = {
   "supplier.no_phone": "Supplier doesn't have phone number",
   "supplier.location_not_available": "Location not available",
   "supplier.claim_business": "Do you own this business?",
+  "supplier.view_similar_products": "View all similar products",
+  "supplier.price_on_request": "Price on request",
 
   // Error messages and loading
   "supplier.review_client": "Client",

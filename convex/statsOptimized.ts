@@ -355,6 +355,5 @@ export const _adminStatsInternal = query({
       approvedClaims: allClaims.filter(c => c.status === 'approved').length,
       averageRating: Math.round(averageRating * 100) / 100,
     };
-    return result;
   },
 });

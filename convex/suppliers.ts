@@ -1041,7 +1041,7 @@ export const searchSuppliers = action({
 
     // Apply verified filter
     if (args.verified) {
-      scoredSuppliers = scoredSuppliers.filter(s => s.approved === true);
+      scoredSuppliers = scoredSuppliers.filter(s => s.verified === true && s.approved === true);
     }
 
     // Apply distance filter
@@ -1273,7 +1273,7 @@ export const searchSuppliersQuery = query({
     }
 
     if (args.verified) {
-      all = all.filter(s => s.approved === true);
+      all = all.filter(s => s.verified === true && s.approved === true);
     }
 
     if (args.lat !== undefined && args.lng !== undefined) {

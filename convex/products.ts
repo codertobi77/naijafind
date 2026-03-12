@@ -1,6 +1,7 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, action, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 
 export const listProducts = query({
   args: {},
@@ -14,9 +15,10 @@ export const listProducts = query({
       .first();
     if (!supplier) throw new Error("Profil fournisseur non trouvé");
 
+    const supplierId = supplier._id as unknown as string;
     const products = await ctx.db
       .query("products")
-      .filter(q => q.eq(q.field("supplierId"), supplier._id as unknown as string))
+      .withIndex("supplierId", (q) => q.eq("supplierId", supplierId))
       .collect();
 
     return products;
@@ -154,19 +156,20 @@ export const getFilteredProducts = query({
       // Use status index
       products = await ctx.db
         .query("products")
-        .withIndex("status", (q) => q.eq("status", args.status))
+        .withIndex("status", (q) => q.eq("status", args.status as string ?? ""))
         .take(limit);
     } else if (args.category) {
       // Use category index
+      const category = args.category as string;
       products = await ctx.db
         .query("products")
-        .withIndex("category", (q) => q.eq("category", args.category))
+        .withIndex("category", (q) => q.eq("category", category))
         .take(limit);
     } else if (args.supplierId) {
       // Use supplierId index
       products = await ctx.db
         .query("products")
-        .withIndex("supplierId", (q) => q.eq("supplierId", args.supplierId))
+        .withIndex("supplierId", (q) => q.eq("supplierId", args.supplierId!))
         .take(limit);
     } else {
       // No index filter, fetch all
@@ -256,9 +259,251 @@ export const listProductsBySupplier = query({
     // Get products for this supplier
     const products = await ctx.db
       .query("products")
-      .filter(q => q.eq(q.field("supplierId"), args.supplierId))
+      .withIndex("supplierId", (q) => q.eq("supplierId", args.supplierId))
       .collect();
 
     return products;
   }
+});
+
+/**
+ * Internal query: base products loader for search
+ * Uses indexes and returns only fields needed by searchProducts action.
+ */
+export const _getProductsForSearchBase = internalQuery({
+  args: {
+    category: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.min(args.limit ?? 1000, 1000);
+    const q = ctx.db.query("products");
+
+    const products = args.category && args.category.trim()
+      ? await ctx.db
+          .query("products")
+          .withIndex("category", (q2) => q2.eq("category", args.category!))
+          .take(limit)
+      : await q.take(limit);
+
+    return products.map((p) => ({
+      _id: p._id,
+      name: p.name,
+      description: p.description,
+      price: p.price,
+      status: p.status,
+      category: p.category,
+      images: p.images,
+      supplierId: (p as any).supplierId,
+      created_at: (p as any).created_at,
+    }));
+  },
+});
+
+/**
+ * Helper: extract simple keywords from a search query
+ * (lighter version than suppliers.ts, enough for product text search)
+ */
+function extractSearchKeywords(query: string): string[] {
+  if (!query) return [];
+  const STOP_WORDS = new Set([
+    "a","an","the","and","or","of","for","to","in","on","avec","pour","de","des","du","la","le","les","un","une"
+  ]);
+  const normalized = query.toLowerCase().trim().replace(/\s+/g, " ");
+  const tokens = normalized.split(/[\s,;:\-|\/\(\)\[\]\{\}_\*\.]+/);
+  const keywords = tokens.filter(
+    (t) => t.length > 1 && !STOP_WORDS.has(t) && !/^\d+$/.test(t)
+  );
+  return [...new Set(keywords)];
+}
+
+/**
+ * Public action: Alibaba-style product search with category-centric matching.
+ * - Text search on product name/description
+ * - Optional strict category filter
+ * - Optional price range
+ * - Optional filter on verified+approved suppliers
+ */
+export const searchProducts = action({
+  args: {
+    q: v.optional(v.string()),
+    category: v.optional(v.string()),
+    minPrice: v.optional(v.float64()),
+    maxPrice: v.optional(v.float64()),
+    verifiedSupplier: v.optional(v.boolean()),
+    limit: v.optional(v.int64()),
+    offset: v.optional(v.int64()),
+    sortBy: v.optional(v.string()), // 'relevance' | 'price_asc' | 'price_desc' | 'newest'
+  },
+  handler: async (ctx, args) => {
+    const limit = Number(args.limit ?? 20);
+    const offset = Number(args.offset ?? 0);
+    const sortBy = args.sortBy || "relevance";
+
+    const hasQuery = !!(args.q && args.q.trim());
+    const keywords = hasQuery ? extractSearchKeywords(args.q!) : [];
+
+    // Hard cap to keep memory bounded (applied inside internal query)
+    const RAW_LIMIT = 1000;
+    const rawProducts = await ctx.runQuery(
+      internal.products._getProductsForSearchBase,
+      {
+        category: args.category,
+        limit: RAW_LIMIT,
+      }
+    );
+
+    type ScoredProduct = any & {
+      _score: number;
+      _suppliers?: any[] | null;
+    };
+
+    let scored: ScoredProduct[] = rawProducts.map((p: any) => ({
+      ...p,
+      _score: 0,
+      _suppliers: null,
+    }));
+
+    // Text & price filters + relevance score
+    scored = scored.filter((p) => {
+      let score = 0;
+
+      const name = (p.name || "").toLowerCase();
+      const desc = (p.description || "").toLowerCase();
+
+      if (hasQuery) {
+        const fullQuery = args.q!.toLowerCase().trim();
+        if (name.includes(fullQuery)) {
+          score += 40;
+        }
+        for (const kw of keywords) {
+          if (kw.length < 2) continue;
+          if (name.includes(kw)) score += 15;
+          if (desc.includes(kw)) score += 8;
+        }
+        // Drop products that don't match at all when a query is provided
+        if (score === 0) return false;
+      }
+
+      if (args.minPrice !== undefined && p.price < (args.minPrice as number)) {
+        return false;
+      }
+      if (args.maxPrice !== undefined && p.price > (args.maxPrice as number)) {
+        return false;
+      }
+
+      (p as ScoredProduct)._score = score;
+      return true;
+    }) as ScoredProduct[];
+
+    // Suppliers per CATEGORY (many products not linked directly)
+    const categoryToSuppliers = new Map<string, any[]>();
+    const categoriesForMapping = Array.from(
+      new Set(
+        scored
+          .map((p) => (p.category || "").toString())
+          .filter((c) => c && c.trim().length > 0)
+      )
+    );
+
+    for (const cat of categoriesForMapping) {
+      try {
+        const candidates = await ctx.runQuery(
+          internal.suppliers._getSuppliersByCategory,
+          { category: cat, limit: 50 }
+        );
+        if (candidates.length > 0) {
+          const sorted = candidates.slice().sort((a: any, b: any) => {
+            const aVerified = a.verified && a.approved ? 1 : 0;
+            const bVerified = b.verified && b.approved ? 1 : 0;
+            if (bVerified !== aVerified) return bVerified - aVerified;
+            const aRating = a.rating ?? 0;
+            const bRating = b.rating ?? 0;
+            if (bRating !== aRating) return bRating - aRating;
+            return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
+          });
+          categoryToSuppliers.set(cat, sorted);
+        }
+      } catch {
+        // ignore category mapping failures
+      }
+    }
+
+    // Attach suppliers snapshots (all potential suppliers for the product's category)
+    scored = scored
+      .map((p) => {
+        const list =
+          p.category && typeof p.category === "string"
+            ? categoryToSuppliers.get(p.category) || []
+            : [];
+        return { ...p, _suppliers: list } as ScoredProduct;
+      })
+      .filter((p) => {
+        if (args.verifiedSupplier) {
+          const list = p._suppliers || [];
+          return list.some(
+            (s: any) => s.verified === true && s.approved === true
+          );
+        }
+        return true;
+      });
+
+    // Sorting
+    scored.sort((a, b) => {
+      if (sortBy === "price_asc") {
+        return (a.price || 0) - (b.price || 0);
+      }
+      if (sortBy === "price_desc") {
+        return (b.price || 0) - (a.price || 0);
+      }
+      if (sortBy === "newest") {
+        return (b.created_at || "").localeCompare(a.created_at || "");
+      }
+
+      // default: relevance (then rating, then newest)
+      const scoreDiff = (b._score || 0) - (a._score || 0);
+      if (scoreDiff !== 0) return scoreDiff;
+
+      const aRating =
+        (a._suppliers && a._suppliers[0]?.rating) != null
+          ? a._suppliers[0].rating
+          : 0;
+      const bRating =
+        (b._suppliers && b._suppliers[0]?.rating) != null
+          ? b._suppliers[0].rating
+          : 0;
+      if (bRating !== aRating) return bRating - aRating;
+
+      return (b.created_at || "").localeCompare(a.created_at || "");
+    });
+
+    const total = scored.length;
+    const page = scored.slice(offset, offset + limit).map((p) => {
+      const { _score, _suppliers, ...productData } = p;
+
+      const supplierSnapshots =
+        (_suppliers || []).map((s: any) => ({
+          id: s._id,
+          name: s.business_name,
+          rating: s.rating,
+          reviews_count: s.reviews_count,
+          verified: s.verified,
+          location: s.location,
+          city: s.city,
+          state: s.state,
+          category: s.category,
+        })) ?? [];
+
+      const primarySupplier = supplierSnapshots[0] || null;
+
+      return {
+        ...productData,
+        supplier: primarySupplier,
+        potentialSuppliers: supplierSnapshots,
+        relevanceScore: _score,
+      };
+    });
+
+    return { products: page, total };
+  },
 });

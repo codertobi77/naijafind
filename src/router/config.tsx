@@ -3,6 +3,7 @@ import { lazy } from 'react';
 
 const Home = lazy(() => import('../pages/home/page'));
 const Search = lazy(() => import('../pages/search/page'));
+const Products = lazy(() => import('../pages/products/page'));
 const SupplierDetail = lazy(() => import('../pages/supplier/page'));
 const Categories = lazy(() => import('../pages/categories/page'));
 const About = lazy(() => import('../pages/about/page'));
@@ -28,6 +29,10 @@ const routes: RouteObject[] = [
   {
     path: '/search',
     element: <Search />,
+  },
+  {
+    path: '/products',
+    element: <Products />,
   },
   {
     path: '/supplier/:id',

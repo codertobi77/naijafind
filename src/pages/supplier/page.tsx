@@ -1242,21 +1242,37 @@ export default function SupplierDetail() {
             
             {activeTab === 'products' && (
               <div>
-                <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">{t('supplier.products')}</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6">
+                  <h3 className="text-lg sm:text-xl font-semibold">
+                    {t('supplier.products')}
+                  </h3>
+                  {transformedSupplier.category && (
+                    <Link
+                      to={`/products?category=${encodeURIComponent(transformedSupplier.category)}`}
+                      className="inline-flex items-center text-xs sm:text-sm text-green-700 hover:text-green-800 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-lg font-medium"
+                    >
+                      <i className="ri-external-link-line mr-1" />
+                      {t('supplier.view_similar_products')}
+                    </Link>
+                  )}
+                </div>
                 {productsLoading ? (
                   <div className="flex justify-center py-12">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
                   </div>
                 ) : productsData && productsData.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {productsData.map((product: any) => (
-                      <div key={product._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                        <div className="flex items-start gap-4">
+                      <article
+                        key={product._id}
+                        className="border border-gray-200 rounded-2xl p-4 sm:p-5 bg-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+                      >
+                        <div className="flex items-start gap-3 sm:gap-4">
                           {product.images && product.images.length > 0 ? (
                             <img 
                               src={product.images[0]}
                               alt={product.name}
-                              className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                              className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-xl flex-shrink-0 bg-gray-100"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
                                 target.src = `https://readdy.ai/api/search-image?query=${encodeURIComponent(product.name)}&width=80&height=80&seq=product-${product._id}&orientation=squarish`;
@@ -1264,22 +1280,38 @@ export default function SupplierDetail() {
                               }}
                             />
                           ) : (
-                            <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
                               <i className="ri-image-line text-gray-500"></i>
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-gray-900 truncate">{product.name}</h4>
-                            <p className="text-sm text-gray-600 mt-1 line-clamp-2">{product.description}</p>
-                            <div className="mt-2 flex items-center justify-between">
-                              <span className="font-bold text-green-600">{product.price?.toFixed(2)} {t('currency.symbol')}</span>
-                              <span className={`px-2 py-1 rounded-full text-xs ${product.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            <h4 className="font-semibold text-gray-900 truncate text-sm sm:text-base">
+                              {product.name}
+                            </h4>
+                            {product.description && (
+                              <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2">
+                                {product.description}
+                              </p>
+                            )}
+                            <div className="mt-2 flex items-center justify-between gap-2">
+                              <span className="font-bold text-green-700 text-sm">
+                                {typeof product.price === 'number'
+                                  ? `${product.price.toFixed(2)} ${t('currency.symbol')}`
+                                  : t('supplier.price_on_request')}
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                                  product.status === 'active'
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}
+                              >
                                 {product.status === 'active' ? t('status.active') : t('status.inactive')}
                               </span>
                             </div>
                           </div>
                         </div>
-                      </div>
+                      </article>
                     ))}
                   </div>
                 ) : (

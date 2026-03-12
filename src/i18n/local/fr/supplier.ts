@@ -91,6 +91,9 @@ export const supplier = {
   "supplier.no_phone": "Le fournisseur n'a pas de numéro de téléphone",
   "supplier.location_not_available": "Localisation non disponible",
   "supplier.claim_business": "Vous possédez cette entreprise ?"
+  ,
+  "supplier.view_similar_products": "Voir tous les produits similaires",
+  "supplier.price_on_request": "Prix sur demande"
 };
 
 export default supplier;

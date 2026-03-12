@@ -1060,6 +1060,9 @@ export default function Search() {
           }
         }
         
+        // Hard cap for map view to prevent huge payloads + thousands of DOM markers
+        const MAP_RESULTS_LIMIT = 500;
+
         const result = await withTimeout(
           searchSuppliersAction({
             q: searchQuery || undefined,
@@ -1070,7 +1073,7 @@ export default function Search() {
             radiusKm: Number(filters.distance || '50'),
             minRating: filters.rating ? Number(filters.rating) : undefined,
             verified: filters.verified || undefined,
-            limit: undefined,
+            limit: BigInt(MAP_RESULTS_LIMIT),
             offset: BigInt(0),
             sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | 'alpha_asc' | 'alpha_desc' | undefined,
           }),
