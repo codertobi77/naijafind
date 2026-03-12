@@ -74,7 +74,7 @@ export const getFilteredCategories = query({
       throw new Error("Non autorisé - Admin uniquement");
     }
 
-    const limit = Math.min(args.limit ?? 100, 100);
+    const limit = args.limit ?? 1000;
     const sortBy = args.sortBy || 'order';
     const sortOrder = args.sortOrder || 'asc';
     let categories: any[] = [];
@@ -86,7 +86,7 @@ export const getFilteredCategories = query({
         .withIndex("is_active", (q) => q.eq("is_active", args.isActive))
         .take(limit);
     } else {
-      // Fetch all
+      // Fetch all (admin wants filtering on the full dataset)
       categories = await ctx.db
         .query("categories")
         .take(limit);

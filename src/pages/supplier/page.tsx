@@ -1293,12 +1293,7 @@ export default function SupplierDetail() {
                                 {product.description}
                               </p>
                             )}
-                            <div className="mt-2 flex items-center justify-between gap-2">
-                              <span className="font-bold text-green-700 text-sm">
-                                {typeof product.price === 'number'
-                                  ? `${product.price.toFixed(2)} ${t('currency.symbol')}`
-                                  : t('supplier.price_on_request')}
-                              </span>
+                            <div className="mt-2 flex items-center justify-end gap-2">
                               <span
                                 className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
                                   product.status === 'active'

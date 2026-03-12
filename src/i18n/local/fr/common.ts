@@ -14,6 +14,8 @@ export const common = {
   "nav.profile": "Profil",
   "nav.logout": "Déconnexion",
   "nav.search": "Recherche",
+  "nav.suppliers": "Fournisseurs",
+  "nav.products": "Produits",
   "nav.admin": "Panneau Admin",
 
   // Common buttons

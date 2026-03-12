@@ -795,16 +795,28 @@ export default function Home() {
 
   const handleSearch = () => {
     const params = new URLSearchParams();
-    if (searchQuery) {
-      params.set('q', searchQuery);
-      onAddRecentSearch(searchQuery);
+    const trimmedQuery = searchQuery.trim();
+
+    if (trimmedQuery) {
+      params.set('q', trimmedQuery);
+      onAddRecentSearch(trimmedQuery);
     }
     if (searchLocation) {
       params.set('location', searchLocation);
       onAddRecentLocation(searchLocation);
     }
-    if (category) params.set('category', category);
-    navigate(`/search?${params.toString()}`);
+    if (category) {
+      params.set('category', category);
+    }
+
+    // New flow:
+    // - If the user typed a query: go to products search
+    // - Otherwise, use category/location to search suppliers
+    if (trimmedQuery) {
+      navigate(`/products?${params.toString()}`);
+    } else {
+      navigate(`/search?${params.toString()}`);
+    }
   };
 
   const stats = [

@@ -146,7 +146,7 @@ export const getFilteredProducts = query({
       throw new Error("Non autorisé - Admin uniquement");
     }
 
-    const limit = Math.min(args.limit ?? 500, 500);
+    const limit = Math.min(args.limit ?? 2000, 2000);
     const sortBy = args.sortBy || 'created_at';
     const sortOrder = args.sortOrder || 'desc';
     let products: any[] = [];

@@ -25,7 +25,8 @@ export default function Header() {
 
   const navItems = [
     { path: '/', label: t('nav.home') },
-    { path: '/search', label: t('nav.search') },
+    { path: '/search', label: t('nav.suppliers') },
+    { path: '/products', label: t('nav.products') },
     { path: '/categories', label: t('nav.categories') },
     { path: '/about', label: t('nav.about') },
   ];
@@ -169,7 +170,8 @@ export default function Header() {
             >
               <i className={`mr-3 ${
                 item.path === '/' ? 'ri-home-line' :
-                item.path === '/search' ? 'ri-search-line' :
+                item.path === '/search' ? 'ri-store-2-line' :
+                item.path === '/products' ? 'ri-shopping-bag-line' :
                 item.path === '/categories' ? 'ri-grid-line' :
                 'ri-information-line'
               }`}></i>

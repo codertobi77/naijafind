@@ -404,13 +404,6 @@ export default function ProductSearchPage() {
                                   )}
                                 </div>
                               </div>
-                              {typeof product.price === 'number' && (
-                                <div className="text-right flex-shrink-0">
-                                  <div className="text-lg sm:text-xl font-bold text-green-700">
-                                    ₦{product.price.toFixed(2)}
-                                  </div>
-                                </div>
-                              )}
                             </div>
 
                             {product.description && (

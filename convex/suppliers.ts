@@ -660,7 +660,7 @@ export const _getSuppliersByCategory = internalQuery({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const limit = Math.min(args.limit ?? 500, 500);
+    const limit = Math.min(args.limit ?? 2000, 2000);
     
     // First try: exact match with the category index
     let suppliers = await ctx.db
@@ -1505,7 +1505,7 @@ export const getAllSuppliersPaginated = query({
     // If filters are applied, use index queries (no pagination cursor support for filtered results)
     if (args.approved !== undefined || args.featured !== undefined || args.category || args.searchQuery) {
       let suppliers: any[] = [];
-      const limit = 1000; // Higher limit for filtered results
+      const limit = 2000; // Higher limit for filtered results
 
       // Use index-based filtering when possible
       if (args.approved !== undefined && args.featured !== undefined) {
