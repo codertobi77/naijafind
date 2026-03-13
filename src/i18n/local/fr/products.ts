@@ -5,9 +5,10 @@ export const products = {
   "products.sort.price_asc": "Prix : croissant",
   "products.sort.price_desc": "Prix : décroissant",
   "products.sort.newest": "Les plus récents",
+  "products.sort.match_score": "Meilleure correspondance",
 
   "products.no_results_title": "Aucun produit trouvé",
-  "products.no_results_subtitle": "Essayez d’autres mots-clés ou une autre catégorie.",
+  "products.no_results_subtitle": "Essayez d'autres mots-clés ou une autre catégorie.",
 
   "products.potential_suppliers_title": "Fournisseurs potentiels",
   "products.potential_suppliers_count": "{{count}} fournisseurs",
@@ -25,7 +26,50 @@ export const products = {
   "products.cancel": "Annuler",
   "products.request_sent": "Votre demande a été envoyée avec succès. L'administrateur vous contactera bientôt.",
   "products.request_error": "Une erreur s'est produite lors de l'envoi de votre demande. Veuillez réessayer.",
-  "products.price": "Prix"
+  "products.price": "Prix",
+
+  // Match confidence badges
+  "match.confidence.high": "Excellente correspondance",
+  "match.confidence.medium": "Bonne correspondance",
+  "match.confidence.low": "Correspondance possible",
+  "match.confidence.unknown": "Correspondance inconnue",
+  "match.score": "Score de correspondance",
+
+  // RFQ Form
+  "rfq.title": "Demander un devis",
+  "rfq.subtitle": "Envoyez votre demande aux fournisseurs sélectionnés",
+  "rfq.selected_suppliers": "Fournisseurs sélectionnés ({{count}})",
+  "rfq.select_all": "Tout sélectionner",
+  "rfq.select_none": "Tout désélectionner",
+  "rfq.quantity": "Quantité souhaitée",
+  "rfq.quantity_unit": "Unité",
+  "rfq.quantity_placeholder": "ex: 100",
+  "rfq.your_name": "Votre nom",
+  "rfq.your_email": "Votre email",
+  "rfq.your_phone": "Numéro de téléphone (optionnel)",
+  "rfq.your_country": "Votre pays",
+  "rfq.your_company": "Nom de l'entreprise (optionnel)",
+  "rfq.delivery_date": "Date de livraison souhaitée",
+  "rfq.budget_range": "Fourchette de budget",
+  "rfq.budget_low": "Budget limité",
+  "rfq.budget_medium": "Budget moyen",
+  "rfq.budget_high": "Budget élevé",
+  "rfq.message": "Votre message",
+  "rfq.message_placeholder": "Décrivez vos besoins, spécifications, préférences de livraison, etc.",
+  "rfq.submit": "Envoyer la demande de devis",
+  "rfq.submitting": "Envoi en cours...",
+  "rfq.success_title": "Demande envoyée !",
+  "rfq.success_message": "Votre demande de devis a été envoyée à {{count}} fournisseur(s). Vous recevrez les réponses par email.",
+  "rfq.error_title": "Erreur",
+  "rfq.error_message": "Échec de l'envoi de la demande de devis. Veuillez réessayer.",
+  "rfq.validation.name_required": "Veuillez entrer votre nom",
+  "rfq.validation.email_required": "Veuillez entrer une adresse email valide",
+  "rfq.validation.message_required": "Veuillez entrer un message",
+  "rfq.validation.supplier_required": "Veuillez sélectionner au moins un fournisseur",
+
+  // Verified badge
+  "supplier.verified": "Fournisseur vérifié",
+  "supplier.approved": "Fournisseur approuvé",
 };
 
 export default products;

@@ -65,13 +65,20 @@ export default defineSchema({
     status: v.string(),
     category: v.optional(v.string()),
     description: v.optional(v.string()),
+    shortDescription: v.optional(v.string()), // Brief summary for search results
     images: v.optional(v.array(v.string())),
+    keywords: v.optional(v.array(v.string())), // Search-optimized keywords
+    originalLanguage: v.optional(v.string()), // Source language for translation: 'en', 'fr', etc.
+    isSearchable: v.optional(v.boolean()), // Whether product appears in search results
+    translations: v.optional(v.any()), // TEMPORARY: for migration cleanup only
     created_at: v.string(),
     updated_at: v.string(),
   })
     .index("supplierId", ["supplierId"])
     .index("status", ["status"])
-    .index("category", ["category"]),
+    .index("category", ["category"])
+    .index("isSearchable", ["isSearchable"])
+    .index("status_category", ["status", "category"]),
   reviews: defineTable({
     supplierId: v.string(),
     userId: v.string(),
@@ -285,4 +292,89 @@ export default defineSchema({
   // This eliminates the need for cron jobs and ensures stats are always up-to-date.
   
   // stats: defineTable({ ... }) // REMOVED - use statsOptimized queries instead
+
+  // ==========================================
+  // PRODUCT-FIRST SOURCING SEARCH SYSTEM
+  // ==========================================
+
+  // ProductSupplierCandidate: Links products to potential suppliers with match scores
+  productSupplierCandidates: defineTable({
+    productId: v.id("products"),
+    supplierId: v.id("suppliers"),
+    matchScore: v.float64(), // Normalized score 0-1
+    matchConfidence: v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+    matchSource: v.union(v.literal("manual"), v.literal("rule_engine"), v.literal("ai_inference"), v.literal("import")),
+    isApproved: v.boolean(),
+    adminValidationScore: v.optional(v.float64()), // Manual admin adjustment 0-1
+    // Match component scores for transparency
+    categoryMatchScore: v.optional(v.float64()),
+    keywordMatchScore: v.optional(v.float64()),
+    countryMatchScore: v.optional(v.float64()),
+    profileCompletenessScore: v.optional(v.float64()),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  })
+    .index("productId", ["productId"])
+    .index("supplierId", ["supplierId"])
+    .index("productId_approved", ["productId", "isApproved"])
+    .index("supplierId_approved", ["supplierId", "isApproved"])
+    .index("productId_score", ["productId", "matchScore"]),
+
+  // QuoteRequest: Request for quotes from buyers
+  quoteRequests: defineTable({
+    productId: v.id("products"),
+    quantity: v.optional(v.float64()),
+    quantityUnit: v.optional(v.string()), // 'units', 'kg', 'liters', etc.
+    message: v.string(),
+    buyerName: v.string(),
+    buyerEmail: v.string(),
+    buyerPhone: v.optional(v.string()),
+    buyerCountry: v.optional(v.string()),
+    buyerCompany: v.optional(v.string()),
+    preferredDeliveryDate: v.optional(v.string()),
+    budgetRange: v.optional(v.string()), // 'low', 'medium', 'high' or custom
+    status: v.union(v.literal("pending"), v.literal("sent"), v.literal("responded"), v.literal("closed")),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+    userId: v.optional(v.string()), // Optional: authenticated user who created request
+  })
+    .index("productId", ["productId"])
+    .index("createdAt", ["createdAt"])
+    .index("status", ["status"])
+    .index("buyerEmail", ["buyerEmail"]),
+
+  // QuoteRequestSupplier: Links quote requests to specific suppliers
+  quoteRequestSuppliers: defineTable({
+    quoteRequestId: v.id("quoteRequests"),
+    supplierId: v.id("suppliers"),
+    deliveryStatus: v.union(v.literal("pending"), v.literal("sent"), v.literal("delivered"), v.literal("failed")),
+    responseStatus: v.union(v.literal("pending"), v.literal("viewed"), v.literal("responded"), v.literal("declined")),
+    supplierMessage: v.optional(v.string()), // Response from supplier
+    quotedPrice: v.optional(v.float64()),
+    quotedCurrency: v.optional(v.string()),
+    deliveryTimeDays: v.optional(v.int64()),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  })
+    .index("quoteRequestId", ["quoteRequestId"])
+    .index("supplierId", ["supplierId"])
+    .index("quoteRequestId_supplierId", ["quoteRequestId", "supplierId"])
+    .index("responseStatus", ["responseStatus"]),
+
+  // ProductTranslation: Multilingual support for product data
+  productTranslations: defineTable({
+    productId: v.id("products"),
+    language: v.string(), // 'en', 'fr', 'es', etc.
+    name: v.optional(v.string()),
+    description: v.optional(v.string()),
+    shortDescription: v.optional(v.string()),
+    keywords: v.optional(v.array(v.string())), // Search-optimized keywords
+    translatedAt: v.string(),
+    translatedBy: v.optional(v.union(v.literal("deepl"), v.literal("manual"), v.literal("import"))),
+    translationStatus: v.union(v.literal("pending"), v.literal("completed"), v.literal("failed")),
+  })
+    .index("productId_language", ["productId", "language"])
+    .index("language", ["language"])
+    .index("productId", ["productId"])
+    .index("translationStatus", ["translationStatus"]),
 });

@@ -32,6 +32,7 @@ interface ProductResult {
   images?: string[];
   supplierId?: string;
   supplier?: SupplierSnapshot | null;
+  suppliers?: SupplierSnapshot[];
   potentialSuppliers?: SupplierSnapshot[];
   relevanceScore?: number;
 }
@@ -81,7 +82,7 @@ export default function ProductSearchPage() {
   const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [requestMessage, setRequestMessage] = useState('');
 
-  const searchProducts = useAction(api.products.searchProducts);
+  const searchProducts = useAction(api.productSearch.searchProductsMultilingual);
   const { translateQuery, isTranslating } = useMultilingualSearch();
   const createSupplierRequestMutation = useMutation(api.suppliers.createSupplierRequest);
 
@@ -125,6 +126,7 @@ export default function ProductSearchPage() {
           searchProducts({
             q: searchQuery || undefined,
             category: filters.category || undefined,
+            language: 'en', // TODO: Get from i18n
             minPrice: filters.minPrice ? Number(filters.minPrice) : undefined,
             maxPrice: filters.maxPrice ? Number(filters.maxPrice) : undefined,
             verifiedSupplier: filters.verifiedSupplier || undefined,
@@ -368,7 +370,7 @@ export default function ProductSearchPage() {
                 <div className="space-y-4">
                   {results.products.map((product) => {
                     const potentialSuppliers: SupplierSnapshot[] =
-                      (product as any).potentialSuppliers || [];
+                      (product as any).suppliers || (product as any).potentialSuppliers || [];
                     const image =
                       product.images && product.images.length > 0
                         ? product.images[0]
@@ -588,7 +590,7 @@ function ProductDetailsModal({
   const { t } = useTranslation();
 
   const potentialSuppliers: SupplierSnapshot[] =
-    (product as any).potentialSuppliers || [];
+    (product as any).suppliers || (product as any).potentialSuppliers || [];
   const image =
     product.images && product.images.length > 0
       ? product.images[0]
@@ -633,11 +635,6 @@ function ProductDetailsModal({
             )}
             {product.description && (
               <p className="text-gray-600">{product.description}</p>
-            )}
-            {product.price !== undefined && (
-              <div className="text-2xl font-bold text-green-600">
-                {t('products.price')}: ₦{product.price.toLocaleString()}
-              </div>
             )}
           </div>
 
@@ -708,32 +705,41 @@ function ProductDetailsModal({
             )}
 
             {/* Request Supplier Search Button */}
-            <button
-              onClick={onRequestSupplier}
-              className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              <i className="ri-search-line mr-2" />
-              {t('products.request_supplier_search')}
-            </button>
+            {!showRequestForm && (
+              <button
+                onClick={onRequestSupplier}
+                className="w-full bg-green-600 text-white px-4 py-3 rounded-xl hover:bg-green-700 transition-all duration-200 font-semibold shadow-soft hover:shadow-medium flex items-center justify-center gap-2 group"
+              >
+                <i className="ri-search-eye-line text-xl group-hover:scale-110 transition-transform" />
+                {t('products.request_supplier_search')}
+              </button>
+            )}
 
             {/* Request Form */}
             {showRequestForm && (
-              <div className="mt-4 bg-gray-50 rounded-xl p-4 border border-gray-200">
-                <h4 className="font-semibold text-gray-900 mb-3">
-                  {t('products.request_supplier_form_title')}
-                </h4>
+              <div className="mt-4 bg-gray-50 rounded-2xl p-6 border-2 border-green-100 shadow-inner animate-in fade-in slide-in-from-top-4 duration-300">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                    <i className="ri-edit-line text-green-600" />
+                  </div>
+                  <h4 className="font-bold text-gray-900">
+                    {t('products.request_supplier_form_title')}
+                  </h4>
+                </div>
+                
                 <textarea
                   value={requestMessage}
                   onChange={(e) => setRequestMessage(e.target.value)}
                   placeholder={t('products.request_supplier_placeholder')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
-                  rows={3}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm resize-none outline-none transition-all min-h-[120px]"
+                  rows={4}
                 />
-                <div className="flex gap-2 mt-3">
+                
+                <div className="flex flex-col sm:flex-row gap-3 mt-4">
                   <button
                     onClick={onRequestSubmit}
                     disabled={requestSubmitting || !requestMessage.trim()}
-                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-soft"
                   >
                     {requestSubmitting ? (
                       <>
@@ -752,7 +758,7 @@ function ProductDetailsModal({
                       setShowRequestForm(false);
                       setRequestMessage('');
                     }}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    className="px-6 py-3 bg-white text-gray-700 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-all font-semibold"
                   >
                     {t('products.cancel')}
                   </button>

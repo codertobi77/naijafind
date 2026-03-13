@@ -1789,6 +1789,9 @@ export const createSupplierRequest = mutation({
   handler: async (ctx, args) => {
     // Get current user
     const identity = await ctx.auth.getUserIdentity();
+    
+    // In Convex, we should use the identity to find the user in our 'users' table if needed,
+    // or just use the identity information directly.
     const userEmail = identity?.email || 'anonymous@naijafind.com';
     const userName = identity?.name || 'Anonymous User';
 
@@ -1796,8 +1799,8 @@ export const createSupplierRequest = mutation({
     const contactId = await ctx.db.insert("contacts", {
       name: userName,
       email: userEmail,
-      subject: `Supplier Search Request: ${args.productName}`,
-      message: `Product: ${args.productName}\nCategory: ${args.productCategory || 'N/A'}\n\nUser Message:\n${args.message}`,
+      subject: `Recherche Fournisseur: ${args.productName}`,
+      message: `Produit: ${args.productName}\nCatégorie: ${args.productCategory || 'N/A'}\n\nMessage de l'utilisateur:\n${args.message}`,
       type: 'supplier',
       status: 'pending',
       created_at: new Date().toISOString(),
@@ -1806,7 +1809,7 @@ export const createSupplierRequest = mutation({
     return {
       success: true,
       contactId,
-      message: "Supplier search request submitted successfully",
+      message: "Demande de recherche de fournisseur soumise avec succès",
     };
   }
 });

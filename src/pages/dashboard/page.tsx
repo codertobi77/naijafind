@@ -450,25 +450,22 @@ export default function Dashboard() {
   // Toast notification system
   const { toasts, showToast, removeToast } = useToast();
 
-  const loading = dashboardData === undefined;
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const [profileData, setProfileData] = useState(DEFAULT_PROFILE);
+  const [showTour, setShowTour] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+
+  const [profileData, setProfileData] = useState<ProfileData>(DEFAULT_PROFILE);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] =
-    useState<'idle' | 'success' | 'error'>('idle');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [pendingUpgradeFeature, setPendingUpgradeFeature] = useState<
-    string | null
-  >(null);
+  const [pendingUpgradeFeature, setPendingUpgradeFeature] = useState<string | null>(null);
 
-  const [products, setProducts] = useState<any[]>([]);
-  const [productModalMode, setProductModalMode] =
-    useState<'add' | 'edit'>('add');
+  const [productModalMode, setProductModalMode] = useState<'add' | 'edit'>('add');
   const [productModalData, setProductModalData] = useState<any>(null);
   const [showProductModal, setShowProductModal] = useState(false);
   const [showProductDeleteModal, setShowProductDeleteModal] = useState(false);
@@ -485,8 +482,7 @@ export default function Dashboard() {
 
   const [showReviewRespondModal, setShowReviewRespondModal] = useState(false);
   const [showReviewDeleteModal, setShowReviewDeleteModal] = useState(false);
-  const [_reviewModalMode, setReviewModalMode] =
-    useState<'respond' | 'delete'>('respond');
+  const [_reviewModalMode, setReviewModalMode] = useState<'respond' | 'delete'>('respond');
   const [reviewModalData, setReviewModalData] = useState<any>(null);
   const [reviewOpLoading, setReviewOpLoading] = useState(false);
 
@@ -494,15 +490,9 @@ export default function Dashboard() {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentPlanChoice, setPaymentPlanChoice] = useState('basic');
 
-  // Notifications system with Convex
-  const {
-    notifications,
-    unreadCount,
-    loading: notificationsLoading,
-    markAsRead,
-    markAllAsRead,
-    deleteNotification,
-  } = useNotifications(50);
+  const sidebarTabs = useMemo(() => getSidebarTabs(meData?.supplier?.business_type), [meData?.supplier?.business_type]);
+
+  const loading = dashboardData === undefined;
 
   // Team management state (not fully implemented)
   const [team, setTeam] = useState([
@@ -533,7 +523,6 @@ export default function Dashboard() {
   const [invEmail, setInvEmail] = useState('');
   const [invRole, setInvRole] = useState('editor');
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [showTour, setShowTour] = useState(false);
 
   const currentPlan = (dashboardData?.profile as any)?.subscription_plan || 'free';
   const planConfig =
@@ -1706,76 +1695,6 @@ function ProfileSection({
             />
           </div>
         </Card>
-
-        <Card title="Horaires d'ouverture">
-          <div className="space-y-3">
-            {(Object.keys(DAY_NAMES) as Array<
-              keyof typeof DEFAULT_PROFILE.business_hours
-            >).map((dayKey) => {
-              const day = profileData.business_hours[dayKey];
-              return (
-                <div key={dayKey} className="flex items-center space-x-3">
-                  <span className="w-24 text-sm font-medium text-gray-700">
-                    {DAY_NAMES[dayKey]}
-                  </span>
-                  {editMode ? (
-                    <>
-                      <input
-                        type="time"
-                        value={day.open}
-                        disabled={day.closed}
-                        onChange={(event) =>
-                          onBusinessHoursChange(dayKey, 'open', event.target.value)
-                        }
-                        className="w-24 rounded border border-gray-300 px-2 py-1 text-sm"
-                      />
-                      <span className="text-gray-500">-</span>
-                      <input
-                        type="time"
-                        value={day.close}
-                        disabled={day.closed}
-                        onChange={(event) =>
-                          onBusinessHoursChange(dayKey, 'close', event.target.value)
-                        }
-                        className="w-24 rounded border border-gray-300 px-2 py-1 text-sm"
-                      />
-                      <label className="ml-auto flex items-center space-x-2 text-sm text-gray-600">
-                        <input
-                          type="checkbox"
-                          checked={day.closed}
-                          onChange={(event) =>
-                            onBusinessHoursChange(dayKey, 'closed', event.target.checked)
-                          }
-                          className="rounded border-gray-300 text-green-600"
-                        />
-                        <span>Fermé</span>
-                      </label>
-                    </>
-                  ) : (
-                    <span className="ml-auto text-sm text-gray-700">
-                      {day.closed ? 'Fermé' : `${day.open} - ${day.close}`}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        <Card title="Réseaux sociaux">
-          <div className="space-y-3">
-            {Object.entries(profileData.social_links).map(([platform, value]) => (
-              <Field
-                key={platform}
-                label={platform.charAt(0).toUpperCase() + platform.slice(1)}
-                value={value}
-                readOnly={!editMode}
-                onChange={(newValue) => onSocialChange(platform, newValue)}
-                placeholder={`Lien ${platform}`}
-              />
-            ))}
-          </div>
-        </Card>
       </div>
     </div>
   );
@@ -1785,7 +1704,6 @@ function ProductsSection({
   products,
   planConfig,
   totalProducts,
-  productToast,
   onAdd,
   onEdit,
   onDelete,
@@ -1796,7 +1714,6 @@ function ProductsSection({
   products: any[];
   planConfig: (typeof SUBSCRIPTION_PLANS)[keyof typeof SUBSCRIPTION_PLANS];
   totalProducts: number;
-  productToast?: Toast;
   onAdd: () => void;
   onEdit: (product: any) => void;
   onDelete: (product: any) => void;
@@ -1804,152 +1721,90 @@ function ProductsSection({
   onUpgrade: () => void;
   setActiveTab: (tab: DashboardTab) => void;
 }) {
-  const { formatCurrency } = useCurrency();
-  
+  const { t } = useTranslation();
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">
-            Gestion des produits
-          </h2>
+          <h2 className="text-xl font-semibold text-gray-900">Produits</h2>
           <p className="text-sm text-gray-600">
-            Ajoutez, modifiez ou supprimez des produits pour rester à jour.
+            Gérez vos produits en vente sur la marketplace.
           </p>
         </div>
-        {canManage ? (
-          <button
-            onClick={onAdd}
-            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-          >
-            <i className="ri-add-line mr-2" />
-            Ajouter un produit
-          </button>
-        ) : (
-          <button
-            onClick={onUpgrade}
-            className="cursor-not-allowed rounded-lg bg-gray-300 px-4 py-2 text-sm font-medium text-white"
-          >
-            <i className="ri-lock-line mr-2" />
-            Limite atteinte
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500">
+            {planConfig.maxProducts === -1
+              ? `${totalProducts} produits`
+              : `${totalProducts} / ${planConfig.maxProducts} produits`}
+          </span>
+          {canManage ? (
+            <button
+              onClick={onAdd}
+              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+            >
+              <i className="ri-add-line mr-2" />
+              Ajouter
+            </button>
+          ) : (
+            <button
+              onClick={onUpgrade}
+              className="rounded-lg bg-yellow-500 px-4 py-2 text-sm font-medium text-white hover:bg-yellow-600"
+            >
+              <i className="ri-lock-line mr-2" />
+              {t('dashboard.upgrade.products')}
+            </button>
+          )}
+        </div>
       </div>
 
-      {planConfig.maxProducts !== -1 && (
-        <Alert
-          tone={
-            totalProducts >= planConfig.maxProducts ? 'warning' : 'information'
-          }
-          message={`Vous utilisez ${totalProducts}/${planConfig.maxProducts} produits disponibles.`}
-          actionLabel={
-            totalProducts >= planConfig.maxProducts ? 'Voir les plans' : undefined
-          }
-          onAction={
-            totalProducts >= planConfig.maxProducts
-              ? () => setActiveTab('subscription')
-              : undefined
-          }
-        />
-      )}
-
-      <div className="overflow-hidden rounded-lg border bg-white">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left font-semibold text-gray-600">
-                Image
-              </th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-600">
-                Nom
-              </th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-600">
-                Catégorie
-              </th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-600">
-                Prix
-              </th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-600">
-                Stock
-              </th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-600">
-                Statut
-              </th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-600">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {products.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={7}
-                  className="px-4 py-6 text-center text-sm text-gray-500"
-                >
-                  Aucun produit enregistré pour le moment.
-                </td>
-              </tr>
-            ) : (
-              products.map((product) => (
-                <tr key={product.id}>
-                  <td className="px-4 py-3">
-                    {product.images && product.images.length > 0 ? (
-                      <img
-                        src={product.images[0]}
-                        alt={product.name}
-                        className="h-12 w-12 rounded object-cover border"
-                      />
-                    ) : (
-                      <div className="h-12 w-12 rounded bg-gray-200 flex items-center justify-center text-gray-400">
-                        <i className="ri-image-line text-xl" />
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 font-medium text-gray-900">
-                    {product.name}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {product.category || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {formatCurrency(Number(product.price || 0))}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {product.stock ?? 0}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                        product.status === 'active'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-700'
-                      }`}
-                    >
-                      {product.status === 'active' ? 'Actif' : 'Inactif'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center space-x-3">
-                      <button
-                        className="text-sm font-medium text-green-600 hover:text-green-800"
-                        onClick={() => onEdit(product)}
-                      >
-                        Modifier
-                      </button>
-                      <button
-                        className="text-sm font-medium text-red-600 hover:text-red-800"
-                        onClick={() => onDelete(product)}
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {products.map((product) => (
+          <Card key={product._id}>
+            <div className="flex items-start justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="h-12 w-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                  {product.images?.[0] ? (
+                    <img
+                      src={product.images[0]}
+                      alt={product.name}
+                      className="h-full w-full rounded-lg object-cover"
+                    />
+                  ) : (
+                    <i className="ri-image-line text-gray-400" />
+                  )}
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">{product.name}</p>
+                  <p className="text-sm text-gray-500">₦{product.price?.toLocaleString()}</p>
+                </div>
+              </div>
+              <span
+                className={`rounded-full px-2 py-1 text-xs font-medium ${
+                  product.status === 'active'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-gray-100 text-gray-800'
+                }`}
+              >
+                {product.status === 'active' ? 'Actif' : 'Inactif'}
+              </span>
+            </div>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                onClick={() => onEdit(product)}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              >
+                <i className="ri-edit-line" />
+              </button>
+              <button
+                onClick={() => onDelete(product)}
+                className="rounded-lg p-2 text-red-500 hover:bg-red-50"
+              >
+                <i className="ri-delete-bin-line" />
+              </button>
+            </div>
+          </Card>
+        ))}
       </div>
     </div>
   );
@@ -1959,88 +1814,75 @@ function ReviewsSection({
   data,
   onRespond,
   onDelete,
-  reviewToast,
 }: {
   data: DashboardData | null;
   onRespond: (review: any) => void;
   onDelete: (review: any) => void;
-  reviewToast?: Toast;
 }) {
+  const reviews = data?.recentReviews || [];
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-gray-900">
-          Retours clients
-        </h2>
+        <h2 className="text-xl font-semibold text-gray-900">Avis clients</h2>
         <p className="text-sm text-gray-600">
-          Répondez aux avis pour renforcer la confiance auprès des nouveaux
-          acheteurs.
+          Gérez les avis et retours de vos clients.
         </p>
       </div>
 
-      {reviewToast && (
-        <Alert
-          tone={reviewToast.type === 'success' ? 'success' : 'error'}
-          message={reviewToast.message}
-        />
-      )}
-
       <div className="space-y-4">
-        {(data?.reviews || []).length === 0 ? (
+        {reviews.length === 0 ? (
           <Card>
-            <p className="py-10 text-center text-sm text-gray-500">
-              Aucun avis pour le moment.
-            </p>
+            <p className="text-center text-gray-500">Aucun avis pour le moment</p>
           </Card>
         ) : (
-          data?.reviews?.map((review: any) => (
-            <Card key={review.id}>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <p className="text-sm font-semibold text-gray-900">
-                      {review.customer_name || 'Client'}
+          reviews.map((review) => (
+            <Card key={review._id}>
+              <div className="flex items-start justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+                    <i className="ri-user-line text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {review.customer_name || 'Client anonyme'}
                     </p>
-                    <div className="flex items-center space-x-1 text-yellow-500">
-                      {[1, 2, 3, 4, 5].map((star) => (
+                    <div className="flex items-center">
+                      {Array.from({ length: 5 }).map((_, i) => (
                         <i
-                          key={star}
-                          className={`${
-                            star <= Number(review.rating || 0)
-                              ? 'ri-star-fill'
-                              : 'ri-star-line'
+                          key={i}
+                          className={`ri-star-fill text-xs ${
+                            i < review.rating ? 'text-yellow-400' : 'text-gray-200'
                           }`}
                         />
                       ))}
                     </div>
                   </div>
-                  <p className="mt-1 text-sm text-gray-700">{review.comment}</p>
-                  <p className="mt-1 text-xs text-gray-400">
-                    {review.created_at
-                      ? new Date(review.created_at).toLocaleDateString('fr-FR')
-                      : ''}
-                  </p>
-                  {review.response && (
-                    <div className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
-                      <p className="font-medium">Votre réponse :</p>
-                      <p>{review.response}</p>
-                    </div>
-                  )}
                 </div>
-                <div className="flex space-x-3 text-sm font-medium">
-                  <button
-                    className="text-green-600 hover:text-green-800"
-                    onClick={() => onRespond(review)}
-                  >
-                    {review.response ? 'Modifier la réponse' : 'Répondre'}
-                  </button>
-                  <button
-                    className="text-red-600 hover:text-red-800"
-                    onClick={() => onDelete(review)}
-                  >
-                    Supprimer
-                  </button>
+                <span className="text-xs text-gray-500">
+                  {new Date(review.created_at).toLocaleDateString()}
+                </span>
+              </div>
+              <p className="mt-3 text-sm text-gray-600">{review.comment}</p>
+              {review.response && (
+                <div className="mt-3 rounded-lg bg-green-50 p-3">
+                  <p className="text-xs font-medium text-green-800">Votre réponse :</p>
+                  <p className="text-sm text-green-700">{review.response}</p>
                 </div>
+              )}
+              <div className="mt-4 flex items-center gap-2">
+                <button
+                  onClick={() => onRespond(review)}
+                  className="rounded-lg px-3 py-1 text-sm font-medium text-green-600 hover:bg-green-50"
+                >
+                  {review.response ? 'Modifier la réponse' : 'Répondre'}
+                </button>
+                <button
+                  onClick={() => onDelete(review)}
+                  className="rounded-lg px-3 py-1 text-sm font-medium text-red-600 hover:bg-red-50"
+                >
+                  Supprimer
+                </button>
               </div>
             </Card>
           ))
@@ -2050,906 +1892,4 @@ function ReviewsSection({
   );
 }
 
-function AnalyticsSection({
-  monthlyAggregates,
-  planConfig,
-  handleExportCSV,
-  onRequestUpgrade,
-}: {
-  monthlyAggregates: Array<{
-    month: string;
-    revenue: number;
-    orders: number;
-    reviews: number;
-  }>;
-  planConfig: (typeof SUBSCRIPTION_PLANS)[keyof typeof SUBSCRIPTION_PLANS];
-  handleExportCSV: () => void;
-  onRequestUpgrade: () => void;
-}) {
-  const canAccessAnalytics = planConfig.canAccessAnalytics;
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900">
-            Analytics et performances
-          </h2>
-          <p className="text-sm text-gray-600">
-            Visualisez les performances de votre boutique sur les derniers mois.
-          </p>
-        </div>
-        <button
-          onClick={handleExportCSV}
-          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-        >
-          <i className="ri-download-2-line mr-2" />
-          Exporter en CSV
-        </button>
-      </div>
-
-      {canAccessAnalytics ? (
-        <Card title="Performance mensuelle">
-          {monthlyAggregates.length === 0 ? (
-            <p className="py-10 text-center text-sm text-gray-500">
-              Pas encore de données analytiques.
-            </p>
-          ) : (
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={monthlyAggregates}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    name="Chiffre d'affaires"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="orders"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    name="Commandes"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="reviews"
-                    stroke="#a855f7"
-                    strokeWidth={2}
-                    name="Avis"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </Card>
-      ) : (
-        <Card>
-          <div className="flex flex-col items-center justify-center space-y-3 py-12 text-center">
-            <i className="ri-lock-line text-4xl text-gray-400" />
-            <p className="text-sm text-gray-600">
-              Les analytics sont disponibles à partir du plan Basic.
-            </p>
-            <button
-              onClick={onRequestUpgrade}
-              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-            >
-              Voir les plans disponibles
-            </button>
-          </div>
-        </Card>
-      )}
-    </div>
-  );
-}
-
-function SubscriptionSection() {
-  // For now, show coming soon message as this feature is not fully implemented
-  return <ComingSoon feature="subscription" />;
-}
-
-function TeamSection() {
-  // For now, show coming soon message as this feature is not fully implemented
-  return <ComingSoon feature="team" />;
-}
-
-function MessagesSection() {
-  // For now, show coming soon message as this feature is not fully implemented
-  return <ComingSoon feature="messages" />;
-}
-
-function ProductModal({
-  open,
-  mode,
-  form,
-  loading,
-  onClose,
-  onSubmit,
-  onChange,
-}: {
-  open: boolean;
-  mode: 'add' | 'edit';
-  form: { 
-    name: string; 
-    price: string; 
-    stock: string; 
-    status: 'active' | 'inactive';
-    category: string;
-    description: string;
-    images: string[];
-  };
-  loading: boolean;
-  onClose: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
-  onChange: React.Dispatch<
-    React.SetStateAction<{
-      name: string;
-      price: string;
-      stock: string;
-      status: 'active' | 'inactive';
-      category: string;
-      description: string;
-      images: string[];
-    }>
-  >;
-}) {
-  const [imageUrl, setImageUrl] = useState('');
-  
-  if (!open) return null;
-  return (
-    <Modal title={mode === 'add' ? 'Ajouter un produit' : 'Modifier le produit'} onClose={onClose}>
-      <form onSubmit={onSubmit} className="space-y-4">
-        <Field
-          label="Nom"
-          value={form.name}
-          readOnly={false}
-          onChange={(value) => onChange((prev) => ({ ...prev, name: value }))}
-          required
-        />
-        <Field
-          label="Prix"
-          type="number"
-          value={form.price}
-          readOnly={false}
-          onChange={(value) => onChange((prev) => ({ ...prev, price: value }))}
-          required
-        />
-        <Field
-          label="Stock"
-          type="number"
-          value={form.stock}
-          readOnly={false}
-          onChange={(value) => onChange((prev) => ({ ...prev, stock: value }))}
-          required
-        />
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700">Statut</label>
-          <select
-            value={form.status}
-            onChange={(event) =>
-              onChange((prev) => ({
-                ...prev,
-                status: event.target.value as 'active' | 'inactive',
-              }))
-            }
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500"
-          >
-            <option value="active">Actif</option>
-            <option value="inactive">Inactif</option>
-          </select>
-        </div>
-        <Field
-          label="Catégorie"
-          value={form.category}
-          placeholder="Ex: Électronique, Vêtements, Alimentation..."
-          readOnly={false}
-          onChange={(value) => onChange((prev) => ({ ...prev, category: value }))}
-        />
-        <Textarea
-          label="Description"
-          value={form.description}
-          placeholder="Description du produit..."
-          readOnly={false}
-          onChange={(value) => onChange((prev) => ({ ...prev, description: value }))}
-        />
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Images du produit</label>
-          <div className="flex flex-wrap gap-2">
-            {form.images.map((img, index) => (
-              <div key={index} className="relative">
-                <img src={img} alt={`Product ${index}`} className="h-16 w-16 rounded object-cover border" />
-                <button
-                  type="button"
-                  onClick={() =>
-                    onChange((prev) => ({
-                      ...prev,
-                      images: prev.images.filter((_, i) => i !== index),
-                    }))
-                  }
-                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="URL de l'image..."
-              className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                if (imageUrl.trim()) {
-                  onChange((prev) => ({
-                    ...prev,
-                    images: [...prev.images, imageUrl.trim()],
-                  }));
-                  setImageUrl('');
-                }
-              }}
-              className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
-            >
-              Ajouter
-            </button>
-          </div>
-        </div>
-        <div className="flex justify-end space-x-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Annuler
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
-          >
-            {loading ? 'En cours...' : mode === 'add' ? 'Ajouter' : 'Enregistrer'}
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-function ReviewRespondModal({
-  open,
-  review,
-  loading,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean;
-  review: any;
-  loading: boolean;
-  onClose: () => void;
-  onSubmit: (response: string) => Promise<void>;
-}) {
-  const [response, setResponse] = useState('');
-
-  useEffect(() => {
-    setResponse(review?.response || '');
-  }, [review, open]);
-
-  if (!open) return null;
-
-  return (
-    <Modal
-      title={
-        review?.response ? 'Modifier la réponse' : 'Répondre à l’avis'
-      }
-      onClose={onClose}
-    >
-      <form
-        onSubmit={async (event) => {
-          event.preventDefault();
-          await onSubmit(response);
-        }}
-        className="space-y-4"
-      >
-        <Textarea
-          label="Message"
-          value={response}
-          readOnly={false}
-          onChange={setResponse}
-          required
-        />
-        <div className="flex justify-end space-x-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Annuler
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
-          >
-            {loading ? 'En cours...' : 'Envoyer'}
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-function ConfirmModal({
-  open,
-  title,
-  message,
-  loading,
-  onCancel,
-  onConfirm,
-  confirmLabel = 'Confirmer',
-  confirmType = 'primary',
-}: {
-  open: boolean;
-  title: string;
-  message: string;
-  loading: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-  confirmLabel?: string;
-  confirmType?: 'primary' | 'danger';
-}) {
-  if (!open) return null;
-
-  const confirmClasses =
-    confirmType === 'danger'
-      ? 'bg-red-600 hover:bg-red-700'
-      : 'bg-green-600 hover:bg-green-700';
-
-  return (
-    <Modal title={title} onClose={onCancel}>
-      <div className="space-y-4">
-        <p className="text-sm text-gray-700">{message}</p>
-        <div className="flex justify-end space-x-2">
-          <button
-            onClick={onCancel}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Annuler
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={loading}
-            className={`rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-60 ${confirmClasses}`}
-          >
-            {loading ? 'En cours...' : confirmLabel}
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-function PaymentModal({
-  open,
-  loading,
-  planId,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean;
-  loading: boolean;
-  planId: string;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  if (!open) return null;
-  return (
-    <Modal title="Confirmer le paiement" onClose={onClose}>
-      <p className="text-sm text-gray-700">
-        Vous allez être redirigé vers Stripe pour payer le plan{' '}
-        <span className="font-semibold">{planId}</span>.
-      </p>
-      <div className="mt-6 flex justify-end space-x-2">
-        <button
-          onClick={onClose}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          Annuler
-        </button>
-        <button
-          onClick={onConfirm}
-          disabled={loading}
-          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
-        >
-          {loading ? 'Paiement...' : 'Payer maintenant'}
-        </button>
-      </div>
-    </Modal>
-  );
-}
-
-function InviteModal({
-  open,
-  email,
-  role,
-  onClose,
-  onChangeEmail,
-  onChangeRole,
-  onSubmit,
-}: {
-  open: boolean;
-  email: string;
-  role: string;
-  onClose: () => void;
-  onChangeEmail: (value: string) => void;
-  onChangeRole: (value: string) => void;
-  onSubmit: () => void;
-}) {
-  if (!open) return null;
-  return (
-    <Modal title="Inviter un membre" onClose={onClose}>
-      <div className="space-y-4">
-        <Field
-          label="Email"
-          value={email}
-          readOnly={false}
-          onChange={onChangeEmail}
-          placeholder="email@example.com"
-          type="email"
-        />
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700">Rôle</label>
-          <select
-            value={role}
-            onChange={(event) => onChangeRole(event.target.value)}
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500"
-          >
-            <option value="editor">Éditeur</option>
-            <option value="admin">Admin</option>
-          </select>
-        </div>
-        <div className="flex justify-end space-x-2">
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Annuler
-          </button>
-          <button
-            onClick={onSubmit}
-            disabled={!email.includes('@')}
-            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
-          >
-            Inviter
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-function UpgradeModal({
-  open,
-  description,
-  onClose,
-  onSeePlans,
-}: {
-  open: boolean;
-  description: string;
-  onClose: () => void;
-  onSeePlans: () => void;
-}) {
-  if (!open) return null;
-  return (
-    <Modal title="Fonctionnalité Premium" onClose={onClose}>
-      <div className="space-y-6 text-center">
-        <i className="ri-vip-crown-line text-4xl text-yellow-500" />
-        <p className="text-sm text-gray-600">{description}</p>
-        <div className="flex justify-center space-x-3">
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Fermer
-          </button>
-          <button
-            onClick={onSeePlans}
-            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-          >
-            Voir les plans
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  icon,
-  iconBg,
-  iconColor,
-}: {
-  label: string;
-  value: string;
-  icon: string;
-  iconBg: string;
-  iconColor: string;
-}) {
-  return (
-    <div className="rounded-lg bg-white p-4 shadow-sm">
-      <div className="flex items-center">
-        <div
-          className={`flex h-12 w-12 items-center justify-center rounded-lg ${iconBg}`}
-        >
-          <i className={`${icon} text-xl ${iconColor}`} />
-        </div>
-        <div className="ml-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-            {label}
-          </p>
-          <p className="text-lg font-semibold text-gray-900">{value}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Card({
-  title,
-  children,
-  className = '',
-}: {
-  title?: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={`rounded-lg border bg-white p-6 shadow-sm ${className}`}>
-      {title && (
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          {title}
-        </h3>
-      )}
-      {children}
-    </div>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  readOnly,
-  placeholder,
-  type = 'text',
-  required,
-}: {
-  label: string;
-  value: string | number;
-  onChange?: (value: string) => void;
-  readOnly: boolean;
-  placeholder?: string;
-  type?: string;
-  required?: boolean;
-}) {
-  return (
-    <div className="space-y-1">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={onChange ? (event) => onChange(event.target.value) : undefined}
-        readOnly={readOnly}
-        required={required}
-        placeholder={placeholder}
-        className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500 ${
-          readOnly ? 'bg-gray-100 text-gray-500' : ''
-        }`}
-      />
-    </div>
-  );
-}
-
-function Textarea({
-  label,
-  value,
-  onChange,
-  readOnly,
-  placeholder,
-  required,
-}: {
-  label: string;
-  value: string;
-  onChange?: (value: string) => void;
-  readOnly: boolean;
-  placeholder?: string;
-  required?: boolean;
-}) {
-  return (
-    <div className="space-y-1">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
-      <textarea
-        value={value}
-        readOnly={readOnly}
-        required={required}
-        placeholder={placeholder}
-        onChange={onChange ? (event) => onChange(event.target.value) : undefined}
-        rows={3}
-        className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500 ${
-          readOnly ? 'bg-gray-100 text-gray-500' : ''
-        }`}
-      />
-    </div>
-  );
-}
-
-function Select({
-  label,
-  value,
-  onChange,
-  readOnly,
-  options,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange?: (value: string) => void;
-  readOnly: boolean;
-  options: string[];
-  placeholder?: string;
-}) {
-  return (
-    <div className="space-y-1">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
-      {readOnly ? (
-        <input
-          readOnly
-          value={value || ''}
-          className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-500"
-        />
-      ) : (
-        <select
-          value={value}
-          onChange={(event) => onChange?.(event.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500"
-        >
-          {placeholder && <option value="">{placeholder}</option>}
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      )}
-    </div>
-  );
-}
-
-function RecentOrdersCard({ orders }: { orders: any[] }) {
-  const { formatCurrency } = useCurrency();
-  
-  return (
-    <Card title="Commandes récentes">
-      <div className="space-y-3">
-        {orders.length === 0 ? (
-          <p className="py-6 text-center text-sm text-gray-500">
-            Aucune commande récente.
-          </p>
-        ) : (
-          orders.slice(0, 5).map((order) => (
-            <div
-              key={order.id}
-              className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3"
-            >
-              <div>
-                <p className="font-medium text-gray-900">
-                  #{order.order_number}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {order.created_at
-                    ? new Date(order.created_at).toLocaleDateString('fr-FR')
-                    : ''}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="font-medium text-gray-900">
-                  {formatCurrency(Number(order.total_amount || 0))}
-                </p>
-                <StatusPill status={order.status} />
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </Card>
-  );
-}
-
-function RecentReviewsCard({ reviews }: { reviews: any[] }) {
-  return (
-    <Card title="Avis récents">
-      <div className="space-y-3">
-        {reviews.length === 0 ? (
-          <p className="py-6 text-center text-sm text-gray-500">
-            Aucun avis récent.
-          </p>
-        ) : (
-          reviews.slice(0, 5).map((review) => (
-            <div key={review.id} className="space-y-2 rounded-lg border border-gray-100 bg-gray-50 p-4">
-              <div className="flex items-center justify-between">
-                <p className="font-medium text-gray-900">
-                  {review.customer_name || 'Client'}
-                </p>
-                <div className="flex items-center space-x-1 text-yellow-500">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <i
-                      key={star}
-                      className={`${
-                        star <= Number(review.rating || 0)
-                          ? 'ri-star-fill'
-                          : 'ri-star-line'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-              <p className="text-sm text-gray-700">{review.comment}</p>
-              <p className="text-xs text-gray-400">
-                {review.created_at
-                  ? new Date(review.created_at).toLocaleDateString('fr-FR')
-                  : ''}
-              </p>
-            </div>
-          ))
-        )}
-      </div>
-    </Card>
-  );
-}
-
-function StatusPill({ status }: { status: string }) {
-  const mapping: Record<string, { label: string; className: string }> = {
-    delivered: { label: 'Livrée', className: 'bg-green-100 text-green-700' },
-    shipped: { label: 'Expédiée', className: 'bg-indigo-100 text-indigo-700' },
-    processing: { label: 'En traitement', className: 'bg-purple-100 text-purple-700' },
-    confirmed: { label: 'Confirmée', className: 'bg-blue-100 text-blue-700' },
-    pending: { label: 'En attente', className: 'bg-yellow-100 text-yellow-700' },
-    cancelled: { label: 'Annulée', className: 'bg-red-100 text-red-700' },
-  };
-  const { label, className } = mapping[status] || {
-    label: status,
-    className: 'bg-gray-100 text-gray-700',
-  };
-  return (
-    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${className}`}>
-      {label}
-    </span>
-  );
-}
-
-function Alert({
-  tone,
-  message,
-  actionLabel,
-  onAction,
-}: {
-  tone: 'success' | 'error' | 'warning' | 'information';
-  message: string;
-  actionLabel?: string;
-  onAction?: () => void;
-}) {
-  const palette = {
-    success: {
-      bg: 'bg-green-50',
-      border: 'border-green-200',
-      text: 'text-green-700',
-      icon: 'ri-check-line',
-    },
-    error: {
-      bg: 'bg-red-50',
-      border: 'border-red-200',
-      text: 'text-red-700',
-      icon: 'ri-error-warning-line',
-    },
-    warning: {
-      bg: 'bg-yellow-50',
-      border: 'border-yellow-200',
-      text: 'text-yellow-700',
-      icon: 'ri-alert-line',
-    },
-    information: {
-      bg: 'bg-blue-50',
-      border: 'border-blue-200',
-      text: 'text-blue-700',
-      icon: 'ri-information-line',
-    },
-  }[tone];
-
-  return (
-    <div className={`flex items-center justify-between rounded-lg border ${palette.bg} ${palette.border} px-4 py-3 ${palette.text}`}>
-      <div className="flex items-center space-x-2">
-        <i className={`${palette.icon}`} />
-        <span className="text-sm">{message}</span>
-      </div>
-      {actionLabel && onAction && (
-        <button
-          onClick={onAction}
-          className="text-sm font-semibold underline-offset-2 hover:underline"
-        >
-          {actionLabel}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function Modal({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-lg border bg-white shadow-lg">
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-600">
-            {title}
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-700"
-            aria-label="Fermer"
-          >
-            <i className="ri-close-line text-lg" />
-          </button>
-        </div>
-        <div className="px-4 py-5">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function ToastInline({
-  toast,
-  onDismiss,
-}: {
-  toast: Toast;
-  onDismiss: () => void;
-}) {
-  if (!toast) return null;
-  return (
-    <div className="fixed bottom-6 right-6 z-50">
-      <div
-        className={`flex items-center space-x-3 rounded-lg border px-4 py-3 text-sm shadow-lg ${
-          toast.type === 'success'
-            ? 'border-green-200 bg-green-50 text-green-700'
-            : 'border-red-200 bg-red-50 text-red-700'
-        }`}
-      >
-        <span>{toast.message}</span>
-        <button
-          onClick={onDismiss}
-          className="text-xs font-medium uppercase tracking-wide"
-        >
-          Fermer
-        </button>
-      </div>
-    </div>
-  );
-}
-
-
+type ProfileData = typeof DEFAULT_PROFILE;

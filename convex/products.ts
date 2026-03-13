@@ -301,9 +301,29 @@ export const _getProductsForSearchBase = internalQuery({
 });
 
 /**
- * Helper: extract simple keywords from a search query
- * (lighter version than suppliers.ts, enough for product text search)
+ * Internal query: get product by ID for sourcing system
  */
+export const _getProductByIdInternal = internalQuery({
+  args: {
+    id: v.id("products"),
+  },
+  handler: async (ctx, args) => {
+    const product = await ctx.db.get(args.id);
+    if (!product) return null;
+    
+    return {
+      _id: product._id,
+      name: product.name,
+      description: product.description,
+      category: product.category,
+      keywords: product.keywords,
+      status: product.status,
+      isSearchable: product.isSearchable,
+      images: product.images,
+      supplierId: product.supplierId,
+    };
+  },
+});
 function extractSearchKeywords(query: string): string[] {
   if (!query) return [];
   const STOP_WORDS = new Set([
