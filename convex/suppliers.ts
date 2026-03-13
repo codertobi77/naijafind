@@ -1779,4 +1779,36 @@ export const rejectClaim = mutation({
   }
 });
 
+// Create a supplier search request from product details
+export const createSupplierRequest = mutation({
+  args: {
+    productName: v.string(),
+    productCategory: v.optional(v.string()),
+    message: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Get current user
+    const identity = await ctx.auth.getUserIdentity();
+    const userEmail = identity?.email || 'anonymous@naijafind.com';
+    const userName = identity?.name || 'Anonymous User';
+
+    // Create a contact entry for the supplier search request
+    const contactId = await ctx.db.insert("contacts", {
+      name: userName,
+      email: userEmail,
+      subject: `Supplier Search Request: ${args.productName}`,
+      message: `Product: ${args.productName}\nCategory: ${args.productCategory || 'N/A'}\n\nUser Message:\n${args.message}`,
+      type: 'supplier',
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    });
+
+    return {
+      success: true,
+      contactId,
+      message: "Supplier search request submitted successfully",
+    };
+  }
+});
+
 

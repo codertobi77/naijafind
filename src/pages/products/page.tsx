@@ -6,6 +6,7 @@ import { api } from '@convex/_generated/api';
 import { Header } from '../../components/base';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { useMultilingualSearch } from '../../hooks/useMultilingualSearch';
+import { useMutation } from 'convex/react';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -75,9 +76,14 @@ export default function ProductSearchPage() {
     total: 0,
   });
   const [translatedQuery, setTranslatedQuery] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<ProductResult | null>(null);
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [requestMessage, setRequestMessage] = useState('');
 
   const searchProducts = useAction(api.products.searchProducts);
   const { translateQuery, isTranslating } = useMultilingualSearch();
+  const createSupplierRequestMutation = useMutation(api.suppliers.createSupplierRequest);
 
   // Categories for filters
   const { data: categories } = useConvexQuery(
@@ -461,7 +467,12 @@ export default function ProductSearchPage() {
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2" />
+                              <button
+                                onClick={() => setSelectedProduct(product)}
+                                className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
+                              >
+                                {t('search.view_details')}
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -509,6 +520,246 @@ export default function ProductSearchPage() {
               </>
             )}
           </section>
+        </div>
+      </div>
+
+      {/* Product Details Modal */}
+      {selectedProduct && (
+        <ProductDetailsModal
+          product={selectedProduct}
+          isOpen={!!selectedProduct}
+          onClose={() => {
+            setSelectedProduct(null);
+            setShowRequestForm(false);
+            setRequestMessage('');
+          }}
+          onRequestSupplier={() => setShowRequestForm(true)}
+          showRequestForm={showRequestForm}
+          requestMessage={requestMessage}
+          setRequestMessage={setRequestMessage}
+          requestSubmitting={requestSubmitting}
+          onRequestSubmit={async () => {
+            if (!requestMessage.trim()) return;
+            setRequestSubmitting(true);
+            try {
+              await createSupplierRequestMutation({
+                productName: selectedProduct.name,
+                productCategory: selectedProduct.category,
+                message: requestMessage,
+              });
+              alert(t('products.request_sent'));
+              setShowRequestForm(false);
+              setRequestMessage('');
+            } catch (error) {
+              console.error('Error submitting request:', error);
+              alert(t('products.request_error'));
+            } finally {
+              setRequestSubmitting(false);
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Product Details Modal Component
+function ProductDetailsModal({
+  product,
+  isOpen,
+  onClose,
+  onRequestSupplier,
+  showRequestForm,
+  requestMessage,
+  setRequestMessage,
+  requestSubmitting,
+  onRequestSubmit,
+}: {
+  product: ProductResult;
+  isOpen: boolean;
+  onClose: () => void;
+  onRequestSupplier: () => void;
+  showRequestForm: boolean;
+  requestMessage: string;
+  setRequestMessage: (msg: string) => void;
+  requestSubmitting: boolean;
+  onRequestSubmit: () => void;
+}) {
+  const { t } = useTranslation();
+
+  const potentialSuppliers: SupplierSnapshot[] =
+    (product as any).potentialSuppliers || [];
+  const image =
+    product.images && product.images.length > 0
+      ? product.images[0]
+      : `https://readdy.ai/api/search-image?query=${encodeURIComponent(
+          `${product.name} ${product.category || ''} product`
+        )}&width=640&height=480&seq=product-${product._id}&orientation=landscape`;
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex justify-between items-start mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">{t('products.details_title')}</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <i className="ri-close-line text-2xl" />
+            </button>
+          </div>
+
+          {/* Product Image */}
+          <div className="mb-6">
+            <img
+              src={image}
+              alt={product.name}
+              className="w-full h-64 object-cover rounded-xl"
+            />
+          </div>
+
+          {/* Product Details */}
+          <div className="space-y-4 mb-6">
+            <h3 className="text-xl font-semibold text-gray-900">{product.name}</h3>
+            {product.category && (
+              <div className="inline-flex items-center px-3 py-1 rounded-full bg-green-50 text-green-700 border border-green-100">
+                <i className="ri-price-tag-3-line mr-2" />
+                {product.category}
+              </div>
+            )}
+            {product.description && (
+              <p className="text-gray-600">{product.description}</p>
+            )}
+            {product.price !== undefined && (
+              <div className="text-2xl font-bold text-green-600">
+                {t('products.price')}: ₦{product.price.toLocaleString()}
+              </div>
+            )}
+          </div>
+
+          {/* Potential Suppliers Section */}
+          <div className="border-t border-gray-200 pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <i className="ri-store-2-line mr-2 text-green-600" />
+                {t('products.potential_suppliers_title')}
+              </h3>
+              <span className="text-sm text-gray-500">
+                {potentialSuppliers.length} {t('products.suppliers_found')}
+              </span>
+            </div>
+
+            {potentialSuppliers.length > 0 ? (
+              <div className="space-y-3 mb-4">
+                {potentialSuppliers.map((supplier) => (
+                  <div
+                    key={supplier.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-gray-900 truncate">{supplier.name}</h4>
+                        {supplier.verified && (
+                          <i className="ri-verified-badge-fill text-green-600" />
+                        )}
+                      </div>
+                      {supplier.category && (
+                        <p className="text-sm text-gray-600">{supplier.category}</p>
+                      )}
+                      {supplier.location && (
+                        <p className="text-xs text-gray-500 flex items-center">
+                          <i className="ri-map-pin-line mr-1" />
+                          {supplier.location}
+                        </p>
+                      )}
+                      {supplier.rating !== undefined && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <i className="ri-star-fill text-yellow-500 text-sm" />
+                          <span className="text-sm font-medium">{supplier.rating}</span>
+                          {supplier.reviews_count !== undefined && (
+                            <span className="text-xs text-gray-500">
+                              ({supplier.reviews_count} {t('supplier.reviews')})
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <Link
+                      to={`/supplier/${supplier.id}`}
+                      onClick={onClose}
+                      className="ml-4 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm whitespace-nowrap"
+                    >
+                      {t('search.view_details')}
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4">
+                <p className="text-sm text-yellow-800">
+                  <i className="ri-information-line mr-2" />
+                  {t('products.no_suppliers_found')}
+                </p>
+              </div>
+            )}
+
+            {/* Request Supplier Search Button */}
+            <button
+              onClick={onRequestSupplier}
+              className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              <i className="ri-search-line mr-2" />
+              {t('products.request_supplier_search')}
+            </button>
+
+            {/* Request Form */}
+            {showRequestForm && (
+              <div className="mt-4 bg-gray-50 rounded-xl p-4 border border-gray-200">
+                <h4 className="font-semibold text-gray-900 mb-3">
+                  {t('products.request_supplier_form_title')}
+                </h4>
+                <textarea
+                  value={requestMessage}
+                  onChange={(e) => setRequestMessage(e.target.value)}
+                  placeholder={t('products.request_supplier_placeholder')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
+                  rows={3}
+                />
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={onRequestSubmit}
+                    disabled={requestSubmitting || !requestMessage.trim()}
+                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {requestSubmitting ? (
+                      <>
+                        <i className="ri-loader-4-line animate-spin mr-2" />
+                        {t('products.sending')}
+                      </>
+                    ) : (
+                      <>
+                        <i className="ri-send-plane-fill mr-2" />
+                        {t('products.send_request')}
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowRequestForm(false);
+                      setRequestMessage('');
+                    }}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    {t('products.cancel')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
