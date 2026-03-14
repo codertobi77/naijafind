@@ -3,7 +3,9 @@ import { lazy } from 'react';
 
 const Home = lazy(() => import('../pages/home/page'));
 const Search = lazy(() => import('../pages/search/page'));
-const Products = lazy(() => import('../pages/products/page'));
+const ProductsSearch = lazy(() => import('../pages/products/search'));
+const SuppliersSearch = lazy(() => import('../pages/suppliers/search'));
+const PurchaseRequest = lazy(() => import('../pages/purchase-request/page'));
 const SupplierDetail = lazy(() => import('../pages/supplier/page'));
 const Categories = lazy(() => import('../pages/categories/page'));
 const About = lazy(() => import('../pages/about/page'));
@@ -28,11 +30,15 @@ const routes: RouteObject[] = [
   },
   {
     path: '/search',
-    element: <Search />,
+    element: <SuppliersSearch />,
   },
   {
     path: '/products',
-    element: <Products />,
+    element: <ProductsSearch />,
+  },
+  {
+    path: '/purchase-request',
+    element: <PurchaseRequest />,
   },
   {
     path: '/supplier/:id',

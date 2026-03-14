@@ -1,5 +1,6 @@
 export const products = {
   "products.results_title": "Products found",
+  "products.search_title": "Search products",
   "products.label": "products",
 
   "products.sort.price_asc": "Price: Low to High",

@@ -28,6 +28,7 @@ import type * as products from "../products.js";
 import type * as quoteRequests from "../quoteRequests.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as reviews from "../reviews.js";
+import type * as searchNative from "../searchNative.js";
 import type * as searchSuggestions from "../searchSuggestions.js";
 import type * as sendEmail from "../sendEmail.js";
 import type * as stats from "../stats.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   quoteRequests: typeof quoteRequests;
   rateLimit: typeof rateLimit;
   reviews: typeof reviews;
+  searchNative: typeof searchNative;
   searchSuggestions: typeof searchSuggestions;
   sendEmail: typeof sendEmail;
   stats: typeof stats;

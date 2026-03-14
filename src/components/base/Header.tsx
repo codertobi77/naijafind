@@ -24,11 +24,12 @@ export default function Header() {
   };
 
   const navItems = [
-    { path: '/', label: t('nav.home') },
-    { path: '/search', label: t('nav.suppliers') },
-    { path: '/products', label: t('nav.products') },
-    { path: '/categories', label: t('nav.categories') },
-    { path: '/about', label: t('nav.about') },
+    { path: '/', label: t('nav.home', 'Accueil') },
+    { path: '/products', label: t('nav.products', 'Produits') },
+    { path: '/search', label: t('nav.suppliers', 'Fournisseurs') },
+    { path: '/purchase-request', label: t('nav.purchase_request', 'Demande d\'achat'), highlight: true },
+    { path: '/categories', label: t('nav.categories', 'Catégories') },
+    { path: '/about', label: t('nav.about', 'À propos') },
   ];
 
   return (
@@ -55,6 +56,8 @@ export default function Header() {
                 className={`px-4 py-2 rounded-lg font-medium transition-all ${
                   isActive(item.path)
                     ? 'text-green-600 bg-green-50'
+                    : item.highlight
+                    ? 'text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-md'
                     : 'text-gray-700 hover:text-green-600 hover:bg-green-50'
                 }`}
               >
@@ -170,8 +173,9 @@ export default function Header() {
             >
               <i className={`mr-3 ${
                 item.path === '/' ? 'ri-home-line' :
-                item.path === '/search' ? 'ri-store-2-line' :
                 item.path === '/products' ? 'ri-shopping-bag-line' :
+                item.path === '/search' ? 'ri-store-2-line' :
+                item.path === '/purchase-request' ? 'ri-file-list-3-line' :
                 item.path === '/categories' ? 'ri-grid-line' :
                 'ri-information-line'
               }`}></i>

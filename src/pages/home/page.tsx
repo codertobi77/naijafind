@@ -609,67 +609,141 @@ function SearchInputWithSuggestions({
   );
 }
 
+interface SearchHeroProps {
+  t: TFunction;
+  searchQuery: string;
+  searchLocation: string;
+  category: string;
+  categories: Array<{ _id: string; name: string }> | undefined;
+  setSearchQuery: (value: string) => void;
+  setSearchLocation: (value: string) => void;
+  setCategory: (value: string) => void;
+  onSearch: (type: 'products' | 'suppliers') => void;
+  recentSearches: string[];
+  recentLocations: string[];
+  onAddRecentSearch: (search: string) => void;
+  onAddRecentLocation: (location: string) => void;
+  onClearRecentSearches: () => void;
+  onClearRecentLocations: () => void;
+}
+
 function SearchHero({ t, searchQuery, searchLocation, category, categories, setSearchQuery, setSearchLocation, setCategory, onSearch, recentSearches, recentLocations, onAddRecentSearch, onAddRecentLocation, onClearRecentSearches, onClearRecentLocations }: SearchHeroProps) {
+  const [activeTab, setActiveTab] = useState<'products' | 'suppliers'>('products');
+
   return (
     <HeroSection
       backgroundImage="https://readdy.ai/api/search-image?query=Modern%20Nigerian%20marketplace%20with%20vendors%20selling%20colorful%20products%2C%20bustling%20commercial%20district%20in%20Lagos%20with%20traditional%20and%20modern%20buildings%2C%20vibrant%20street%20scene%20with%20people%20shopping%2C%20warm%20golden%20lighting%2C%20professional%20photography%20style%2C%20clean%20organized%20market%20stalls&width=1200&height=600&seq=hero-nigeria&orientation=landscape"
       backgroundGradient="from-black/60 via-black/50 to-black/40"
       showBadge={true}
-      badgeText={t('hero.badge_trusted')}
+      badgeText={t('hero.badge_trusted', 'Plateforme B2B de confiance')}
       badgeIcon=""
-      title={t('hero.title')}
-      subtitle={t('hero.subtitle')}
+      title={t('hero.title', 'Trouvez les meilleurs fournisseurs au Nigeria')}
+      subtitle={t('hero.subtitle', 'Découvrez et contactez directement des entreprises selon vos critères.')}
     >
-      {/* Search Form */}
-      <div className="bg-white/95 backdrop-blur-md rounded-2xl p-6 sm:p-8 shadow-2xl border border-white/20">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          <div className="sm:col-span-2 lg:col-span-1">
-            <SearchInputWithSuggestions
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder={t('hero.search_placeholder')}
-              label={t('hero.search_placeholder')}
-              icon="ri-search-line"
-              type="search"
-              recentSearches={recentSearches}
-              onAddRecentSearch={onAddRecentSearch}
-              onClearRecentSearches={onClearRecentSearches}
-            />
-          </div>
-          <div>
-            <SearchInputWithSuggestions
-              value={searchLocation}
-              onChange={setSearchLocation}
-              placeholder={t('hero.location_placeholder')}
-              label={t('label.location')}
-              icon="ri-map-pin-line"
-              type="location"
-              recentSearches={recentLocations}
-              onAddRecentSearch={onAddRecentLocation}
-              onClearRecentSearches={onClearRecentLocations}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2 min-h-[2.5rem] flex items-center">
-              <i className="ri-list-check mr-1"></i>{t('label.category')}
-            </label>
-            <FormSelect
-              value={category}
-              onChange={(value) => setCategory(value)}
-              options={[
-                { value: '', label: t('categories.view_all') },
-                ...(categories?.map((cat) => ({ value: cat.name, label: cat.name })) || [])
-              ]}
-            />
-          </div>
+      {/* Search Form with Tabs */}
+      <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('products')}
+            className={`flex-1 py-4 px-6 font-semibold text-sm sm:text-base flex items-center justify-center gap-2 transition-all ${
+              activeTab === 'products'
+                ? 'text-green-700 bg-green-50 border-b-2 border-green-600'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <i className="ri-shopping-bag-line text-lg"></i>
+            {t('search.tabs.products', 'Produits')}
+          </button>
+          <button
+            onClick={() => setActiveTab('suppliers')}
+            className={`flex-1 py-4 px-6 font-semibold text-sm sm:text-base flex items-center justify-center gap-2 transition-all ${
+              activeTab === 'suppliers'
+                ? 'text-green-700 bg-green-50 border-b-2 border-green-600'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <i className="ri-store-2-line text-lg"></i>
+            {t('search.tabs.suppliers', 'Fournisseurs')}
+          </button>
         </div>
-        <button
-          onClick={onSearch}
-          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-4 px-8 rounded-xl hover:shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 font-semibold text-base transform hover:-translate-y-0.5"
-        >
-          <i className="ri-search-line mr-2 text-lg"></i>
-          {t('hero.cta')}
-        </button>
+
+        {/* Form Content */}
+        <div className="p-6 sm:p-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            {/* Search Input - Product or Supplier name */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                <i className="ri-search-line mr-1 text-green-600"></i>
+                {activeTab === 'products' 
+                  ? t('search.product_name', 'Nom du produit')
+                  : t('search.supplier_name', 'Nom du fournisseur')
+                }
+              </label>
+              <SearchInputWithSuggestions
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder={activeTab === 'products' 
+                  ? t('search.product_placeholder', 'Exemple: Riz, café, ciment...')
+                  : t('search.supplier_placeholder', 'Exemple: Dangote Group')
+                }
+                label=""
+                icon=""
+                type="search"
+                recentSearches={recentSearches}
+                onAddRecentSearch={onAddRecentSearch}
+                onClearRecentSearches={onClearRecentSearches}
+              />
+            </div>
+
+            {/* Location */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                <i className="ri-map-pin-line mr-1 text-green-600"></i>
+                {t('label.location', 'Ville')}
+              </label>
+              <SearchInputWithSuggestions
+                value={searchLocation}
+                onChange={setSearchLocation}
+                placeholder={t('search.location_placeholder', 'Lagos')}
+                label=""
+                icon=""
+                type="location"
+                recentSearches={recentLocations}
+                onAddRecentSearch={onAddRecentLocation}
+                onClearRecentSearches={onClearRecentLocations}
+              />
+            </div>
+
+            {/* Category/Sector */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                <i className="ri-list-check mr-1 text-green-600"></i>
+                {t('label.sector', 'Secteur')}
+              </label>
+              <FormSelect
+                value={category}
+                onChange={(value) => setCategory(value)}
+                options={[
+                  { value: '', label: t('categories.view_all', 'Tous les secteurs') },
+                  ...(categories?.map((cat) => ({ value: cat.name, label: cat.name })) || [])
+                ]}
+              />
+            </div>
+          </div>
+
+          {/* Search Button */}
+          <button
+            onClick={() => onSearch(activeTab)}
+            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-4 px-8 rounded-xl hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-semibold text-base flex items-center justify-center gap-2"
+          >
+            <i className="ri-search-line text-lg"></i>
+            {activeTab === 'products' 
+              ? t('search.find_products', 'Trouver des produits')
+              : t('search.find_suppliers', 'Trouver des fournisseurs')
+            }
+          </button>
+        </div>
       </div>
     </HeroSection>
   );
@@ -793,7 +867,7 @@ export default function Home() {
     }
   };
 
-  const handleSearch = () => {
+  const handleSearch = (type: 'products' | 'suppliers') => {
     const params = new URLSearchParams();
     const trimmedQuery = searchQuery.trim();
 
@@ -809,10 +883,8 @@ export default function Home() {
       params.set('category', category);
     }
 
-    // New flow:
-    // - If the user typed a query: go to products search
-    // - Otherwise, use category/location to search suppliers
-    if (trimmedQuery) {
+    // Navigate based on search type
+    if (type === 'products') {
       navigate(`/products?${params.toString()}`);
     } else {
       navigate(`/search?${params.toString()}`);

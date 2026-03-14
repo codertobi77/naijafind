@@ -174,7 +174,7 @@ export default function ProductSearchPage() {
               {/* Query */}
               <div className="mb-5">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  {t('search.title')}
+                  {t('products.search_title')}
                 </label>
                 <input
                   type="text"
