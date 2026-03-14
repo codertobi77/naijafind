@@ -1,0 +1,372 @@
+import { mutation, query, internalQuery, action } from "./_generated/server";
+import { v } from "convex/values";
+import { internal } from "./_generated/api";
+
+/**
+ * Create a new purchase request
+ * This is the main entry point for the purchase request form
+ */
+export const createPurchaseRequest = action({
+  args: {
+    description: v.string(),
+    quantity: v.number(),
+    unit: v.string(),
+    location: v.string(),
+    budget: v.optional(v.string()),
+    currency: v.optional(v.string()),
+    additionalInfo: v.optional(v.string()),
+    contactName: v.string(),
+    contactEmail: v.string(),
+    contactPhone: v.optional(v.string()),
+    preferredDeliveryDate: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Apply rate limiting - max 3 requests per hour per email/IP
+    await ctx.runMutation(internal.rateLimit.enforceRateLimit, {
+      identifier: args.contactEmail,
+      action: 'purchase_request',
+      limit: 3,
+      windowMinutes: 60,
+    });
+    
+    const identity = await ctx.auth.getUserIdentity();
+    
+    // Get user info if authenticated
+    let userId = 'anonymous';
+    let userEmail = args.contactEmail;
+    let userName = args.contactName;
+    
+    if (identity) {
+      userId = identity.subject;
+      userEmail = identity.email || args.contactEmail;
+      userName = identity.name || args.contactName;
+      
+      // Also update users table if needed
+      const user = await ctx.db
+        .query("users")
+        .withIndex("email", (q) => q.eq("email", userEmail))
+        .first();
+      
+      if (!user) {
+        // Create user record if doesn't exist
+        await ctx.db.insert("users", {
+          email: userEmail,
+          firstName: userName.split(' ')[0],
+          lastName: userName.split(' ').slice(1).join(' '),
+          created_at: new Date().toISOString(),
+        });
+      }
+    }
+    
+    const now = new Date().toISOString();
+    
+    // Create purchase request
+    const requestId = await ctx.db.insert("purchaseRequests", {
+      description: args.description,
+      quantity: args.quantity,
+      unit: args.unit,
+      location: args.location,
+      budget: args.budget,
+      currency: args.currency,
+      additionalInfo: args.additionalInfo,
+      contactName: userName,
+      contactEmail: userEmail,
+      contactPhone: args.contactPhone,
+      preferredDeliveryDate: args.preferredDeliveryDate,
+      status: 'pending',
+      userId: userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+    
+    // Find matching suppliers and notify them
+    try {
+      const matchingSuppliers = await ctx.runQuery(
+        internal.purchaseRequests._findMatchingSuppliers,
+        {
+          description: args.description,
+          location: args.location,
+          limit: 20,
+        }
+      );
+      
+      // Create notifications for matching suppliers
+      for (const supplier of matchingSuppliers) {
+        await ctx.db.insert("notifications", {
+          userId: supplier.userId,
+          type: 'purchase_request',
+          title: 'Nouvelle demande d\'achat',
+          message: `${args.description} - ${args.quantity} ${args.unit} à ${args.location}`,
+          data: { 
+            requestId,
+            purchaseRequest: args,
+            matchScore: supplier.matchScore,
+          },
+          read: false,
+          actionUrl: `/dashboard/purchase-requests/${requestId}`,
+          createdAt: now,
+        });
+      }
+    } catch (error) {
+      console.error('Error notifying suppliers:', error);
+      // Don't fail the request if notification fails
+    }
+    
+    return { success: true, requestId };
+  }
+});
+
+/**
+ * Get purchase requests for current user
+ */
+export const getMyPurchaseRequests = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Non autorisé");
+    }
+    
+    const limit = Math.min(args.limit ?? 50, 100);
+    
+    const requests = await ctx.db
+      .query("purchaseRequests")
+      .withIndex("userId", (q) => q.eq("userId", identity.subject))
+      .order("desc")
+      .take(limit);
+    
+    return requests;
+  }
+});
+
+/**
+ * Get purchase request details by ID
+ */
+export const getPurchaseRequestById = query({
+  args: {
+    id: v.id("purchaseRequests"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Non autorisé");
+    }
+    
+    const request = await ctx.db.get(args.id);
+    if (!request) {
+      return null;
+    }
+    
+    // Only allow owner or admin to view
+    if (request.userId !== identity.subject) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("email", (q) => q.eq("email", identity.email))
+        .first();
+      
+      if (!user?.is_admin) {
+        throw new Error("Accès refusé");
+      }
+    }
+    
+    return request;
+  }
+});
+
+/**
+ * Update purchase request status (for suppliers/admins)
+ */
+export const updatePurchaseRequestStatus = mutation({
+  args: {
+    id: v.id("purchaseRequests"),
+    status: v.string(), // 'pending', 'contacted', 'quoted', 'completed', 'cancelled'
+    message: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Non autorisé");
+    }
+    
+    const request = await ctx.db.get(args.id);
+    if (!request) {
+      throw new Error("Demande non trouvée");
+    }
+    
+    const now = new Date().toISOString();
+    
+    await ctx.db.patch(args.id, {
+      status: args.status,
+      updatedAt: now,
+    });
+    
+    // Notify the requester about status update
+    await ctx.db.insert("notifications", {
+      userId: request.userId,
+      type: 'purchase_request_update',
+      title: 'Mise à jour de votre demande',
+      message: `Votre demande a été marquée comme: ${args.status}${args.message ? ` - ${args.message}` : ''}`,
+      data: { requestId: args.id, status: args.status, message: args.message },
+      read: false,
+      actionUrl: `/dashboard/purchase-requests/${args.id}`,
+      createdAt: now,
+    });
+    
+    return { success: true };
+  }
+});
+
+/**
+ * Submit a quote for a purchase request
+ */
+export const submitQuote = mutation({
+  args: {
+    requestId: v.id("purchaseRequests"),
+    supplierId: v.id("suppliers"),
+    price: v.number(),
+    currency: v.string(),
+    deliveryTime: v.string(),
+    message: v.string(),
+    validUntil: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Non autorisé");
+    }
+    
+    const request = await ctx.db.get(args.requestId);
+    if (!request) {
+      throw new Error("Demande non trouvée");
+    }
+    
+    const supplier = await ctx.db.get(args.supplierId);
+    if (!supplier) {
+      throw new Error("Fournisseur non trouvé");
+    }
+    
+    // Verify supplier belongs to this user
+    if (supplier.userId !== identity.subject) {
+      throw new Error("Accès refusé");
+    }
+    
+    const now = new Date().toISOString();
+    
+    // Create quote
+    const quoteId = await ctx.db.insert("quotes", {
+      requestId: args.requestId,
+      supplierId: args.supplierId,
+      supplierName: supplier.business_name,
+      supplierEmail: supplier.email,
+      price: args.price,
+      currency: args.currency,
+      deliveryTime: args.deliveryTime,
+      message: args.message,
+      validUntil: args.validUntil,
+      status: 'pending',
+      createdAt: now,
+    });
+    
+    // Notify requester
+    await ctx.db.insert("notifications", {
+      userId: request.userId,
+      type: 'new_quote',
+      title: 'Nouvelle offre reçue',
+      message: `${supplier.business_name} vous propose une offre pour votre demande`,
+      data: { 
+        quoteId,
+        requestId: args.requestId,
+        supplierId: args.supplierId,
+        price: args.price,
+        currency: args.currency,
+      },
+      read: false,
+      actionUrl: `/dashboard/purchase-requests/${args.requestId}`,
+      createdAt: now,
+    });
+    
+    return { success: true, quoteId };
+  }
+});
+
+// ==========================================
+// INTERNAL HELPERS
+// ==========================================
+
+/**
+ * Internal: Find matching suppliers for a purchase request
+ * Uses keyword matching and location proximity
+ */
+export const _findMatchingSuppliers = internalQuery({
+  args: {
+    description: v.string(),
+    location: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.min(args.limit ?? 20, 50);
+    const descLower = args.description.toLowerCase();
+    const locationLower = args.location.toLowerCase();
+    
+    // Extract keywords from description
+    const keywords = descLower
+      .split(/[\s,;:\-]+/)
+      .filter(word => word.length > 2 && !['the', 'and', 'for', 'with', 'this', 'that'].includes(word));
+    
+    // Get approved suppliers
+    const allSuppliers = await ctx.db
+      .query("suppliers")
+      .withIndex("approved", (q) => q.eq("approved", true))
+      .take(500); // Limit to prevent timeout
+    
+    // Score and filter suppliers
+    const scoredSuppliers = allSuppliers
+      .map(supplier => {
+        let score = 0;
+        
+        // Category match
+        const categoryLower = (supplier.category || '').toLowerCase();
+        if (keywords.some(kw => categoryLower.includes(kw))) {
+          score += 50;
+        }
+        
+        // Business name match
+        const nameLower = (supplier.business_name || '').toLowerCase();
+        if (keywords.some(kw => nameLower.includes(kw))) {
+          score += 30;
+        }
+        
+        // Description match
+        const desc = (supplier.description || '').toLowerCase();
+        for (const kw of keywords) {
+          if (desc.includes(kw)) {
+            score += 10;
+          }
+        }
+        
+        // Location match
+        const cityLower = (supplier.city || '').toLowerCase();
+        const stateLower = (supplier.state || '').toLowerCase();
+        if (cityLower && locationLower.includes(cityLower)) {
+          score += 40;
+        }
+        if (stateLower && locationLower.includes(stateLower)) {
+          score += 30;
+        }
+        
+        // Boost for verified/featured suppliers
+        if (supplier.verified) score += 20;
+        if (supplier.featured) score += 15;
+        if (supplier.rating) score += Math.round(supplier.rating * 5);
+        
+        return { ...supplier, matchScore: score };
+      })
+      .filter(s => s.matchScore > 0)
+      .sort((a, b) => b.matchScore - a.matchScore)
+      .slice(0, limit);
+    
+    return scoredSuppliers;
+  },
+});

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { useAction } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { Header } from '../../components/base';
 import { Package, MapPin, DollarSign, FileText, Send, ChevronDown } from 'lucide-react';
 
@@ -29,6 +31,7 @@ const currencies = [
 export default function PurchaseRequestPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const createPurchaseRequest = useAction(api.purchaseRequests.createPurchaseRequest);
   
   const [formData, setFormData] = useState({
     description: '',
@@ -80,16 +83,36 @@ export default function PurchaseRequestPage() {
     
     setIsSubmitting(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setIsSubmitting(false);
-    setIsSuccess(true);
-    
-    // Reset form after 3 seconds and redirect
-    setTimeout(() => {
-      navigate('/');
-    }, 5000);
+    try {
+      // Submit to backend
+      const result = await createPurchaseRequest({
+        description: formData.description,
+        quantity: Number(formData.quantity),
+        unit: formData.unit,
+        location: formData.location,
+        budget: formData.budget || undefined,
+        currency: formData.currency || undefined,
+        additionalInfo: formData.additionalInfo || undefined,
+        contactName: formData.contactName,
+        contactEmail: formData.contactEmail,
+        contactPhone: formData.contactPhone || undefined,
+        preferredDeliveryDate: formData.preferredDeliveryDate || undefined,
+      });
+      
+      if (result.success) {
+        setIsSubmitting(false);
+        setIsSuccess(true);
+        
+        // Redirect after 5 seconds
+        setTimeout(() => {
+          navigate('/');
+        }, 5000);
+      }
+    } catch (error) {
+      console.error('Error submitting purchase request:', error);
+      setIsSubmitting(false);
+      alert(t('purchase_request.errors.submission', 'Une erreur est survenue. Veuillez réessayer.'));
+    }
   };
 
   const handleChange = (field: string, value: string) => {

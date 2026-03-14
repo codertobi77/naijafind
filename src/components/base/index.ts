@@ -7,3 +7,4 @@ export { default as VerificationStatus } from './VerificationStatus';
 export { default as ToastContainer } from './ToastContainer';
 export { default as NotificationDropdown } from './NotificationDropdown';
 export { Logo, LogoLink } from './Logo';
+export * from './SkeletonLoader';

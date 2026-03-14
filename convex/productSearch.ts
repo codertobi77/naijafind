@@ -171,6 +171,40 @@ export const _getProductsForSearch = internalQuery({
   },
 });
 
+/**
+ * Internal: Get product candidates for multiple products in one batch
+ * Eliminates N+1 query by fetching all candidates at once
+ */
+export const _getBatchProductCandidates = internalQuery({
+  args: {
+    productIds: v.array(v.id("products")),
+    limit: v.optional(v.number()),
+    minScore: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.min(args.limit ?? 5, 20);
+    const minScore = args.minScore ?? 0.3;
+    
+    // Get all candidates for all products
+    const allCandidates: Record<string, any[]> = {};
+    
+    for (const productId of args.productIds) {
+      const candidates = await ctx.db
+        .query("productSupplierCandidates")
+        .withIndex("productId_approved", (q) =>
+          q.eq("productId", productId).eq("isApproved", true)
+        )
+        .filter((q) => q.gte(q.field("matchScore"), minScore))
+        .order("desc")
+        .take(limit);
+      
+      allCandidates[productId] = candidates;
+    }
+    
+    return allCandidates;
+  },
+});
+
 // ==========================================
 // PUBLIC QUERIES
 // ==========================================
@@ -394,15 +428,16 @@ export const searchProductsMultilingual = action({
     });
 
     // Step 5: Get suppliers for each product
-    // First, get all candidates for all products in one efficient query
+    // OPTIMIZED: Use batch query instead of N+1 loop
     const allCandidates: Record<string, any[]> = {};
-
-    for (const product of scored) {
-      const candidates = await ctx.runQuery(
-        internal.productSourcing._getProductCandidates,
-        { productId: product._id, limit: 5, minScore: 0.3 }
+    
+    if (scored.length > 0) {
+      const productIds = scored.map(p => p._id);
+      const batchResult = await ctx.runQuery(
+        internal.productSearch._getBatchProductCandidates,
+        { productIds, limit: 5, minScore: 0.3 }
       );
-      allCandidates[product._id] = candidates;
+      Object.assign(allCandidates, batchResult);
     }
 
     // Collect all supplier IDs for batch lookup

@@ -377,4 +377,44 @@ export default defineSchema({
     .index("language", ["language"])
     .index("productId", ["productId"])
     .index("translationStatus", ["translationStatus"]),
+
+  // Purchase Requests: Buyer requests for products/services
+  purchaseRequests: defineTable({
+    description: v.string(),
+    quantity: v.number(),
+    unit: v.string(),
+    location: v.string(),
+    budget: v.optional(v.string()),
+    currency: v.optional(v.string()),
+    additionalInfo: v.optional(v.string()),
+    contactName: v.string(),
+    contactEmail: v.string(),
+    contactPhone: v.optional(v.string()),
+    preferredDeliveryDate: v.optional(v.string()),
+    status: v.string(), // 'pending', 'contacted', 'quoted', 'completed', 'cancelled'
+    userId: v.string(),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  })
+    .index("userId", ["userId"])
+    .index("status", ["status"])
+    .index("createdAt", ["createdAt"]),
+
+  // Quotes: Supplier quotes for purchase requests
+  quotes: defineTable({
+    requestId: v.id("purchaseRequests"),
+    supplierId: v.id("suppliers"),
+    supplierName: v.string(),
+    supplierEmail: v.string(),
+    price: v.number(),
+    currency: v.string(),
+    deliveryTime: v.string(),
+    message: v.string(),
+    validUntil: v.optional(v.string()),
+    status: v.string(), // 'pending', 'accepted', 'rejected', 'expired'
+    createdAt: v.string(),
+  })
+    .index("requestId", ["requestId"])
+    .index("supplierId", ["supplierId"])
+    .index("status", ["status"]),
 });

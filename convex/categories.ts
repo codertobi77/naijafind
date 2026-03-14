@@ -15,6 +15,7 @@ async function isAdmin(ctx: any) {
 }
 
 // Get all active categories (public query)
+// Convex automatically caches this - cache invalidates when categories table changes
 export const getAllCategories = query({
   args: {},
   handler: async (ctx) => {
