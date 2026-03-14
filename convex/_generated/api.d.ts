@@ -25,6 +25,7 @@ import type * as productSearch from "../productSearch.js";
 import type * as productSourcing from "../productSourcing.js";
 import type * as productTranslation from "../productTranslation.js";
 import type * as products from "../products.js";
+import type * as purchaseRequests from "../purchaseRequests.js";
 import type * as quoteRequests from "../quoteRequests.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as reviews from "../reviews.js";
@@ -63,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   productSourcing: typeof productSourcing;
   productTranslation: typeof productTranslation;
   products: typeof products;
+  purchaseRequests: typeof purchaseRequests;
   quoteRequests: typeof quoteRequests;
   rateLimit: typeof rateLimit;
   reviews: typeof reviews;

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useMutation, usePaginatedQuery } from 'convex/react';
+import { useMutation, usePaginatedQuery, useAction } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { useConvexAuth } from 'convex/react';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
@@ -1967,6 +1967,8 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
         return <SupplierBulkImport />;
       case 'productImport':
         return <ProductBulkImport />;
+      case 'migrateProducts':
+        return <ProductMigrationTool />;
       case 'adBanners':
         return <AdBannerManager />;
       case 'claims':
@@ -2737,6 +2739,18 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                 {!sidebarCollapsed && <span className="font-medium">Import Produits</span>}
               </button>
               <button
+                onClick={() => { setActiveTab('migrateProducts'); setSidebarOpen(false); }}
+                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                  activeTab === 'migrateProducts'
+                    ? 'bg-green-600 text-white shadow'
+                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
+                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
+                title={sidebarCollapsed ? 'Migration Produits' : undefined}
+              >
+                <i className="ri-magic-line text-lg" />
+                {!sidebarCollapsed && <span className="font-medium">Migration Produits</span>}
+              </button>
+              <button
                 onClick={() => { setActiveTab('adBanners'); setSidebarOpen(false); }}
                 className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                   activeTab === 'adBanners'
@@ -2818,6 +2832,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                 {activeTab === 'notifications' && 'Envoyer une notification'}
                 {activeTab === 'import' && 'Import Fournisseurs'}
                 {activeTab === 'productImport' && 'Import Produits'}
+                {activeTab === 'migrateProducts' && 'Migration des Produits'}
                 {activeTab === 'adBanners' && 'Ad Banners'}
                 {activeTab === 'claims' && t('claims.sidebar.page_title')}
               </h1>
@@ -2888,6 +2903,129 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
 
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+    </div>
+  );
+}
+
+// Product Migration Tool Component
+function ProductMigrationTool() {
+  const { t } = useTranslation();
+  const { showToast } = useToast();
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrationResult, setMigrationResult] = useState<any>(null);
+  
+  const migrateProducts = useAction(api.productMigration.migrateActiveProductsToSearchable);
+  
+  const handleMigration = async () => {
+    if (isMigrating) return;
+    
+    setIsMigrating(true);
+    setMigrationResult(null);
+    
+    try {
+      const result = await migrateProducts({ batchSize: 100 });
+      setMigrationResult(result);
+      
+      if (result.success) {
+        showToast(
+          'success',
+          `Migration terminée! ${result.migrated} produits mis à jour.`
+        );
+      } else {
+        showToast('error', 'Erreur lors de la migration');
+      }
+    } catch (error: any) {
+      console.error('Migration error:', error);
+      showToast('error', error.message || 'Erreur lors de la migration');
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+  
+  return (
+    <div className="space-y-6">
+      <div className="max-w-4xl">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          Migration des Produits - isSearchable
+        </h2>
+        <p className="text-gray-600 mb-6">
+          Cet outil permet de définir <code>isSearchable: true</code> pour tous les produits actifs qui n'ont pas ce champ.
+          Utile après l'import massif de produits pour les rendre recherchables.
+        </p>
+        
+        <div className="bg-white rounded-xl shadow p-6 border border-gray-200">
+          <div className="flex items-start gap-4 mb-6">
+            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+              <i className="ri-magic-line text-2xl text-green-600"></i>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900 mb-2">Comment ça marche ?</h3>
+              <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
+                <li>Parcourt tous les produits avec le statut &quot;active&quot;</li>
+                <li>Définit le champ <code>isSearchable</code> à <code>true</code></li>
+                <li>Les produits deviennent visibles dans la recherche</li>
+                <li>Traite par lots de 100 produits pour éviter les timeouts</li>
+              </ul>
+            </div>
+          </div>
+          
+          <button
+            onClick={handleMigration}
+            disabled={isMigrating}
+            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-4 px-6 rounded-xl hover:shadow-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-semibold text-base flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isMigrating ? (
+              <>
+                <i className="ri-loader-4-line animate-spin text-xl"></i>
+                <span>Migration en cours...</span>
+              </>
+            ) : (
+              <>
+                <i className="ri-magic-line text-xl"></i>
+                <span>Lancer la Migration</span>
+              </>
+            )}
+          </button>
+          
+          {migrationResult && (
+            <div className="mt-6 bg-green-50 border border-green-200 rounded-xl p-4">
+              <h4 className="font-semibold text-green-800 mb-2 flex items-center gap-2">
+                <i className="ri-check-circle-line"></i>
+                Résultat de la Migration
+              </h4>
+              <div className="text-sm text-green-700 space-y-1">
+                <p><strong>Total traité:</strong> {migrationResult.totalProcessed} produits</p>
+                <p><strong>Migrés:</strong> {migrationResult.migrated} produits</p>
+                <p><strong>Erreurs:</strong> {migrationResult.errors?.length || 0}</p>
+                <p><strong>Batchs:</strong> {migrationResult.attempts}</p>
+                {migrationResult.errors && migrationResult.errors.length > 0 && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-red-700 font-medium">Voir les erreurs</summary>
+                    <ul className="mt-2 text-xs space-y-1 max-h-40 overflow-y-auto">
+                      {migrationResult.errors.slice(0, 10).map((err: any, idx: number) => (
+                        <li key={idx} className="text-red-600">
+                          Produit {err.productId}: {err.error}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+            <i className="ri-information-line"></i>
+            Information
+          </h4>
+          <p className="text-sm text-blue-700">
+            Les nouveaux produits créés via le dashboard ou l'import auront automatiquement <code>isSearchable: true</code>.
+            Cette migration est uniquement nécessaire pour les produits existants qui n'ont pas ce champ.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

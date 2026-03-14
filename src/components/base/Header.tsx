@@ -28,13 +28,14 @@ export default function Header() {
     { path: '/', label: t('nav.home', 'Accueil') },
     { path: '/products', label: t('nav.products', 'Produits') },
     { path: '/search', label: t('nav.suppliers', 'Fournisseurs') },
+    { path: '/purchase-request', label: t('nav.purchase_request', 'Demande d\'achat'), highlight: true },
+    { path: '/about', label: t('nav.about', 'À propos') },
+    { path: '/contact', label: t('nav.contact', 'Contact') },
   ];
 
-  // Secondary navigation items (can be moved to dropdown or kept visible)
-  const secondaryNavItems = [
-    { path: '/purchase-request', label: t('nav.purchase_request', 'Demande d\'achat'), highlight: true },
+  // Secondary navigation items (for mobile menu organization)
+  const secondaryNavItems: Array<{ path: string; label: string }> = [
     { path: '/categories', label: t('nav.categories', 'Catégories') },
-    { path: '/about', label: t('nav.about', 'À propos') },
   ];
 
   return (
@@ -179,6 +180,8 @@ export default function Header() {
                   className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center mb-1 ${
                     isActive(item.path)
                       ? 'text-green-600 bg-green-50'
+                      : item.highlight
+                      ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-md'
                       : 'text-gray-700 hover:text-green-600 hover:bg-green-50'
                   }`}
                   onClick={() => setMobileMenuOpen(false)}
@@ -186,6 +189,10 @@ export default function Header() {
                   <i className={`mr-3 text-lg ${
                     item.path === '/' ? 'ri-home-line' :
                     item.path === '/products' ? 'ri-shopping-bag-line' :
+                    item.path === '/search' ? 'ri-store-2-line' :
+                    item.path === '/purchase-request' ? 'ri-file-list-3-line' :
+                    item.path === '/about' ? 'ri-information-line' :
+                    item.path === '/contact' ? 'ri-customer-service-2-line' :
                     'ri-store-2-line'
                   }`}></i>
                   {item.label}
@@ -196,25 +203,22 @@ export default function Header() {
             {/* Secondary Navigation */}
             <div className="mb-3 pb-3 border-b border-gray-100">
               <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Menu
+                Plus
               </p>
-              {secondaryNavItems.map((item) => (
+              {secondaryNavItems.map((item: any) => (
                 <Link
                   key={item.path}
                   to={item.path}
                   className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center mb-1 ${
-                    item.highlight
-                      ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-md'
-                      : isActive(item.path)
+                    isActive(item.path)
                       ? 'text-green-600 bg-green-50'
                       : 'text-gray-700 hover:text-green-600 hover:bg-green-50'
                   }`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <i className={`mr-3 text-lg ${
-                    item.path === '/purchase-request' ? 'ri-file-list-3-line' :
                     item.path === '/categories' ? 'ri-grid-line' :
-                    'ri-information-line'
+                    'ri-more-fill'
                   }`}></i>
                   {item.label}
                 </Link>

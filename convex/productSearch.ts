@@ -122,7 +122,9 @@ export const _getProductsForSearch = internalQuery({
   },
   handler: async (ctx, args) => {
     const limit = Math.min(args.limit ?? 500, 1000);
-    const searchable = args.isSearchable !== false; // Default to true
+    // Only filter by isSearchable if explicitly provided
+    const filterBySearchable = args.isSearchable !== undefined;
+    const searchable = args.isSearchable !== false; // Default to true if filtering
 
     let products: any[] = [];
 
@@ -133,26 +135,31 @@ export const _getProductsForSearch = internalQuery({
         .withIndex("status_category", (q) =>
           q.eq("status", args.status!).eq("category", args.category!)
         )
-        .filter((q) => q.eq(q.field("isSearchable"), searchable))
+        .filter((q) => filterBySearchable ? q.eq(q.field("isSearchable"), searchable) : true)
         .take(limit);
     } else if (args.category) {
       products = await ctx.db
         .query("products")
         .withIndex("category", (q) => q.eq("category", args.category!))
-        .filter((q) => q.eq(q.field("isSearchable"), searchable))
+        .filter((q) => filterBySearchable ? q.eq(q.field("isSearchable"), searchable) : true)
         .take(limit);
     } else if (args.status) {
       products = await ctx.db
         .query("products")
         .withIndex("status", (q) => q.eq("status", args.status!))
-        .filter((q) => q.eq(q.field("isSearchable"), searchable))
+        .filter((q) => filterBySearchable ? q.eq(q.field("isSearchable"), searchable) : true)
         .take(limit);
     } else {
       // Use isSearchable index when no other filters
-      products = await ctx.db
-        .query("products")
-        .withIndex("isSearchable", (q) => q.eq("isSearchable", searchable))
-        .take(limit);
+      if (filterBySearchable) {
+        products = await ctx.db
+          .query("products")
+          .withIndex("isSearchable", (q) => q.eq("isSearchable", searchable))
+          .take(limit);
+      } else {
+        // No filters - fetch all active products
+        products = await ctx.db.query("products").take(limit);
+      }
     }
 
     return products.map((p) => ({
@@ -309,14 +316,14 @@ export const searchProductsMultilingual = action({
       : [];
 
     // Step 1: Get base products using indexed query
-    // Hard cap to prevent memory issues
+    // Fetch products with isSearchable filter for better control
     const rawProducts = await ctx.runQuery(
       internal.productSearch._getProductsForSearch,
       {
         category: args.category,
         status: "active",
         limit: 1000,
-        isSearchable: true,
+        isSearchable: true, // Only show products marked as searchable
       }
     );
 
@@ -566,7 +573,7 @@ export const getProductSuggestions = query({
       return { suggestions: [] };
     }
 
-    // Use category index when possible for efficiency
+    // Fetch products with isSearchable filter for better control
     const products = await ctx.db
       .query("products")
       .withIndex("isSearchable", (q) => q.eq("isSearchable", true))

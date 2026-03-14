@@ -93,6 +93,7 @@ async function importSingleProductInternal(
       category: categoryName,
       description: args.description,
       images: args.images,
+      isSearchable: true, // Automatically make active products searchable
       created_at: now,
       updated_at: now,
     };

@@ -670,23 +670,13 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
 
         {/* Form Content */}
         <div className="p-6 sm:p-8">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            {/* Search Input - Product or Supplier name */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                <i className="ri-search-line mr-1 text-green-600"></i>
-                {activeTab === 'products' 
-                  ? t('search.product_name', 'Nom du produit')
-                  : t('search.supplier_name', 'Nom du fournisseur')
-                }
-              </label>
+          {activeTab === 'products' ? (
+            /* Products Tab - Single Field Only */
+            <div className="mb-6">
               <SearchInputWithSuggestions
                 value={searchQuery}
                 onChange={setSearchQuery}
-                placeholder={activeTab === 'products' 
-                  ? t('search.product_placeholder', 'Exemple: Riz, café, ciment...')
-                  : t('search.supplier_placeholder', 'Exemple: Dangote Group')
-                }
+                placeholder={t('search.product_placeholder', 'Exemple: Riz, café, ciment...')}
                 label=""
                 icon=""
                 type="search"
@@ -695,42 +685,64 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
                 onClearRecentSearches={onClearRecentSearches}
               />
             </div>
+          ) : (
+            /* Suppliers Tab - All Three Fields */
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              {/* Search Input - Supplier name */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                  <i className="ri-search-line mr-1 text-green-600"></i>
+                  {t('search.supplier_name', 'Nom du fournisseur')}
+                </label>
+                <SearchInputWithSuggestions
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder={t('search.supplier_placeholder', 'Exemple: Dangote Group')}
+                  label=""
+                  icon=""
+                  type="search"
+                  recentSearches={recentSearches}
+                  onAddRecentSearch={onAddRecentSearch}
+                  onClearRecentSearches={onClearRecentSearches}
+                />
+              </div>
 
-            {/* Location */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                <i className="ri-map-pin-line mr-1 text-green-600"></i>
-                {t('label.location', 'Ville')}
-              </label>
-              <SearchInputWithSuggestions
-                value={searchLocation}
-                onChange={setSearchLocation}
-                placeholder={t('search.location_placeholder', 'Lagos')}
-                label=""
-                icon=""
-                type="location"
-                recentSearches={recentLocations}
-                onAddRecentSearch={onAddRecentLocation}
-                onClearRecentSearches={onClearRecentLocations}
-              />
-            </div>
+              {/* Location */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                  <i className="ri-map-pin-line mr-1 text-green-600"></i>
+                  {t('label.location', 'Ville')}
+                </label>
+                <SearchInputWithSuggestions
+                  value={searchLocation}
+                  onChange={setSearchLocation}
+                  placeholder={t('search.location_placeholder', 'Lagos')}
+                  label=""
+                  icon=""
+                  type="location"
+                  recentSearches={recentLocations}
+                  onAddRecentSearch={onAddRecentLocation}
+                  onClearRecentSearches={onClearRecentLocations}
+                />
+              </div>
 
-            {/* Category/Sector */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                <i className="ri-list-check mr-1 text-green-600"></i>
-                {t('label.sector', 'Secteur')}
-              </label>
-              <FormSelect
-                value={category}
-                onChange={(value) => setCategory(value)}
-                options={[
-                  { value: '', label: t('categories.view_all', 'Tous les secteurs') },
-                  ...(categories?.map((cat) => ({ value: cat.name, label: cat.name })) || [])
-                ]}
-              />
+              {/* Category/Sector */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                  <i className="ri-list-check mr-1 text-green-600"></i>
+                  {t('label.sector', 'Secteur')}
+                </label>
+                <FormSelect
+                  value={category}
+                  onChange={(value) => setCategory(value)}
+                  options={[
+                    { value: '', label: t('categories.view_all', 'Tous les secteurs') },
+                    ...(categories?.map((cat) => ({ value: cat.name, label: cat.name })) || [])
+                  ]}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Search Button */}
           <button

@@ -772,3 +772,127 @@ export const computeMatchesForSingleProduct = mutation({
     return result;
   },
 });
+
+// ============================================================================
+// SIMPLE MIGRATION: Set isSearchable: true for all active products
+// ============================================================================
+
+/**
+ * Internal: Get active products without isSearchable field
+ */
+export const _getActiveProductsMissingIsSearchable = internalQuery({
+  args: {
+    limit: v.number(),
+    cursor: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.min(args.limit, 200);
+    
+    let query = ctx.db.query("products").order("asc");
+    
+    if (args.cursor) {
+      query = query.filter((q) => q.gt(q.field("_id"), args.cursor as string));
+    }
+    
+    const products = await query.take(limit);
+    
+    // Filter for active products without isSearchable
+    const needingUpdate = products.filter((p: any) => {
+      return p.status === "active" && (p.isSearchable === undefined || p.isSearchable === null);
+    });
+    
+    const nextCursor = products.length > 0 ? products[products.length - 1]._id : null;
+    
+    return {
+      products: needingUpdate.map((p) => ({ _id: p._id, name: p.name })),
+      nextCursor,
+      hasMore: products.length === limit,
+    };
+  },
+});
+
+/**
+ * Internal: Set isSearchable to true for a product
+ */
+export const _setProductIsSearchable = internalMutation({
+  args: {
+    productId: v.id("products"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.productId, {
+      isSearchable: true,
+      updated_at: new Date().toISOString(),
+    });
+    return { success: true };
+  },
+});
+
+/**
+ * Action: Migrate all active products to have isSearchable: true
+ * Can be called from admin dashboard or CLI
+ */
+export const migrateActiveProductsToSearchable = action({
+  args: {
+    batchSize: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const batchSize = Math.min(args.batchSize ?? 100, 200);
+    
+    const results = {
+      totalProcessed: 0,
+      migrated: 0,
+      errors: [] as { productId: string; error: string }[],
+    };
+    
+    let cursor: string | null = null;
+    let hasMore = true;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 200;
+    
+    while (hasMore && attempts < MAX_ATTEMPTS) {
+      attempts++;
+      
+      const batchResult = await ctx.runQuery(
+        internal.productMigration._getActiveProductsMissingIsSearchable,
+        {
+          limit: batchSize,
+          cursor: cursor || undefined,
+        }
+      );
+      
+      const productsToMigrate = batchResult.products;
+      hasMore = batchResult.hasMore;
+      cursor = batchResult.nextCursor;
+      
+      if (productsToMigrate.length === 0) {
+        if (!hasMore) break;
+        continue;
+      }
+      
+      for (const product of productsToMigrate) {
+        try {
+          await ctx.runMutation(internal.productMigration._setProductIsSearchable, {
+            productId: product._id,
+          });
+          results.migrated++;
+        } catch (error) {
+          results.errors.push({
+            productId: product._id,
+            error: String(error),
+          });
+        }
+      }
+      
+      results.totalProcessed += productsToMigrate.length;
+      console.log(`Batch ${attempts}: Migrated ${productsToMigrate.length} products. Total: ${results.migrated}`);
+    }
+    
+    return {
+      success: true,
+      ...results,
+      attempts,
+      completed: !hasMore,
+      message: `Migration complete! Processed ${results.totalProcessed} products, migrated ${results.migrated} to isSearchable: true`,
+    };
+  },
+});
