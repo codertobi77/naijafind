@@ -23,10 +23,15 @@ export default function Header() {
     return location.pathname.startsWith(path);
   };
 
-  const navItems = [
+  // Primary navigation items (always visible on desktop)
+  const primaryNavItems = [
     { path: '/', label: t('nav.home', 'Accueil') },
     { path: '/products', label: t('nav.products', 'Produits') },
     { path: '/search', label: t('nav.suppliers', 'Fournisseurs') },
+  ];
+
+  // Secondary navigation items (can be moved to dropdown or kept visible)
+  const secondaryNavItems = [
     { path: '/purchase-request', label: t('nav.purchase_request', 'Demande d\'achat'), highlight: true },
     { path: '/categories', label: t('nav.categories', 'Catégories') },
     { path: '/about', label: t('nav.about', 'À propos') },
@@ -35,190 +40,250 @@ export default function Header() {
   return (
     <>
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16 md:h-20">
-          {/* Logo */}
-          <div className="flex items-center group">
-            <Link to="/" className="flex items-center space-x-2">
-              <img src="/Suji Logo.webp" alt="Suji Logo" className="h-14 w-auto" />
-              <span className="text-2xl font-bold text-green-600 hidden sm:block" style={{ fontFamily: 'Pacifico, serif' }}>
-                Suji
-              </span>
-            </Link>
-          </div>
-
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  isActive(item.path)
-                    ? 'text-green-600 bg-green-50'
-                    : item.highlight
-                    ? 'text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-md'
-                    : 'text-gray-700 hover:text-green-600 hover:bg-green-50'
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-
-          {/* Right Section */}
-          <div className="flex items-center space-x-2 sm:space-x-4">
-            <LanguageSelector />
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 lg:h-20 gap-4">
             
-            {/* Mobile Menu Button */}
-            <button
-              className="md:hidden text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-              aria-expanded={mobileMenuOpen}
-            >
-              <i className={`${mobileMenuOpen ? 'ri-close-line' : 'ri-menu-line'} text-2xl`}></i>
-            </button>
-
-            <SignedOut>
-              <Link 
-                to="/auth/login" 
-                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl hover:shadow-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-medium whitespace-nowrap text-sm sm:text-base transform hover:-translate-y-0.5"
-              >
-                <span className="hidden sm:inline">{t('nav.login')}</span>
-                <span className="sm:hidden">
-                  <i className="ri-login-box-line"></i>
+            {/* LEFT SECTION: Logo + Primary Navigation */}
+            <div className="flex items-center gap-2 lg:gap-6 flex-1 min-w-0">
+              {/* Logo */}
+              <Link to="/" className="flex items-center gap-2 lg:gap-3 flex-shrink-0 group">
+                <img 
+                  src="/Suji Logo.webp" 
+                  alt="Suji Logo" 
+                  className="h-10 w-auto lg:h-14 transition-transform group-hover:scale-105" 
+                />
+                <span className="text-xl lg:text-2xl font-bold text-green-600 hidden sm:block truncate max-w-[120px] lg:max-w-none" style={{ fontFamily: 'Pacifico, serif' }}>
+                  Suji
                 </span>
               </Link>
-              <Link 
-                to="/auth/register" 
-                className="border-2 border-green-600 text-green-600 px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl hover:bg-green-50 hover:border-green-700 transition-all duration-300 font-medium whitespace-nowrap text-sm sm:text-base hidden sm:block"
-              >
-                {t('nav.register')}
-              </Link>
-            </SignedOut>
-            
-            <SignedIn>
-              {/* Report Bug Button - Only for user and supplier pages */}
-              {(meData?.user?.user_type === 'supplier' || meData?.user?.user_type === 'user') && (
-                <button
-                  onClick={() => setBugReportOpen(true)}
-                  className="hidden sm:flex items-center gap-2 text-gray-600 hover:text-red-600 font-medium px-3 py-2 rounded-lg transition-colors"
-                  title={t('bug_report.button')}
-                >
-                  <i className="ri-bug-line text-lg"></i>
-                  <span className="hidden lg:inline">{t('bug_report.button')}</span>
-                </button>
-              )}
+
+              {/* Desktop Primary Navigation */}
+              <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
+                {primaryNavItems.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`px-3 xl:px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap text-sm ${
+                      isActive(item.path)
+                        ? 'text-green-600 bg-green-50'
+                        : 'text-gray-700 hover:text-green-600 hover:bg-green-50'
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
+            </div>
+
+            {/* CENTER: Flexible spacer (pushes right section) */}
+            <div className="hidden lg:flex flex-1" />
+
+            {/* RIGHT SECTION: Language + Auth Buttons */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+              {/* Language Selector */}
+              <div className="flex-shrink-0">
+                <LanguageSelector />
+              </div>
               
-              {meData?.user?.user_type === 'supplier' && (
+              {/* Desktop Auth Buttons */}
+              <SignedOut>
                 <Link 
-                  to="/dashboard"
-                  className="text-gray-700 hover:text-green-600 font-medium px-3 py-2 rounded-lg transition-colors hidden sm:block"
+                  to="/auth/login" 
+                  className="hidden sm:inline-flex items-center justify-center bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 lg:px-6 py-2 lg:py-2.5 rounded-xl hover:shadow-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-medium whitespace-nowrap text-sm transform hover:-translate-y-0.5"
                 >
-                  {t('nav.dashboard')}
+                  {t('nav.login')}
                 </Link>
-              )}
-              {(meData?.user?.is_admin === true || meData?.user?.user_type === 'admin') && (
                 <Link 
-                  to="/admin"
-                  className="text-gray-700 hover:text-green-600 font-medium px-3 py-2 rounded-lg transition-colors hidden sm:block"
+                  to="/auth/register" 
+                  className="hidden lg:inline-flex items-center justify-center border-2 border-green-600 text-green-600 px-4 lg:px-6 py-2 lg:py-2.5 rounded-xl hover:bg-green-50 hover:border-green-700 transition-all duration-300 font-medium whitespace-nowrap text-sm"
                 >
-                  {t('nav.admin')}
+                  {t('nav.register')}
                 </Link>
-              )}
-              <div className="hidden sm:block">
-                <UserButton 
-                  afterSignOutUrl="/"
-                  appearance={{
-                    elements: {
-                      avatarBox: "w-10 h-10"
-                    }
-                  }}
-                />
-              </div>
-              {/* Mobile User Button */}
-              <div className="sm:hidden">
-                <UserButton 
-                  afterSignOutUrl="/"
-                  appearance={{
-                    elements: {
-                      avatarBox: "w-8 h-8"
-                    }
-                  }}
-                />
-              </div>
-            </SignedIn>
+              </SignedOut>
+              
+              {/* Desktop User Actions */}
+              <SignedIn>
+                {/* Report Bug Button - Only visible on large screens */}
+                {(meData?.user?.user_type === 'supplier' || meData?.user?.user_type === 'user') && (
+                  <button
+                    onClick={() => setBugReportOpen(true)}
+                    className="hidden xl:flex items-center gap-2 text-gray-600 hover:text-red-600 font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap"
+                    title={t('bug_report.button')}
+                  >
+                    <i className="ri-bug-line text-lg"></i>
+                    <span className="text-sm">{t('bug_report.button')}</span>
+                  </button>
+                )}
+                
+                {/* Dashboard/Admin Links */}
+                {meData?.user?.user_type === 'supplier' && (
+                  <Link 
+                    to="/dashboard"
+                    className="hidden lg:block text-gray-700 hover:text-green-600 font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap text-sm"
+                  >
+                    {t('nav.dashboard')}
+                  </Link>
+                )}
+                {(meData?.user?.is_admin === true || meData?.user?.user_type === 'admin') && (
+                  <Link 
+                    to="/admin"
+                    className="hidden lg:block text-gray-700 hover:text-green-600 font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap text-sm"
+                  >
+                    {t('nav.admin')}
+                  </Link>
+                )}
+                
+                {/* User Avatar */}
+                <div className="hidden sm:block flex-shrink-0">
+                  <UserButton 
+                    afterSignOutUrl="/"
+                    appearance={{
+                      elements: {
+                        avatarBox: "w-9 h-9 lg:w-10 lg:h-10"
+                      }
+                    }}
+                  />
+                </div>
+              </SignedIn>
+
+              {/* Mobile Menu Button */}
+              <button
+                className="lg:hidden text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+                aria-expanded={mobileMenuOpen}
+              >
+                <i className={`${mobileMenuOpen ? 'ri-close-line' : 'ri-menu-line'} text-2xl`}></i>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
       {/* Mobile Menu */}
       <div 
-        className={`md:hidden absolute top-16 left-0 right-0 bg-white border-b border-gray-200 shadow-lg z-50 transition-all duration-300 ${
-          mobileMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
+        className={`lg:hidden absolute top-full left-0 right-0 bg-white border-b border-gray-200 shadow-lg z-50 transition-all duration-300 ${
+          mobileMenuOpen ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-2'
         }`}
       >
-        <nav className="flex flex-col py-2">
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`px-4 py-3 font-medium transition-colors flex items-center ${
-                isActive(item.path)
-                  ? 'text-green-600 bg-green-50'
-                  : 'text-gray-700 hover:text-green-600 hover:bg-green-50'
-              }`}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <i className={`mr-3 ${
-                item.path === '/' ? 'ri-home-line' :
-                item.path === '/products' ? 'ri-shopping-bag-line' :
-                item.path === '/search' ? 'ri-store-2-line' :
-                item.path === '/purchase-request' ? 'ri-file-list-3-line' :
-                item.path === '/categories' ? 'ri-grid-line' :
-                'ri-information-line'
-              }`}></i>
-              {item.label}
-            </Link>
-          ))}
-          
-          <div className="border-t border-gray-200 mt-2 pt-2">
+        <div className="max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <nav className="flex flex-col py-3 px-2">
+            {/* Primary Navigation */}
+            <div className="mb-3 pb-3 border-b border-gray-100">
+              <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Navigation
+              </p>
+              {primaryNavItems.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center mb-1 ${
+                    isActive(item.path)
+                      ? 'text-green-600 bg-green-50'
+                      : 'text-gray-700 hover:text-green-600 hover:bg-green-50'
+                  }`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <i className={`mr-3 text-lg ${
+                    item.path === '/' ? 'ri-home-line' :
+                    item.path === '/products' ? 'ri-shopping-bag-line' :
+                    'ri-store-2-line'
+                  }`}></i>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+            
+            {/* Secondary Navigation */}
+            <div className="mb-3 pb-3 border-b border-gray-100">
+              <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Menu
+              </p>
+              {secondaryNavItems.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center mb-1 ${
+                    item.highlight
+                      ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-md'
+                      : isActive(item.path)
+                      ? 'text-green-600 bg-green-50'
+                      : 'text-gray-700 hover:text-green-600 hover:bg-green-50'
+                  }`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <i className={`mr-3 text-lg ${
+                    item.path === '/purchase-request' ? 'ri-file-list-3-line' :
+                    item.path === '/categories' ? 'ri-grid-line' :
+                    'ri-information-line'
+                  }`}></i>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+            
+            {/* User Actions */}
             <SignedIn>
-              {meData?.user?.user_type === 'supplier' && (
-                <Link
-                  to="/dashboard"
-                  className="px-4 py-3 text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium flex items-center"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <i className="ri-dashboard-line mr-3"></i>
-                  {t('nav.dashboard')}
-                </Link>
-              )}
-              {(meData?.user?.is_admin === true || meData?.user?.user_type === 'admin') && (
-                <Link
-                  to="/admin"
-                  className="px-4 py-3 text-gray-700 hover:text-green-600 hover:bg-green-50 font-medium flex items-center"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <i className="ri-admin-line mr-3"></i>
-                  {t('nav.admin')}
-                </Link>
-              )}
+              <div className="mb-3 pb-3 border-b border-gray-100">
+                <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Compte
+                </p>
+                {meData?.user?.user_type === 'supplier' && (
+                  <Link
+                    to="/dashboard"
+                    className="px-4 py-3 text-gray-700 hover:text-green-600 hover:bg-green-50 rounded-lg font-medium flex items-center mb-1"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <i className="ri-dashboard-line mr-3 text-lg"></i>
+                    {t('nav.dashboard')}
+                  </Link>
+                )}
+                {(meData?.user?.is_admin === true || meData?.user?.user_type === 'admin') && (
+                  <Link
+                    to="/admin"
+                    className="px-4 py-3 text-gray-700 hover:text-green-600 hover:bg-green-50 rounded-lg font-medium flex items-center mb-1"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <i className="ri-admin-line mr-3 text-lg"></i>
+                    {t('nav.admin')}
+                  </Link>
+                )}
+                {/* Bug Report - Mobile */}
+                {(meData?.user?.user_type === 'supplier' || meData?.user?.user_type === 'user') && (
+                  <button
+                    onClick={() => {
+                      setBugReportOpen(true);
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg font-medium flex items-center mb-1"
+                  >
+                    <i className="ri-bug-line mr-3 text-lg"></i>
+                    {t('bug_report.button')}
+                  </button>
+                )}
+              </div>
             </SignedIn>
             
+            {/* Auth Buttons - Mobile */}
             <SignedOut>
-              <Link
-                to="/auth/register"
-                className="px-4 py-3 text-green-600 hover:bg-green-50 font-medium flex items-center"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <i className="ri-user-add-line mr-3"></i>
-                {t('nav.register')}
-              </Link>
+              <div className="flex flex-col gap-2 px-2 pb-2">
+                <Link
+                  to="/auth/login"
+                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 rounded-xl font-semibold text-center hover:shadow-lg transition-all"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {t('nav.login')}
+                </Link>
+                <Link
+                  to="/auth/register"
+                  className="w-full border-2 border-green-600 text-green-600 px-4 py-3 rounded-xl font-semibold text-center hover:bg-green-50 transition-all"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {t('nav.register')}
+                </Link>
+              </div>
             </SignedOut>
-          </div>
-        </nav>
+          </nav>
+        </div>
       </div>
     </header>
 
