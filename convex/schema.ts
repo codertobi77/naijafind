@@ -378,17 +378,19 @@ export default defineSchema({
     .index("productId", ["productId"])
     .index("translationStatus", ["translationStatus"]),
 
-  // Purchase Requests: Buyer requests for products/services
+  // Purchase Requests: Buyer requests for products/services (Simplified)
   purchaseRequests: defineTable({
     description: v.string(),
     quantity: v.number(),
     unit: v.string(),
-    location: v.string(),
     budget: v.optional(v.string()),
+    whatsapp: v.string(),
+    // Legacy fields - kept for backward compatibility but optional
+    location: v.optional(v.string()),
     currency: v.optional(v.string()),
     additionalInfo: v.optional(v.string()),
-    contactName: v.string(),
-    contactEmail: v.string(),
+    contactName: v.optional(v.string()),
+    contactEmail: v.optional(v.string()),
     contactPhone: v.optional(v.string()),
     preferredDeliveryDate: v.optional(v.string()),
     status: v.string(), // 'pending', 'contacted', 'quoted', 'completed', 'cancelled'

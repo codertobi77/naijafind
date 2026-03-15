@@ -4,26 +4,20 @@ import { internal } from "./_generated/api";
 
 /**
  * Create a new purchase request
- * This is the main entry point for the purchase request form
+ * Simplified version with 4 fields: description, quantity, budget, whatsapp
  */
 export const createPurchaseRequest = action({
   args: {
     description: v.string(),
     quantity: v.number(),
     unit: v.string(),
-    location: v.string(),
     budget: v.optional(v.string()),
-    currency: v.optional(v.string()),
-    additionalInfo: v.optional(v.string()),
-    contactName: v.string(),
-    contactEmail: v.string(),
-    contactPhone: v.optional(v.string()),
-    preferredDeliveryDate: v.optional(v.string()),
+    whatsapp: v.string(),
   },
   handler: async (ctx, args) => {
-    // Apply rate limiting - max 3 requests per hour per email/IP
+    // Apply rate limiting - max 3 requests per hour per phone/IP
     await ctx.runMutation(internal.rateLimit.enforceRateLimit, {
-      identifier: args.contactEmail,
+      identifier: args.whatsapp,
       action: 'purchase_request',
       limit: 3,
       windowMinutes: 60,
@@ -33,46 +27,20 @@ export const createPurchaseRequest = action({
     
     // Get user info if authenticated
     let userId = 'anonymous';
-    let userEmail = args.contactEmail;
-    let userName = args.contactName;
     
     if (identity) {
       userId = identity.subject;
-      userEmail = identity.email || args.contactEmail;
-      userName = identity.name || args.contactName;
-      
-      // Also update users table if needed
-      const user = await ctx.db
-        .query("users")
-        .withIndex("email", (q) => q.eq("email", userEmail))
-        .first();
-      
-      if (!user) {
-        // Create user record if doesn't exist
-        await ctx.db.insert("users", {
-          email: userEmail,
-          firstName: userName.split(' ')[0],
-          lastName: userName.split(' ').slice(1).join(' '),
-          created_at: new Date().toISOString(),
-        });
-      }
     }
     
     const now = new Date().toISOString();
     
-    // Create purchase request
+    // Create purchase request with simplified fields
     const requestId = await ctx.db.insert("purchaseRequests", {
       description: args.description,
       quantity: args.quantity,
       unit: args.unit,
-      location: args.location,
       budget: args.budget,
-      currency: args.currency,
-      additionalInfo: args.additionalInfo,
-      contactName: userName,
-      contactEmail: userEmail,
-      contactPhone: args.contactPhone,
-      preferredDeliveryDate: args.preferredDeliveryDate,
+      whatsapp: args.whatsapp,
       status: 'pending',
       userId: userId,
       createdAt: now,
@@ -85,7 +53,6 @@ export const createPurchaseRequest = action({
         internal.purchaseRequests._findMatchingSuppliers,
         {
           description: args.description,
-          location: args.location,
           limit: 20,
         }
       );
@@ -96,7 +63,7 @@ export const createPurchaseRequest = action({
           userId: supplier.userId,
           type: 'purchase_request',
           title: 'Nouvelle demande d\'achat',
-          message: `${args.description} - ${args.quantity} ${args.unit} à ${args.location}`,
+          message: `${args.description} - ${args.quantity} ${args.unit}`,
           data: { 
             requestId,
             purchaseRequest: args,

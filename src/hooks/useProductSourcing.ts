@@ -95,7 +95,7 @@ export function useProductSearch(
 ): UseProductSearchReturn {
   const { language = 'en', itemsPerPage = 20 } = options;
 
-  const searchAction = useAction(api.productSearch.searchProductsMultilingual);
+  const searchAction = useAction(api.products.searchProducts);
 
   const [results, setResults] = useState<ProductSearchResult[]>([]);
   const [total, setTotal] = useState(0);
@@ -115,12 +115,11 @@ export function useProductSearch(
         const response = await searchAction({
           q: params.query,
           category: params.category,
-          language,
           minPrice: params.minPrice,
           maxPrice: params.maxPrice,
           verifiedSupplier: params.verifiedSupplier,
           sortBy: params.sortBy || 'relevance',
-          limit: itemsPerPage,
+          limit: Math.floor(itemsPerPage),
           offset: 0,
         });
 
@@ -134,7 +133,7 @@ export function useProductSearch(
         setLoading(false);
       }
     },
-    [searchAction, language, itemsPerPage]
+    [searchAction, itemsPerPage]
   );
 
   const loadMore = useCallback(async () => {
@@ -147,13 +146,12 @@ export function useProductSearch(
       const response = await searchAction({
         q: lastParams.query,
         category: lastParams.category,
-        language,
         minPrice: lastParams.minPrice,
         maxPrice: lastParams.maxPrice,
         verifiedSupplier: lastParams.verifiedSupplier,
         sortBy: lastParams.sortBy || 'relevance',
-        limit: itemsPerPage,
-        offset: newOffset,
+        limit: Math.floor(itemsPerPage),
+        offset: Math.floor(newOffset),
       });
 
       setResults((prev) => [...prev, ...(response.products as ProductSearchResult[])]);
@@ -163,7 +161,7 @@ export function useProductSearch(
     } finally {
       setLoading(false);
     }
-  }, [lastParams, loading, results.length, total, currentOffset, itemsPerPage, language, searchAction]);
+  }, [lastParams, loading, results.length, total, currentOffset, itemsPerPage, searchAction]);
 
   const reset = useCallback(() => {
     setResults([]);

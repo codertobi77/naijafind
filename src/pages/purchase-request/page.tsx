@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Header } from '../../components/base';
-import { Package, MapPin, DollarSign, FileText, Send, ChevronDown } from 'lucide-react';
+import { Package, DollarSign, FileText, Send, ChevronDown, MessageCircle } from 'lucide-react';
 
 // Quantity units
 const quantityUnits = [
@@ -19,15 +19,6 @@ const quantityUnits = [
   { value: 'containers', label: 'Conteneurs' },
 ];
 
-// Currency options
-const currencies = [
-  { value: 'EUR', label: 'EUR (€)' },
-  { value: 'USD', label: 'USD ($)' },
-  { value: 'NGN', label: 'NGN (₦)' },
-  { value: 'GBP', label: 'GBP (£)' },
-  { value: 'XOF', label: 'XOF (CFA)' },
-];
-
 export default function PurchaseRequestPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -37,14 +28,8 @@ export default function PurchaseRequestPage() {
     description: '',
     quantity: '',
     unit: 'tonnes',
-    location: '',
     budget: '',
-    currency: 'EUR',
-    additionalInfo: '',
-    contactName: '',
-    contactEmail: '',
-    contactPhone: '',
-    preferredDeliveryDate: '',
+    whatsapp: '',
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,14 +47,8 @@ export default function PurchaseRequestPage() {
       newErrors.quantity = t('purchase_request.errors.quantity_invalid', 'La quantité doit être supérieure à 0');
     }
     
-    if (!formData.location.trim()) {
-      newErrors.location = t('purchase_request.errors.location_required', 'Le lieu de livraison est requis');
-    }
-    
-    if (!formData.contactEmail.trim()) {
-      newErrors.contactEmail = t('purchase_request.errors.email_required', 'L\'email est requis');
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail)) {
-      newErrors.contactEmail = t('purchase_request.errors.email_invalid', 'L\'email n\'est pas valide');
+    if (!formData.whatsapp.trim()) {
+      newErrors.whatsapp = t('purchase_request.errors.whatsapp_required', 'Le numéro WhatsApp est requis');
     }
     
     setErrors(newErrors);
@@ -84,26 +63,18 @@ export default function PurchaseRequestPage() {
     setIsSubmitting(true);
     
     try {
-      // Submit to backend
       const result = await createPurchaseRequest({
         description: formData.description,
         quantity: Number(formData.quantity),
         unit: formData.unit,
-        location: formData.location,
         budget: formData.budget || undefined,
-        currency: formData.currency || undefined,
-        additionalInfo: formData.additionalInfo || undefined,
-        contactName: formData.contactName,
-        contactEmail: formData.contactEmail,
-        contactPhone: formData.contactPhone || undefined,
-        preferredDeliveryDate: formData.preferredDeliveryDate || undefined,
+        whatsapp: formData.whatsapp,
       });
       
       if (result.success) {
         setIsSubmitting(false);
         setIsSuccess(true);
         
-        // Redirect after 5 seconds
         setTimeout(() => {
           navigate('/');
         }, 5000);
@@ -117,7 +88,6 @@ export default function PurchaseRequestPage() {
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
@@ -194,31 +164,31 @@ export default function PurchaseRequestPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
-            {/* Row 1: Description & Quantity */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-green-600" />
-                  {t('purchase_request.description', 'Description de votre besoin')}
-                </label>
-                <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) => handleChange('description', e.target.value)}
-                  placeholder={t('purchase_request.description_placeholder', 'Je cherche 50 tonnes de riz')}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
-                    errors.description ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                />
-                {errors.description && (
-                  <p className="text-red-500 text-sm mt-1">{errors.description}</p>
-                )}
-              </div>
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-green-600" />
+                {t('purchase_request.description', 'Description du besoin')}
+              </label>
+              <input
+                type="text"
+                value={formData.description}
+                onChange={(e) => handleChange('description', e.target.value)}
+                placeholder={t('purchase_request.description_placeholder', 'Ex: 50 tonnes de riz blanc')}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
+                  errors.description ? 'border-red-300' : 'border-gray-300'
+                }`}
+              />
+              {errors.description && (
+                <p className="text-red-500 text-sm mt-1">{errors.description}</p>
+              )}
+            </div>
 
+            {/* Quantity & Budget Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {/* Quantity */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                   <Package className="w-4 h-4 text-green-600" />
                   {t('purchase_request.quantity', 'Quantité')}
                 </label>
@@ -236,7 +206,7 @@ export default function PurchaseRequestPage() {
                     <select
                       value={formData.unit}
                       onChange={(e) => handleChange('unit', e.target.value)}
-                      className="appearance-none px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white min-w-[120px]"
+                      className="appearance-none px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white min-w-[110px] text-sm"
                     >
                       {quantityUnits.map(unit => (
                         <option key={unit.value} value={unit.value}>{unit.label}</option>
@@ -249,115 +219,44 @@ export default function PurchaseRequestPage() {
                   <p className="text-red-500 text-sm mt-1">{errors.quantity}</p>
                 )}
               </div>
-            </div>
-
-            {/* Row 2: Location & Budget */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Location */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-green-600" />
-                  {t('purchase_request.location', 'Pays / Ville')}
-                </label>
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={(e) => handleChange('location', e.target.value)}
-                  placeholder={t('purchase_request.location_placeholder', 'Exemple: Nigeria, Lagos')}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
-                    errors.location ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                />
-                {errors.location && (
-                  <p className="text-red-500 text-sm mt-1">{errors.location}</p>
-                )}
-              </div>
 
               {/* Budget */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                   <DollarSign className="w-4 h-4 text-green-600" />
-                  {t('purchase_request.budget', 'Budget estimé')}
+                  {t('purchase_request.budget', 'Budget')}
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={formData.budget}
-                    onChange={(e) => handleChange('budget', e.target.value)}
-                    placeholder={t('purchase_request.budget_placeholder', 'Exemples: 500 000 $ / 200 000 €')}
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                  />
-                  <div className="relative">
-                    <select
-                      value={formData.currency}
-                      onChange={(e) => handleChange('currency', e.target.value)}
-                      className="appearance-none px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white min-w-[100px]"
-                    >
-                      {currencies.map(currency => (
-                        <option key={currency.value} value={currency.value}>{currency.label}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Additional Info */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                {t('purchase_request.additional_info', 'Informations supplémentaires (optionnel)')}
-              </label>
-              <textarea
-                value={formData.additionalInfo}
-                onChange={(e) => handleChange('additionalInfo', e.target.value)}
-                placeholder={t('purchase_request.additional_info_placeholder', 'Décrivez vos besoins spécifiques, qualité requise, délais de livraison souhaités...')}
-                rows={4}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all resize-none"
-              />
-            </div>
-
-            {/* Contact Info Section */}
-            <div className="border-t border-gray-200 pt-6">
-              <h3 className="font-semibold text-gray-900 mb-4">
-                {t('purchase_request.contact_info', 'Vos coordonnées')}
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input
                   type="text"
-                  value={formData.contactName}
-                  onChange={(e) => handleChange('contactName', e.target.value)}
-                  placeholder={t('purchase_request.name_placeholder', 'Votre nom')}
-                  className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                />
-                <input
-                  type="email"
-                  value={formData.contactEmail}
-                  onChange={(e) => handleChange('contactEmail', e.target.value)}
-                  placeholder={t('purchase_request.email_placeholder', 'Votre email')}
-                  className={`px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
-                    errors.contactEmail ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                />
-                <input
-                  type="tel"
-                  value={formData.contactPhone}
-                  onChange={(e) => handleChange('contactPhone', e.target.value)}
-                  placeholder={t('purchase_request.phone_placeholder', 'Votre téléphone')}
-                  className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                />
-                <input
-                  type="date"
-                  value={formData.preferredDeliveryDate}
-                  onChange={(e) => handleChange('preferredDeliveryDate', e.target.value)}
-                  placeholder={t('purchase_request.delivery_date', 'Date de livraison souhaitée')}
-                  className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                  value={formData.budget}
+                  onChange={(e) => handleChange('budget', e.target.value)}
+                  placeholder={t('purchase_request.budget_placeholder', 'Ex: 5000 €')}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
                 />
               </div>
-              {errors.contactEmail && (
-                <p className="text-red-500 text-sm mt-2">{errors.contactEmail}</p>
+            </div>
+
+            {/* WhatsApp */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-green-600" />
+                {t('purchase_request.whatsapp', 'Numéro WhatsApp')}
+              </label>
+              <input
+                type="tel"
+                value={formData.whatsapp}
+                onChange={(e) => handleChange('whatsapp', e.target.value)}
+                placeholder={t('purchase_request.whatsapp_placeholder', '+33 6 12 34 56 78')}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
+                  errors.whatsapp ? 'border-red-300' : 'border-gray-300'
+                }`}
+              />
+              {errors.whatsapp && (
+                <p className="text-red-500 text-sm mt-1">{errors.whatsapp}</p>
               )}
+              <p className="text-xs text-gray-500 mt-1">
+                {t('purchase_request.whatsapp_hint', 'Les fournisseurs vous contacteront sur WhatsApp')}
+              </p>
             </div>
 
             {/* Submit Button */}
@@ -365,17 +264,17 @@ export default function PurchaseRequestPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-4 px-8 rounded-xl hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-semibold text-lg flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-4 px-8 rounded-xl hover:shadow-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-semibold text-lg flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    {t('purchase_request.publishing', 'Publication en cours...')}
+                    {t('purchase_request.publishing', 'Envoi en cours...')}
                   </>
                 ) : (
                   <>
                     <Send className="w-5 h-5" />
-                    {t('purchase_request.submit', 'Publier ma demande')}
+                    {t('purchase_request.submit', 'Envoyer ma demande')}
                   </>
                 )}
               </button>
@@ -383,7 +282,7 @@ export default function PurchaseRequestPage() {
 
             {/* Help Text */}
             <p className="text-center text-sm text-gray-500">
-              {t('purchase_request.footer', 'Vous serez contacté très rapidement par des fournisseurs qualifiés')}
+              {t('purchase_request.footer', 'Vous serez contacté rapidement par des fournisseurs')}
             </p>
           </form>
         </div>

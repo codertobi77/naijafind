@@ -87,7 +87,7 @@ export default function ProductSearchPage() {
   const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [requestMessage, setRequestMessage] = useState('');
 
-  const searchProducts = useAction(api.productSearch.searchProductsMultilingual);
+  const searchProducts = useAction(api.products.searchProducts);
   const { translateQuery, isTranslating } = useMultilingualSearch();
   const createSupplierRequestMutation = useMutation(api.suppliers.createSupplierRequest);
 
@@ -135,8 +135,8 @@ export default function ProductSearchPage() {
             minPrice: filters.minPrice ? Number(filters.minPrice) : undefined,
             maxPrice: filters.maxPrice ? Number(filters.maxPrice) : undefined,
             verifiedSupplier: filters.verifiedSupplier || undefined,
-            limit: ITEMS_PER_PAGE,
-            offset: currentPage * ITEMS_PER_PAGE,
+            limit: Math.floor(ITEMS_PER_PAGE),
+            offset: Math.floor(currentPage * ITEMS_PER_PAGE),
             sortBy,
           }),
           30000,

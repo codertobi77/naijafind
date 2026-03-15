@@ -150,7 +150,7 @@ interface SearchHeroProps {
   setSearchQuery: (value: string) => void;
   setSearchLocation: (value: string) => void;
   setCategory: (value: string) => void;
-  onSearch: () => void;
+  onSearch: (type: 'products' | 'suppliers') => void;
   recentSearches: string[];
   recentLocations: string[];
   onAddRecentSearch: (search: string) => void;
@@ -422,9 +422,12 @@ function SearchInputWithSuggestions({
 
   return (
     <div ref={containerRef} className="relative">
-      <label className="block text-sm font-semibold text-gray-700 mb-2 min-h-[2.5rem] flex items-center">
-        <i className={`${icon} mr-1`}></i>{label}
-      </label>
+      {label && (
+        <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
+          <i className={`${icon} text-green-600`}></i>
+          {label}
+        </label>
+      )}
       <div className="relative">
         <input
           ref={inputRef}
@@ -609,24 +612,6 @@ function SearchInputWithSuggestions({
   );
 }
 
-interface SearchHeroProps {
-  t: TFunction;
-  searchQuery: string;
-  searchLocation: string;
-  category: string;
-  categories: Array<{ _id: string; name: string }> | undefined;
-  setSearchQuery: (value: string) => void;
-  setSearchLocation: (value: string) => void;
-  setCategory: (value: string) => void;
-  onSearch: (type: 'products' | 'suppliers') => void;
-  recentSearches: string[];
-  recentLocations: string[];
-  onAddRecentSearch: (search: string) => void;
-  onAddRecentLocation: (location: string) => void;
-  onClearRecentSearches: () => void;
-  onClearRecentLocations: () => void;
-}
-
 function SearchHero({ t, searchQuery, searchLocation, category, categories, setSearchQuery, setSearchLocation, setCategory, onSearch, recentSearches, recentLocations, onAddRecentSearch, onAddRecentLocation, onClearRecentSearches, onClearRecentLocations }: SearchHeroProps) {
   const [activeTab, setActiveTab] = useState<'products' | 'suppliers'>('products');
 
@@ -640,45 +625,45 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
       title={t('hero.title', 'Trouvez les meilleurs fournisseurs au Nigeria')}
       subtitle={t('hero.subtitle', 'Découvrez et contactez directement des entreprises selon vos critères.')}
     >
-      {/* Search Form with Tabs */}
-      <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200">
+      {/* Search Form - Clean & Minimal */}
+      <div className="bg-white rounded-xl shadow-xl overflow-hidden max-w-2xl mx-auto">
+        {/* Tabs - Simplified */}
+        <div className="flex border-b border-gray-100">
           <button
             onClick={() => setActiveTab('products')}
-            className={`flex-1 py-4 px-6 font-semibold text-sm sm:text-base flex items-center justify-center gap-2 transition-all ${
+            className={`flex-1 py-3 px-4 font-medium text-sm flex items-center justify-center gap-2 transition-colors ${
               activeTab === 'products'
-                ? 'text-green-700 bg-green-50 border-b-2 border-green-600'
+                ? 'text-green-700 bg-green-50/50 border-b-2 border-green-600'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
             }`}
           >
-            <i className="ri-shopping-bag-line text-lg"></i>
+            <i className="ri-shopping-bag-line"></i>
             {t('search.tabs.products', 'Produits')}
           </button>
           <button
             onClick={() => setActiveTab('suppliers')}
-            className={`flex-1 py-4 px-6 font-semibold text-sm sm:text-base flex items-center justify-center gap-2 transition-all ${
+            className={`flex-1 py-3 px-4 font-medium text-sm flex items-center justify-center gap-2 transition-colors ${
               activeTab === 'suppliers'
-                ? 'text-green-700 bg-green-50 border-b-2 border-green-600'
+                ? 'text-green-700 bg-green-50/50 border-b-2 border-green-600'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
             }`}
           >
-            <i className="ri-store-2-line text-lg"></i>
+            <i className="ri-store-2-line"></i>
             {t('search.tabs.suppliers', 'Fournisseurs')}
           </button>
         </div>
 
-        {/* Form Content */}
-        <div className="p-6 sm:p-8">
+        {/* Form Content - Minimal */}
+        <div className="p-5">
           {activeTab === 'products' ? (
-            /* Products Tab - Single Field Only */
-            <div className="mb-6">
+            /* Products Tab - Single clean field */
+            <div>
               <SearchInputWithSuggestions
                 value={searchQuery}
                 onChange={setSearchQuery}
-                placeholder={t('search.product_placeholder', 'Exemple: Riz, café, ciment...')}
+                placeholder={t('search.product_placeholder', 'Rechercher un produit...')}
                 label=""
-                icon=""
+                icon="ri-search-line"
                 type="search"
                 recentSearches={recentSearches}
                 onAddRecentSearch={onAddRecentSearch}
@@ -686,73 +671,42 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
               />
             </div>
           ) : (
-            /* Suppliers Tab - All Three Fields */
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-              {/* Search Input - Supplier name */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                  <i className="ri-search-line mr-1 text-green-600"></i>
-                  {t('search.supplier_name', 'Nom du fournisseur')}
-                </label>
-                <SearchInputWithSuggestions
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  placeholder={t('search.supplier_placeholder', 'Exemple: Dangote Group')}
-                  label=""
-                  icon=""
-                  type="search"
-                  recentSearches={recentSearches}
-                  onAddRecentSearch={onAddRecentSearch}
-                  onClearRecentSearches={onClearRecentSearches}
-                />
-              </div>
-
-              {/* Location */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                  <i className="ri-map-pin-line mr-1 text-green-600"></i>
-                  {t('label.location', 'Ville')}
-                </label>
-                <SearchInputWithSuggestions
-                  value={searchLocation}
-                  onChange={setSearchLocation}
-                  placeholder={t('search.location_placeholder', 'Lagos')}
-                  label=""
-                  icon=""
-                  type="location"
-                  recentSearches={recentLocations}
-                  onAddRecentSearch={onAddRecentLocation}
-                  onClearRecentSearches={onClearRecentLocations}
-                />
-              </div>
-
-              {/* Category/Sector */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                  <i className="ri-list-check mr-1 text-green-600"></i>
-                  {t('label.sector', 'Secteur')}
-                </label>
-                <FormSelect
-                  value={category}
-                  onChange={(value) => setCategory(value)}
-                  options={[
-                    { value: '', label: t('categories.view_all', 'Tous les secteurs') },
-                    ...(categories?.map((cat) => ({ value: cat.name, label: cat.name })) || [])
-                  ]}
-                />
-              </div>
+            /* Suppliers Tab - Two fields side by side */
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <SearchInputWithSuggestions
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder={t('search.supplier_placeholder', 'Nom du fournisseur')}
+                label=""
+                icon="ri-building-4-line"
+                type="search"
+                recentSearches={recentSearches}
+                onAddRecentSearch={onAddRecentSearch}
+                onClearRecentSearches={onClearRecentSearches}
+              />
+              <SearchInputWithSuggestions
+                value={searchLocation}
+                onChange={setSearchLocation}
+                placeholder={t('search.location_placeholder', 'Localisation')}
+                label=""
+                icon="ri-map-pin-line"
+                type="location"
+                recentSearches={recentLocations}
+                onAddRecentSearch={onAddRecentLocation}
+                onClearRecentSearches={onClearRecentLocations}
+              />
             </div>
           )}
 
-          {/* Search Button */}
+          {/* Search Button - Clean */}
           <button
             onClick={() => onSearch(activeTab)}
-            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-4 px-8 rounded-xl hover:shadow-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 font-semibold text-base flex items-center justify-center gap-2"
+            className="w-full mt-4 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 hover:shadow-md transition-all duration-200 font-medium flex items-center justify-center gap-2"
           >
-            <i className="ri-search-line text-lg"></i>
+            <i className="ri-search-line"></i>
             {activeTab === 'products' 
-              ? t('search.find_products', 'Trouver des produits')
-              : t('search.find_suppliers', 'Trouver des fournisseurs')
+              ? t('search.find_products', 'Rechercher')
+              : t('search.find_suppliers', 'Rechercher')
             }
           </button>
         </div>

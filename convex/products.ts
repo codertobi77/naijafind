@@ -325,6 +325,151 @@ export const _getProductByIdInternal = internalQuery({
     };
   },
 });
+// Categories that are service-based and should be excluded from product search
+const SERVICE_CATEGORIES = new Set([
+  'hôtellerie',
+  'hotellerie',
+  'hotel',
+  'hôtel',
+  'hospitality',
+  'tourism',
+  'tourisme',
+  'restaurant',
+  'catering',
+  'traiteur',
+  'event',
+  'événementiel',
+  'evenementiel',
+  'wedding',
+  'mariage',
+  'beauty salon',
+  'salon de beauté',
+  'hair salon',
+  'coiffure',
+  'spa',
+  'wellness',
+  'bien-être',
+  'bien etre',
+  'cleaning service',
+  'nettoyage',
+  'security',
+  'sécurité',
+  'consulting',
+  'conseil',
+  'audit',
+  'legal',
+  'avocat',
+  'lawyer',
+  'accounting',
+  'comptabilité',
+  'training',
+  'formation',
+  'education',
+  'education',
+  'transport service',
+  'logistics service',
+  'insurance',
+  'assurance',
+  'banking',
+  'banque',
+  'finance service',
+  'real estate service',
+  'immobilier service',
+]);
+
+/**
+ * Check if a category is a service category (should be excluded from product search)
+ */
+function isServiceCategory(category: string | undefined): boolean {
+  if (!category) return false;
+  const catLower = category.toLowerCase().trim();
+  return SERVICE_CATEGORIES.has(catLower) || 
+         Array.from(SERVICE_CATEGORIES).some(sc => catLower.includes(sc));
+}
+
+/**
+ * Calculate supplier relevance score based on product category and search query
+ * Uses category matching, name/description similarity, and keyword extraction
+ */
+function calculateSupplierRelevanceScore(
+  supplier: any,
+  productCategory: string | undefined,
+  searchKeywords: string[],
+  productName: string,
+  productDescription?: string
+): { score: number; matchDetails: string[] } {
+  let score = 0;
+  const matchDetails: string[] = [];
+  
+  const supplierCategory = (supplier.category || '').toLowerCase();
+  const supplierName = (supplier.business_name || '').toLowerCase();
+  const supplierDesc = (supplier.description || '').toLowerCase();
+  const prodCat = (productCategory || '').toLowerCase();
+  const prodName = productName.toLowerCase();
+  const prodDesc = (productDescription || '').toLowerCase();
+  
+  // 1. CATEGORY MATCH (Highest priority - 40 points)
+  if (prodCat && supplierCategory) {
+    if (supplierCategory === prodCat) {
+      score += 40;
+      matchDetails.push('exact_category_match');
+    } else if (supplierCategory.includes(prodCat) || prodCat.includes(supplierCategory)) {
+      score += 30;
+      matchDetails.push('partial_category_match');
+    }
+  }
+  
+  // 2. PRODUCT NAME MATCH IN SUPPLIER NAME/DESCRIPTION (20-25 points)
+  // Extract key terms from product name (excluding common words)
+  const productKeyTerms = prodName
+    .split(/[\s,;:\-|\/\(\)\[\]\{\}_\*\.]+/)
+    .filter(term => term.length > 2 && !['the', 'and', 'for', 'with', 'de', 'et', 'pour', 'avec'].includes(term));
+  
+  for (const term of productKeyTerms) {
+    if (supplierName.includes(term)) {
+      score += 25;
+      matchDetails.push(`supplier_name_match:${term}`);
+    }
+    if (supplierDesc.includes(term)) {
+      score += 15;
+      matchDetails.push(`supplier_desc_match:${term}`);
+    }
+  }
+  
+  // 3. SEARCH KEYWORD MATCHES (10-15 points each)
+  for (const keyword of searchKeywords) {
+    if (keyword.length < 2) continue;
+    const kw = keyword.toLowerCase();
+    
+    if (supplierName.includes(kw)) {
+      score += 15;
+      matchDetails.push(`keyword_name:${kw}`);
+    }
+    if (supplierDesc.includes(kw)) {
+      score += 10;
+      matchDetails.push(`keyword_desc:${kw}`);
+    }
+    if (supplierCategory.includes(kw)) {
+      score += 12;
+      matchDetails.push(`keyword_category:${kw}`);
+    }
+  }
+  
+  // 4. VERIFIED/APPROVED BOOST (10 points)
+  if (supplier.verified && supplier.approved) {
+    score += 10;
+    matchDetails.push('verified_approved');
+  }
+  
+  // 5. RATING BOOST (up to 10 points based on rating)
+  if (supplier.rating && supplier.rating > 0) {
+    score += Math.min(supplier.rating * 2, 10);
+    matchDetails.push(`rating:${supplier.rating}`);
+  }
+  
+  return { score, matchDetails };
+}
+
 function extractSearchKeywords(query: string): string[] {
   if (!query) return [];
   const STOP_WORDS = new Set([
@@ -385,6 +530,14 @@ export const searchProducts = action({
       _suppliers: null,
     }));
 
+    // FILTER OUT SERVICE CATEGORIES (hotels, restaurants, etc.)
+    scored = scored.filter((p) => {
+      if (isServiceCategory(p.category)) {
+        return false;
+      }
+      return true;
+    });
+
     // Text & price filters + relevance score
     scored = scored.filter((p) => {
       let score = 0;
@@ -418,6 +571,7 @@ export const searchProducts = action({
     }) as ScoredProduct[];
 
     // Suppliers per CATEGORY (many products not linked directly)
+    // Using improved scoring based on category + name/description matching
     const categoryToSuppliers = new Map<string, any[]>();
     const categoriesForMapping = Array.from(
       new Set(
@@ -434,16 +588,47 @@ export const searchProducts = action({
           { category: cat, limit: 50 }
         );
         if (candidates.length > 0) {
-          const sorted = candidates.slice().sort((a: any, b: any) => {
-            const aVerified = a.verified && a.approved ? 1 : 0;
-            const bVerified = b.verified && b.approved ? 1 : 0;
-            if (bVerified !== aVerified) return bVerified - aVerified;
-            const aRating = a.rating ?? 0;
-            const bRating = b.rating ?? 0;
-            if (bRating !== aRating) return bRating - aRating;
-            return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
-          });
-          categoryToSuppliers.set(cat, sorted);
+          // Filter out service category suppliers
+          const productSuppliers = candidates.filter((s: any) => !isServiceCategory(s.category));
+          
+          if (productSuppliers.length > 0) {
+            // Score and sort suppliers using the new relevance scoring
+            const scoredSuppliers = productSuppliers.map((s: any) => {
+              // Get the product that triggered this category search
+              const matchingProduct = scored.find(p => p.category === cat);
+              const { score, matchDetails } = calculateSupplierRelevanceScore(
+                s,
+                cat,
+                keywords,
+                matchingProduct?.name || '',
+                matchingProduct?.description
+              );
+              return {
+                ...s,
+                _supplierScore: score,
+                _matchDetails: matchDetails,
+              };
+            });
+            
+            // Sort by the new relevance score
+            const sorted = scoredSuppliers.sort((a: any, b: any) => {
+              const scoreDiff = (b._supplierScore || 0) - (a._supplierScore || 0);
+              if (scoreDiff !== 0) return scoreDiff;
+              
+              // Fallback to verified/rating sorting
+              const aVerified = a.verified && a.approved ? 1 : 0;
+              const bVerified = b.verified && b.approved ? 1 : 0;
+              if (bVerified !== aVerified) return bVerified - aVerified;
+              
+              const aRating = a.rating ?? 0;
+              const bRating = b.rating ?? 0;
+              if (bRating !== aRating) return bRating - aRating;
+              
+              return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
+            });
+            
+            categoryToSuppliers.set(cat, sorted);
+          }
         }
       } catch {
         // ignore category mapping failures
@@ -485,6 +670,11 @@ export const searchProducts = action({
       const scoreDiff = (b._score || 0) - (a._score || 0);
       if (scoreDiff !== 0) return scoreDiff;
 
+      // Use supplier relevance scores for sorting
+      const aSupplierScore = a._suppliers?.[0]?._supplierScore || 0;
+      const bSupplierScore = b._suppliers?.[0]?._supplierScore || 0;
+      if (bSupplierScore !== aSupplierScore) return bSupplierScore - aSupplierScore;
+
       const aRating =
         (a._suppliers && a._suppliers[0]?.rating) != null
           ? a._suppliers[0].rating
@@ -513,6 +703,8 @@ export const searchProducts = action({
           city: s.city,
           state: s.state,
           category: s.category,
+          matchScore: s._supplierScore || 0,
+          matchConfidence: (s._supplierScore || 0) > 50 ? 'high' : (s._supplierScore || 0) > 25 ? 'medium' : 'low',
         })) ?? [];
 
       const primarySupplier = supplierSnapshots[0] || null;
