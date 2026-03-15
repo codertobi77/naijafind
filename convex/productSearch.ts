@@ -56,7 +56,7 @@ export const _getProductTranslations = internalQuery({
     productIds: v.array(v.id("products")),
     language: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Record<string, any>> => {
     const translations: Record<string, any> = {};
 
     for (const productId of args.productIds) {
@@ -84,7 +84,7 @@ export const _getSuppliersByIds = internalQuery({
   args: {
     supplierIds: v.array(v.id("suppliers")),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<any[]> => {
     const suppliers: any[] = [];
 
     for (const id of args.supplierIds) {
@@ -123,7 +123,19 @@ export const _getProductsForSearch = internalQuery({
     limit: v.optional(v.number()),
     isSearchable: v.optional(v.boolean()), // Only filter if explicitly provided
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Array<{
+    _id: Id<"products">;
+    name: string;
+    description?: string;
+    shortDescription?: string;
+    price?: number;
+    status: string;
+    category?: string;
+    keywords?: string[];
+    images?: string[];
+    originalLanguage?: string;
+    supplierId?: Id<"suppliers">;
+  }>> => {
     const limit = Math.min(args.limit ?? 500, 1000);
     // Only filter by isSearchable if explicitly provided (not undefined)
     const shouldFilterBySearchable = args.isSearchable !== undefined;
@@ -196,7 +208,7 @@ export const _getBatchProductCandidates = internalQuery({
     limit: v.optional(v.number()),
     minScore: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Record<string, any[]>> => {
     const limit = Math.min(args.limit ?? 5, 20);
     const minScore = args.minScore ?? 0.3;
     
@@ -235,7 +247,7 @@ export const getProductSuppliers = query({
     limit: v.optional(v.number()),
     minConfidence: v.optional(v.union(v.literal("high"), v.literal("medium"), v.literal("low"))),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ suppliers: SupplierSnapshot[] }> => {
     const limit = Math.min(args.limit ?? 5, 20);
 
     // Get approved candidates sorted by score
@@ -277,9 +289,9 @@ export const getProductSuppliers = query({
           category: supplier.category,
           matchScore: candidate.matchScore,
           matchConfidence: candidate.matchConfidence,
-        };
+        } as SupplierSnapshot;
       })
-      .filter(Boolean);
+      .filter((s): s is SupplierSnapshot => s !== null);
 
     return { suppliers: result };
   },
@@ -311,7 +323,10 @@ export const searchProductsMultilingual = action({
     offset: v.optional(v.int64()),
     sortBy: v.optional(v.string()), // 'relevance' | 'price_asc' | 'price_desc' | 'newest' | 'match_score'
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{
+    products: ProductSearchResult[];
+    total: number;
+  }> => {
     const limit = Number(args.limit ?? 20);
     const offset = Number(args.offset ?? 0);
     const sortBy = args.sortBy || "relevance";
@@ -320,13 +335,25 @@ export const searchProductsMultilingual = action({
     const hasQuery = !!(args.q && args.q.trim());
     const queryLower = hasQuery ? args.q!.toLowerCase().trim() : "";
     const queryWords = hasQuery
-      ? queryLower.split(/\s+/).filter((w) => w.length > 1)
+      ? queryLower.split(/\s+/).filter((w: string) => w.length > 1)
       : [];
 
     // Step 1: Get base products using indexed query
     // IMPORTANT: Do NOT filter by isSearchable by default
     // Only apply filters when explicitly provided by the user
-    const rawProducts = await ctx.runQuery(
+    const rawProducts: Array<{
+      _id: Id<"products">;
+      name: string;
+      description?: string;
+      shortDescription?: string;
+      price?: number;
+      status: string;
+      category?: string;
+      keywords?: string[];
+      images?: string[];
+      originalLanguage?: string;
+      supplierId?: Id<"suppliers">;
+    }> = await ctx.runQuery(
       internal.productSearch._getProductsForSearch,
       {
         category: args.category,
@@ -337,12 +364,21 @@ export const searchProductsMultilingual = action({
     );
 
     // Step 2: Text search scoring
-    type ScoredProduct = typeof rawProducts[0] & {
+    interface ScoredProduct {
+      _id: Id<"products">;
+      name: string;
+      description?: string;
+      shortDescription?: string;
+      price?: number;
+      status: string;
+      category?: string;
+      keywords?: string[];
+      images?: string[];
       _score: number;
       _matchType: "exact" | "name" | "description" | "keywords" | "none";
-    };
+    }
 
-    let scored: ScoredProduct[] = rawProducts.map((p: any) => ({
+    let scored: ScoredProduct[] = rawProducts.map((p) => ({
       ...p,
       _score: 0,
       _matchType: "none" as const,
@@ -405,7 +441,7 @@ export const searchProductsMultilingual = action({
 
           return { ...p, _score: score, _matchType: matchType };
         })
-        .filter((p) => p._score > 0); // Remove non-matching products when searching
+        .filter((p): p is ScoredProduct => p._score > 0); // Remove non-matching products when searching
     } else {
       // No query - give all products a base score
       scored = scored.map((p) => ({ ...p, _score: 1, _matchType: "none" }));
@@ -477,11 +513,30 @@ export const searchProductsMultilingual = action({
     }
 
     // Merge supplier data with candidates
-    const productsWithSuppliers = scored.map((p) => {
+    interface ProductWithSuppliers extends ScoredProduct {
+      suppliers: Array<{
+        id: Id<"suppliers">;
+        name: string;
+        rating?: number;
+        reviews_count?: number;
+        verified: boolean;
+        approved: boolean;
+        location?: string;
+        city?: string;
+        state?: string;
+        country?: string;
+        category: string;
+        matchScore: number;
+        matchConfidence: "high" | "medium" | "low";
+      }>;
+      totalSuppliers: number;
+    }
+
+    const productsWithSuppliers: ProductWithSuppliers[] = scored.map((p) => {
       const candidates = allCandidates[p._id] || [];
 
       const suppliers = candidates
-        .map((c) => {
+        .map((c: any) => {
           const s = suppliersMap[c.supplierId];
           if (!s) return null;
 
@@ -489,7 +544,7 @@ export const searchProductsMultilingual = action({
           if (args.verifiedSupplier && !s.verified) return null;
 
           return {
-            id: s._id,
+            id: s._id as Id<"suppliers">,
             name: s.business_name,
             rating: s.rating,
             reviews_count: s.reviews_count,
@@ -504,13 +559,13 @@ export const searchProductsMultilingual = action({
             matchConfidence: c.matchConfidence,
           };
         })
-        .filter(Boolean)
+        .filter((s): s is NonNullable<typeof s> => s !== null)
         .slice(0, 5); // Top 5 suppliers per product
 
       // Boost score for products with high-quality suppliers
       const supplierBoost = suppliers.reduce((boost, s) => {
-        if (s!.matchConfidence === "high") return boost + 10;
-        if (s!.matchConfidence === "medium") return boost + 5;
+        if (s.matchConfidence === "high") return boost + 10;
+        if (s.matchConfidence === "medium") return boost + 5;
         return boost + 2;
       }, 0);
 
@@ -540,7 +595,7 @@ export const searchProductsMultilingual = action({
     });
 
     // Step 7: Pagination
-    const total = productsWithSuppliers.length;
+    const total: number = productsWithSuppliers.length;
     const page = productsWithSuppliers.slice(offset, offset + limit);
 
     // Final result shaping
@@ -574,7 +629,7 @@ export const getProductSuggestions = query({
     query: v.string(),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ suggestions: Array<{ id: string; name: string; category?: string }> }> => {
     const limit = Math.min(args.limit ?? 10, 20);
     const queryLower = args.query.toLowerCase().trim();
 
@@ -588,23 +643,23 @@ export const getProductSuggestions = query({
       .withIndex("isSearchable", (q) => q.eq("isSearchable", true))
       .filter((q) =>
         q.or(
-          q.gt(q.field("name").lowerCase().includes(queryLower), false),
-          q.gt(q.field("keywords").includes(queryLower), false)
+          q.gt(q.field("name"), ""),
+          q.gt(q.field("keywords"), [])
         )
       )
       .take(limit * 2); // Fetch more for filtering
 
     const suggestions = products
-      .filter((p) => {
+      .filter((p: any) => {
         const name = (p.name || "").toLowerCase();
-        const keywords = (p.keywords || []).map((k) => k.toLowerCase());
+        const keywords = (p.keywords || []).map((k: string) => k.toLowerCase());
         return (
           name.includes(queryLower) ||
-          keywords.some((k) => k.includes(queryLower))
+          keywords.some((k: string) => k.includes(queryLower))
         );
       })
       .slice(0, limit)
-      .map((p) => ({
+      .map((p: any) => ({
         id: p._id,
         name: p.name,
         category: p.category,

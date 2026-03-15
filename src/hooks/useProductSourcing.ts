@@ -4,9 +4,13 @@ import { api } from '@convex/_generated/api';
 import type { Id } from '@convex/_generated/dataModel';
 
 // ==========================================
-// TYPES
+// TYPES (Imported from backend)
 // ==========================================
 
+/**
+ * Supplier snapshot in search results
+ * Matches the backend SupplierSnapshot interface
+ */
 export interface SupplierSnapshot {
   id: string;
   name: string;
@@ -23,6 +27,10 @@ export interface SupplierSnapshot {
   matchConfidence: 'high' | 'medium' | 'low';
 }
 
+/**
+ * Product search result
+ * Matches the backend ProductSearchResult interface
+ */
 export interface ProductSearchResult {
   _id: string;
   name: string;
@@ -112,8 +120,8 @@ export function useProductSearch(
           maxPrice: params.maxPrice,
           verifiedSupplier: params.verifiedSupplier,
           sortBy: params.sortBy || 'relevance',
-          limit: BigInt(itemsPerPage),
-          offset: BigInt(0),
+          limit: itemsPerPage,
+          offset: 0,
         });
 
         setResults(response.products as ProductSearchResult[]);
@@ -144,8 +152,8 @@ export function useProductSearch(
         maxPrice: lastParams.maxPrice,
         verifiedSupplier: lastParams.verifiedSupplier,
         sortBy: lastParams.sortBy || 'relevance',
-        limit: BigInt(itemsPerPage),
-        offset: BigInt(newOffset),
+        limit: itemsPerPage,
+        offset: newOffset,
       });
 
       setResults((prev) => [...prev, ...(response.products as ProductSearchResult[])]);

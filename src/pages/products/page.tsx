@@ -16,16 +16,20 @@ interface SupplierSnapshot {
   rating?: number;
   reviews_count?: number;
   verified?: boolean;
+  approved?: boolean;
   location?: string;
   city?: string;
   state?: string;
   category?: string;
+  matchScore?: number;
+  matchConfidence?: 'high' | 'medium' | 'low';
 }
 
 interface ProductResult {
   _id: string;
   name: string;
   description?: string;
+  shortDescription?: string;
   price?: number;
   status?: string;
   category?: string;
@@ -35,6 +39,7 @@ interface ProductResult {
   suppliers?: SupplierSnapshot[];
   potentialSuppliers?: SupplierSnapshot[];
   relevanceScore?: number;
+  totalSuppliers?: number;
 }
 
 // Helper with timeout to protect UI
@@ -130,8 +135,8 @@ export default function ProductSearchPage() {
             minPrice: filters.minPrice ? Number(filters.minPrice) : undefined,
             maxPrice: filters.maxPrice ? Number(filters.maxPrice) : undefined,
             verifiedSupplier: filters.verifiedSupplier || undefined,
-            limit: BigInt(ITEMS_PER_PAGE),
-            offset: BigInt(currentPage * ITEMS_PER_PAGE),
+            limit: ITEMS_PER_PAGE,
+            offset: currentPage * ITEMS_PER_PAGE,
             sortBy,
           }),
           30000,

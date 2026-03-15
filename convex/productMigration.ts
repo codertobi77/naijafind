@@ -110,11 +110,13 @@ export const _migrateProduct = internalMutation({
 /**
  * Helper: Generate keywords from product data
  */
-function generateKeywordsFromProduct(product: {
+interface ProductData {
   name: string;
   description?: string;
   category?: string;
-}): string[] {
+}
+
+function generateKeywordsFromProduct(product: ProductData): string[] {
   const keywords: string[] = [];
   
   // Add name words
@@ -191,11 +193,16 @@ export const migrateAllProductsCLI = action({
     const defaultLang = args.defaultLanguage || "en";
     const batchSize = Math.min(args.batchSize ?? 100, 200);
 
-    const results = {
+    const results: {
+      totalProcessed: number;
+      migrated: number;
+      skipped: number;
+      errors: { productId: string; error: string }[];
+    } = {
       totalProcessed: 0,
       migrated: 0,
       skipped: 0,
-      errors: [] as { productId: string; error: string }[],
+      errors: [],
     };
 
     let cursor: string | null = args.startCursor || null;
@@ -206,7 +213,11 @@ export const migrateAllProductsCLI = action({
     while (hasMore && attempts < MAX_ATTEMPTS) {
       attempts++;
       
-      const batchResult = await ctx.runQuery(
+      const batchResult: {
+        products: Array<{ _id: any; name: string; description?: string; category?: string }>;
+        nextCursor: string | null;
+        hasMore: boolean;
+      } = await ctx.runQuery(
         internal.productMigration._getProductsNeedingMigration,
         { 
           limit: batchSize,
@@ -462,11 +473,16 @@ export const computeMatchesForAllProducts = action({
     const onlyWithoutMatches = args.onlyWithoutMatches ?? true;
     const autoApprove = args.autoApproveHighConfidence ?? true;
 
-    const results = {
+    const results: {
+      totalProcessed: number;
+      matchesCreated: number;
+      matchesUpdated: number;
+      errors: { productId: string; error: string }[];
+    } = {
       totalProcessed: 0,
       matchesCreated: 0,
       matchesUpdated: 0,
-      errors: [] as { productId: string; error: string }[],
+      errors: [],
     };
 
     let hasMore = true;
@@ -477,7 +493,11 @@ export const computeMatchesForAllProducts = action({
     while (hasMore && attempts < MAX_ATTEMPTS) {
       attempts++;
 
-      const batchResult = await ctx.runQuery(
+      const batchResult: {
+        products: Array<{ _id: any; name: string; category?: string }>;
+        nextCursor: string | null;
+        hasMore: boolean;
+      } = await ctx.runQuery(
         internal.productMigration._getProductsForMatchComputation,
         {
           limit: batchSize,
@@ -557,16 +577,27 @@ export const computeMatchesForAllProductsCLI = action({
     const onlyWithoutMatches = args.onlyWithoutMatches ?? true;
     const autoApprove = args.autoApproveHighConfidence ?? true;
 
-    const results = {
+    const results: {
+      totalProcessed: number;
+      matchesCreated: number;
+      matchesUpdated: number;
+      errors: { productId: string; error: string }[];
+      nextCursor: string | null;
+      hasMore: boolean;
+    } = {
       totalProcessed: 0,
       matchesCreated: 0,
       matchesUpdated: 0,
-      errors: [] as { productId: string; error: string }[],
-      nextCursor: null as string | null,
+      errors: [],
+      nextCursor: null,
       hasMore: false,
     };
 
-    const batchResult = await ctx.runQuery(
+    const batchResult: {
+      products: Array<{ _id: any; name: string; category?: string }>;
+      nextCursor: string | null;
+      hasMore: boolean;
+    } = await ctx.runQuery(
       internal.productMigration._getProductsForMatchComputation,
       {
         limit: batchSize,
@@ -669,7 +700,15 @@ export const runFullMigrationCLI = action({
     let hasMore = true;
 
     while (hasMore) {
-      const batch = await ctx.runAction(
+      const batch: {
+        success: boolean;
+        totalProcessed: number;
+        matchesCreated: number;
+        matchesUpdated: number;
+        errors: { productId: string; error: string }[];
+        nextCursor: string | null;
+        hasMore: boolean;
+      } = await ctx.runAction(
         internal.productMigration.computeMatchesForAllProductsCLI,
         {
           batchSize: args.matchBatchSize,
@@ -833,7 +872,15 @@ export const getMigrationStatusCLI = action({
     let productsWithKeywords = 0;
 
     while (hasMoreProducts) {
-      const page = await ctx.runQuery(
+      const page: {
+        totalProducts: number;
+        migratedProducts: number;
+        searchableProducts: number;
+        productsWithOriginalLang: number;
+        productsWithKeywords: number;
+        nextCursor: string | null;
+        hasMore: boolean;
+      } = await ctx.runQuery(
         internal.productMigration._statusCountProductsPage,
         {
           cursor: productCursor || undefined,
@@ -861,7 +908,14 @@ export const getMigrationStatusCLI = action({
     const allProductsWithApprovedCandidates = new Set<string>();
 
     while (hasMoreCandidates) {
-      const page = await ctx.runQuery(
+      const page: {
+        totalCandidates: number;
+        approvedCandidates: number;
+        productIdsWithCandidates: string[];
+        productIdsWithApprovedCandidates: string[];
+        nextCursor: string | null;
+        hasMore: boolean;
+      } = await ctx.runQuery(
         internal.productMigration._statusCountCandidatesPage,
         {
           cursor: candidateCursor || undefined,
@@ -1066,7 +1120,7 @@ export const removeTranslationsField = mutation({
 /**
  * Mutation: Compute matches for single product (admin/testing)
  */
-export const computeMatchesForSingleProduct = mutation({
+export const computeMatchesForSingleProduct = action({
   args: {
     productId: v.id("products"),
     autoApproveHighConfidence: v.optional(v.boolean()),
@@ -1076,17 +1130,21 @@ export const computeMatchesForSingleProduct = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", identity.email ?? ""))
-      .first();
+    const user = await ctx.runQuery(internal.users._getUserByEmail, {
+      email: identity.email ?? "",
+    });
 
     if (!user?.is_admin && user?.user_type !== "admin") {
       throw new Error("Admin only");
     }
 
     // This runs the action internally
-    const result = await ctx.runAction(
+    const result: {
+      success?: boolean;
+      candidatesCreated?: number;
+      candidatesUpdated?: number;
+      error?: string;
+    } = await ctx.runAction(
       internal.productSourcing.computeProductMatches,
       {
         productId: args.productId,
@@ -1164,10 +1222,14 @@ export const migrateActiveProductsToSearchable = action({
   handler: async (ctx, args) => {
     const batchSize = Math.min(args.batchSize ?? 100, 200);
     
-    const results = {
+    const results: {
+      totalProcessed: number;
+      migrated: number;
+      errors: { productId: string; error: string }[];
+    } = {
       totalProcessed: 0,
       migrated: 0,
-      errors: [] as { productId: string; error: string }[],
+      errors: [],
     };
     
     let cursor: string | null = null;
@@ -1178,7 +1240,11 @@ export const migrateActiveProductsToSearchable = action({
     while (hasMore && attempts < MAX_ATTEMPTS) {
       attempts++;
       
-      const batchResult = await ctx.runQuery(
+      const batchResult: {
+        products: Array<{ _id: any; name: string }>;
+        nextCursor: string | null;
+        hasMore: boolean;
+      } = await ctx.runQuery(
         internal.productMigration._getActiveProductsMissingIsSearchable,
         {
           limit: batchSize,

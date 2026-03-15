@@ -28,6 +28,44 @@ export interface SupplierSearchFilters {
   sortBy?: 'relevance' | 'rating' | 'reviews' | 'newest' | 'name_asc';
 }
 
+/**
+ * Supplier snapshot in search results
+ * Matches the backend SupplierSnapshot interface
+ */
+export interface SupplierSnapshot {
+  id: string;
+  name: string;
+  rating?: number;
+  reviews_count?: number;
+  verified: boolean;
+  approved: boolean;
+  location?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  category: string;
+  matchScore: number;
+  matchConfidence: 'high' | 'medium' | 'low';
+}
+
+/**
+ * Product search result
+ * Matches the backend ProductSearchResult interface
+ */
+export interface ProductSearchResult {
+  _id: string;
+  name: string;
+  description?: string;
+  shortDescription?: string;
+  price?: number;
+  status: string;
+  category?: string;
+  images?: string[];
+  relevanceScore: number;
+  suppliers: SupplierSnapshot[];
+  totalSuppliers: number;
+}
+
 interface SearchState<T> {
   results: T[];
   total: number;
