@@ -88,7 +88,7 @@ export default function ProductSearchPage() {
   const [requestMessage, setRequestMessage] = useState('');
 
   const searchProducts = useAction(api.products.searchProducts);
-  const { translateQuery, isTranslating } = useMultilingualSearch();
+  const { translateQuery, translateResults, isTranslating } = useMultilingualSearch();
   const createSupplierRequestMutation = useMutation(api.suppliers.createSupplierRequest);
 
   // Categories for filters
@@ -131,7 +131,6 @@ export default function ProductSearchPage() {
           searchProducts({
             q: searchQuery || undefined,
             category: filters.category || undefined,
-            language: 'en', // TODO: Get from i18n
             minPrice: filters.minPrice ? Number(filters.minPrice) : undefined,
             maxPrice: filters.maxPrice ? Number(filters.maxPrice) : undefined,
             verifiedSupplier: filters.verifiedSupplier || undefined,
@@ -143,8 +142,15 @@ export default function ProductSearchPage() {
           t('search.timeout_error')
         );
 
+        let products = (result as any).products || [];
+        
+        // Translate product results to user's language
+        if (products.length > 0) {
+          products = await translateResults(products, ['name', 'description', 'shortDescription', 'category']);
+        }
+
         setResults({
-          products: (result as any).products || [],
+          products,
           total: Number((result as any).total || 0),
         });
       } catch (err) {
@@ -158,7 +164,7 @@ export default function ProductSearchPage() {
     };
 
     void runSearch();
-  }, [filters, sortBy, currentPage, searchProducts, translateQuery, t]);
+  }, [filters, sortBy, currentPage, searchProducts, translateQuery, translateResults, t]);
 
   const totalPages = Math.max(1, Math.ceil(results.total / ITEMS_PER_PAGE));
 
