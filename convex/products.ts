@@ -497,8 +497,8 @@ export const searchProducts = action({
     minPrice: v.optional(v.float64()),
     maxPrice: v.optional(v.float64()),
     verifiedSupplier: v.optional(v.boolean()),
-    limit: v.optional(v.int64()),
-    offset: v.optional(v.int64()),
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
     sortBy: v.optional(v.string()), // 'relevance' | 'price_asc' | 'price_desc' | 'newest'
   },
   handler: async (ctx, args) => {

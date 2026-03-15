@@ -119,7 +119,7 @@ export function useProductSearch(
           maxPrice: params.maxPrice,
           verifiedSupplier: params.verifiedSupplier,
           sortBy: params.sortBy || 'relevance',
-          limit: Math.floor(itemsPerPage),
+          limit: Math.floor(itemsPerPage) as number,
           offset: 0,
         });
 
