@@ -75,6 +75,22 @@ export const search = {
   "search.translating": "Translating...",
   "search.translated_from": "Translated from",
   
+  // Search suggestion dropdown
+  "search.suggestion.recent": "Recent",
+  "search.suggestion.supplier": "Supplier",
+  "search.suggestion.category": "Category",
+  "search.type.suppliers": "Suppliers",
+  "search.type.products": "Products",
+  "search.type.categories": "Categories",
+  "search.type.locations": "Locations",
+  "search.results_count": "result{{plural}}",
+  "search.try_other_terms": "Try other search terms",
+  "search.recent_searches": "Recent searches",
+  "search.clear": "Clear",
+  "search.keyboard_navigate": "navigate",
+  "search.keyboard_select": "select",
+  "search.keyboard_close": "close",
+  
   // Location and UI
   "search.locating": "Localisation en cours...",
   "search.use_my_location": "Utiliser ma position",

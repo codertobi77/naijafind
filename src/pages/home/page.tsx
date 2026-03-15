@@ -221,7 +221,7 @@ function SearchInputWithSuggestions({
             text: s,
             type: type === 'location' ? 'location' : 'product',
             icon: type === 'location' ? 'ri-map-pin-line' : 'ri-time-line',
-            subtext: 'Récent',
+            subtext: t('search.suggestion.recent'),
           }));
           setFilteredSuggestions(recentItems);
         } else {
@@ -264,11 +264,11 @@ function SearchInputWithSuggestions({
             if (lower.includes('ltd') || lower.includes('limited') || lower.includes('inc') || lower.includes('corp') || lower.includes('nigeria') || lower.includes('services') || lower.includes('enterprise')) {
               itemType = 'supplier';
               itemIcon = 'ri-building-4-line';
-              subtext = 'Fournisseur';
+              subtext = t('search.suggestion.supplier');
             } else if (s.split(' ').length === 1 && s.length < 20) {
               itemType = 'category';
               itemIcon = 'ri-folder-3-line';
-              subtext = 'Catégorie';
+              subtext = t('search.suggestion.category');
             }
 
             items.push({
@@ -407,10 +407,10 @@ function SearchInputWithSuggestions({
   }, {} as Record<string, SuggestionItem[]>);
 
   const typeLabels: Record<string, string> = {
-    supplier: 'Fournisseurs',
-    product: 'Produits',
-    category: 'Catégories',
-    location: 'Lieux',
+    supplier: t('search.type.suppliers'),
+    product: t('search.type.products'),
+    category: t('search.type.categories'),
+    location: t('search.type.locations'),
   };
 
   const typeOrder = type === 'location'
@@ -460,7 +460,7 @@ function SearchInputWithSuggestions({
           {isLoading && (
             <div className="px-4 py-6 flex items-center justify-center gap-2 text-gray-500">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
-              <span className="text-sm">Recherche en cours...</span>
+              <span className="text-sm">{t('search.loading')}</span>
             </div>
           )}
 
@@ -468,8 +468,8 @@ function SearchInputWithSuggestions({
           {!isLoading && showEmptyState && (
             <div className="px-4 py-6 text-center">
               <i className="ri-search-line text-3xl text-gray-300 mb-2"></i>
-              <p className="text-sm text-gray-500">Aucun résultat pour &quot;{value}&quot;</p>
-              <p className="text-xs text-gray-400 mt-1">Essayez avec d&apos;autres termes</p>
+              <p className="text-sm text-gray-500">{t('search.no_results', { value })}</p>
+              <p className="text-xs text-gray-400 mt-1">{t('search.try_other_terms')}</p>
             </div>
           )}
 
@@ -478,13 +478,13 @@ function SearchInputWithSuggestions({
             <>
               <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
                 <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Recherches récentes
+                  {t('search.recent_searches')}
                 </span>
                 <button
                   onClick={onClearRecentSearches}
                   className="text-xs text-gray-400 hover:text-red-500 transition-colors"
                 >
-                  Effacer
+                  {t('search.clear')}
                 </button>
               </div>
               <div className="max-h-60 overflow-y-auto">
@@ -527,7 +527,7 @@ function SearchInputWithSuggestions({
               {/* Header with result count */}
               <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
                 <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  {filteredSuggestions.length} résultat{filteredSuggestions.length > 1 ? 's' : ''}
+                  {filteredSuggestions.length} {t('search.results_count', { count: filteredSuggestions.length })}
                 </span>
               </div>
 
@@ -593,16 +593,16 @@ function SearchInputWithSuggestions({
                 <span className="flex items-center gap-1">
                   <kbd className="px-1.5 py-0.5 bg-white rounded border border-gray-200 font-sans">↓</kbd>
                   <kbd className="px-1.5 py-0.5 bg-white rounded border border-gray-200 font-sans">↑</kbd>
-                  <span>naviguer</span>
+                  <span>{t('search.keyboard_navigate')}</span>
                 </span>
                 <span className="flex items-center gap-1">
                   <kbd className="px-1.5 py-0.5 bg-white rounded border border-gray-200 font-sans">↵</kbd>
-                  <span>sélectionner</span>
+                  <span>{t('search.keyboard_select')}</span>
                 </span>
               </div>
               <span className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-white rounded border border-gray-200 font-sans">esc</kbd>
-                <span>fermer</span>
+                <span>{t('search.keyboard_close')}</span>
               </span>
             </div>
           )}

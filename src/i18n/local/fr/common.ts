@@ -184,7 +184,18 @@ export const common = {
   "bug_report.send": "Envoyer le rapport",
   "bug_report.success_title": "Merci !",
   "bug_report.success_message": "Votre rapport a été envoyé. Nous l'examinerons rapidement.",
-  "bug_report.button": "Signaler un bug"
+  "bug_report.button": "Signaler un bug",
+
+  // Quantity units
+  "units.pieces": "Pièces",
+  "units.kg": "Kilogrammes",
+  "units.tonnes": "Tonnes",
+  "units.litres": "Litres",
+  "units.meters": "Mètres",
+  "units.units": "Unités",
+  "units.boxes": "Cartons",
+  "units.pallets": "Palettes",
+  "units.containers": "Conteneurs"
 };
 
 export default common;

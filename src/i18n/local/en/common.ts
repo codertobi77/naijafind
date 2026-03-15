@@ -184,7 +184,18 @@ export const common = {
   "bug_report.send": "Send Report",
   "bug_report.success_title": "Thank you!",
   "bug_report.success_message": "Your report has been sent. We will review it quickly.",
-  "bug_report.button": "Report bug"
+  "bug_report.button": "Report bug",
+
+  // Quantity units
+  "units.pieces": "Pieces",
+  "units.kg": "Kilograms",
+  "units.tonnes": "Tonnes",
+  "units.litres": "Litres",
+  "units.meters": "Meters",
+  "units.units": "Units",
+  "units.boxes": "Boxes",
+  "units.pallets": "Pallets",
+  "units.containers": "Containers"
 };
 
 export default common;

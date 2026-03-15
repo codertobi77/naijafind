@@ -75,6 +75,22 @@ export const search = {
   "search.translating": "Traduction...",
   "search.translated_from": "Traduit depuis",
   
+  // Search suggestion dropdown
+  "search.suggestion.recent": "Récent",
+  "search.suggestion.supplier": "Fournisseur",
+  "search.suggestion.category": "Catégorie",
+  "search.type.suppliers": "Fournisseurs",
+  "search.type.products": "Produits",
+  "search.type.categories": "Catégories",
+  "search.type.locations": "Lieux",
+  "search.results_count": "résultat{{plural}}",
+  "search.try_other_terms": "Essayez avec d'autres termes",
+  "search.recent_searches": "Recherches récentes",
+  "search.clear": "Effacer",
+  "search.keyboard_navigate": "naviguer",
+  "search.keyboard_select": "sélectionner",
+  "search.keyboard_close": "fermer",
+  
   // Location and UI
   "search.locating": "Localisation en cours...",
   "search.use_my_location": "Utiliser ma position",

@@ -6,17 +6,17 @@ import { api } from '../../../convex/_generated/api';
 import { Header } from '../../components/base';
 import { Package, DollarSign, FileText, Send, ChevronDown, MessageCircle } from 'lucide-react';
 
-// Quantity units
-const quantityUnits = [
-  { value: 'pieces', label: 'Pièces' },
-  { value: 'kg', label: 'Kilogrammes' },
-  { value: 'tonnes', label: 'Tonnes' },
-  { value: 'litres', label: 'Litres' },
-  { value: 'meters', label: 'Mètres' },
-  { value: 'units', label: 'Unités' },
-  { value: 'boxes', label: 'Cartons' },
-  { value: 'pallets', label: 'Palettes' },
-  { value: 'containers', label: 'Conteneurs' },
+// Quantity units - now internationalized
+const getQuantityUnits = (t: (key: string) => string) => [
+  { value: 'pieces', label: t('units.pieces', 'Pièces') },
+  { value: 'kg', label: t('units.kg', 'Kilogrammes') },
+  { value: 'tonnes', label: t('units.tonnes', 'Tonnes') },
+  { value: 'litres', label: t('units.litres', 'Litres') },
+  { value: 'meters', label: t('units.meters', 'Mètres') },
+  { value: 'units', label: t('units.units', 'Unités') },
+  { value: 'boxes', label: t('units.boxes', 'Cartons') },
+  { value: 'pallets', label: t('units.pallets', 'Palettes') },
+  { value: 'containers', label: t('units.containers', 'Conteneurs') },
 ];
 
 export default function PurchaseRequestPage() {
@@ -208,7 +208,7 @@ export default function PurchaseRequestPage() {
                       onChange={(e) => handleChange('unit', e.target.value)}
                       className="appearance-none px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white min-w-[110px] text-sm"
                     >
-                      {quantityUnits.map(unit => (
+                      {getQuantityUnits(t).map(unit => (
                         <option key={unit.value} value={unit.value}>{unit.label}</option>
                       ))}
                     </select>

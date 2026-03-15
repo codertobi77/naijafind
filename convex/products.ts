@@ -270,14 +270,54 @@ export const listProductsBySupplier = query({
 /**
  * Internal query: base products loader for search
  * Uses indexes and returns only fields needed by searchProducts action.
+ * Now supports filtering by inferred categories for better relevance.
  */
 export const _getProductsForSearchBase = internalQuery({
   args: {
     category: v.optional(v.string()),
+    inferredCategories: v.optional(v.array(v.string())),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const limit = Math.min(args.limit ?? 1000, 1000);
+    // Allow fetching up to 10000 products to accommodate all products (7753 total)
+    const limit = Math.min(args.limit ?? 1000, 10000);
+    
+    // If inferred categories are provided, try to fetch products from those categories first
+    if (args.inferredCategories && args.inferredCategories.length > 0 && !args.category) {
+      const products: any[] = [];
+      const seenIds = new Set<string>();
+      
+      for (const inferredCat of args.inferredCategories.slice(0, 5)) { // Limit to top 5 categories
+        const catProducts = await ctx.db
+          .query("products")
+          .withIndex("category", (q2) => q2.eq("category", inferredCat))
+          .take(Math.floor(limit / args.inferredCategories.length) + 50);
+        
+        for (const p of catProducts) {
+          if (!seenIds.has(p._id)) {
+            seenIds.add(p._id);
+            products.push(p);
+          }
+        }
+      }
+      
+      // If we found products in inferred categories, return them
+      if (products.length > 0) {
+        return products.slice(0, limit).map((p) => ({
+          _id: p._id,
+          name: p.name,
+          description: p.description,
+          price: p.price,
+          status: p.status,
+          category: p.category,
+          images: p.images,
+          supplierId: (p as any).supplierId,
+          created_at: (p as any).created_at,
+        }));
+      }
+    }
+    
+    // Fallback to original behavior
     const q = ctx.db.query("products");
 
     const products = args.category && args.category.trim()
@@ -377,6 +417,385 @@ const SERVICE_CATEGORIES = new Set([
   'immobilier service',
 ]);
 
+// ==========================================
+// KNOWLEDGE BASE: Category-Keyword Mapping
+// Maps search keywords to potential product categories
+// ==========================================
+interface CategoryKeywordMap {
+  [keyword: string]: string[];
+}
+
+const CATEGORY_KEYWORDS: CategoryKeywordMap = {
+  // Agroalimentaire
+  'riz': ['Agroalimentaire', 'Céréales'],
+  'rice': ['Agroalimentaire', 'Céréales'],
+  'maïs': ['Agroalimentaire', 'Céréales'],
+  'mais': ['Agroalimentaire', 'Céréales'],
+  'corn': ['Agroalimentaire', 'Céréales'],
+  'blé': ['Agroalimentaire', 'Céréales'],
+  'ble': ['Agroalimentaire', 'Céréales'],
+  'wheat': ['Agroalimentaire', 'Céréales'],
+  'sorgho': ['Agroalimentaire', 'Céréales'],
+  'millet': ['Agroalimentaire', 'Céréales'],
+  'farine': ['Agroalimentaire', 'Transformation'],
+  'flour': ['Agroalimentaire', 'Transformation'],
+  'huile': ['Agroalimentaire', 'Huiles'],
+  'oil': ['Agroalimentaire', 'Huiles'],
+  'palm': ['Agroalimentaire', 'Huiles'],
+  'soja': ['Agroalimentaire', 'Légumineuses'],
+  'soy': ['Agroalimentaire', 'Légumineuses'],
+  'arachide': ['Agroalimentaire', 'Légumineuses'],
+  'groundnut': ['Agroalimentaire', 'Légumineuses'],
+  'noix': ['Agroalimentaire', 'Fruits secs'],
+  'nuts': ['Agroalimentaire', 'Fruits secs'],
+  'fruit': ['Agroalimentaire', 'Fruits'],
+  'légume': ['Agroalimentaire', 'Légumes'],
+  'legume': ['Agroalimentaire', 'Légumes'],
+  'vegetable': ['Agroalimentaire', 'Légumes'],
+  'piment': ['Agroalimentaire', 'Condiments'],
+  'pepper': ['Agroalimentaire', 'Condiments'],
+  'tomate': ['Agroalimentaire', 'Légumes'],
+  'tomato': ['Agroalimentaire', 'Légumes'],
+  'oignon': ['Agroalimentaire', 'Légumes'],
+  'onion': ['Agroalimentaire', 'Légumes'],
+  'gingembre': ['Agroalimentaire', 'Épices'],
+  'ginger': ['Agroalimentaire', 'Épices'],
+  'manioc': ['Agroalimentaire', 'Tubercules'],
+  'cassava': ['Agroalimentaire', 'Tubercules'],
+  'igname': ['Agroalimentaire', 'Tubercules'],
+  'yam': ['Agroalimentaire', 'Tubercules'],
+  'patate': ['Agroalimentaire', 'Tubercules'],
+  'banane': ['Agroalimentaire', 'Fruits'],
+  'banana': ['Agroalimentaire', 'Fruits'],
+  'ananas': ['Agroalimentaire', 'Fruits'],
+  'pineapple': ['Agroalimentaire', 'Fruits'],
+  'mangue': ['Agroalimentaire', 'Fruits'],
+  'mango': ['Agroalimentaire', 'Fruits'],
+  'cacao': ['Agroalimentaire', 'Cash crops'],
+  'cocoa': ['Agroalimentaire', 'Cash crops'],
+  'café': ['Agroalimentaire', 'Cash crops'],
+  'coffee': ['Agroalimentaire', 'Cash crops'],
+  'coton': ['Agroalimentaire', 'Fibres'],
+  'cotton': ['Agroalimentaire', 'Fibres'],
+  'sucre': ['Agroalimentaire', 'Sucrerie'],
+  'sugar': ['Agroalimentaire', 'Sucrerie'],
+  'lait': ['Agroalimentaire', 'Produits laitiers'],
+  'milk': ['Agroalimentaire', 'Produits laitiers'],
+  'viande': ['Agroalimentaire', 'Élevage'],
+  'meat': ['Agroalimentaire', 'Élevage'],
+  'poisson': ['Agroalimentaire', 'Pêche'],
+  'fish': ['Agroalimentaire', 'Pêche'],
+  'poulet': ['Agroalimentaire', 'Élevage'],
+  'chicken': ['Agroalimentaire', 'Élevage'],
+  'œuf': ['Agroalimentaire', 'Élevage'],
+  'oeuf': ['Agroalimentaire', 'Élevage'],
+  'egg': ['Agroalimentaire', 'Élevage'],
+  'miel': ['Agroalimentaire', 'Apiculture'],
+  'honey': ['Agroalimentaire', 'Apiculture'],
+  'jus': ['Agroalimentaire', 'Boissons'],
+  'juice': ['Agroalimentaire', 'Boissons'],
+  'bière': ['Agroalimentaire', 'Boissons'],
+  'beer': ['Agroalimentaire', 'Boissons'],
+
+  // Textile & Habillement
+  'tissu': ['Textile', 'Habillement'],
+  'fabric': ['Textile', 'Habillement'],
+  'textile': ['Textile', 'Habillement'],
+  'coton': ['Textile', 'Fibres'],
+  'cotton': ['Textile', 'Fibres'],
+  'wax': ['Textile', 'Habillement'],
+  'pagne': ['Textile', 'Habillement'],
+  'habillement': ['Textile', 'Habillement'],
+  'clothing': ['Textile', 'Habillement'],
+  'vêtement': ['Textile', 'Habillement'],
+  'vetement': ['Textile', 'Habillement'],
+  'mode': ['Textile', 'Habillement'],
+  'fashion': ['Textile', 'Habillement'],
+  'chaussure': ['Textile', 'Chaussures'],
+  'shoe': ['Textile', 'Chaussures'],
+  'sac': ['Textile', 'Maroquinerie'],
+  'bag': ['Textile', 'Maroquinerie'],
+  'cuir': ['Textile', 'Maroquinerie'],
+  'leather': ['Textile', 'Maroquinerie'],
+
+  // Construction & BTP
+  'ciment': ['Construction', 'Matériaux'],
+  'cement': ['Construction', 'Matériaux'],
+  'brique': ['Construction', 'Matériaux'],
+  'brick': ['Construction', 'Matériaux'],
+  'sable': ['Construction', 'Matériaux'],
+  'sand': ['Construction', 'Matériaux'],
+  'gravier': ['Construction', 'Matériaux'],
+  'gravel': ['Construction', 'Matériaux'],
+  'acier': ['Construction', 'Métallurgie'],
+  'steel': ['Construction', 'Métallurgie'],
+  'fer': ['Construction', 'Métallurgie'],
+  'iron': ['Construction', 'Métallurgie'],
+  'béton': ['Construction', 'Matériaux'],
+  'beton': ['Construction', 'Matériaux'],
+  'concrete': ['Construction', 'Matériaux'],
+  'bois': ['Construction', 'Bois'],
+  'wood': ['Construction', 'Bois'],
+  'planche': ['Construction', 'Bois'],
+  'plank': ['Construction', 'Bois'],
+  'tuile': ['Construction', 'Couverture'],
+  'tile': ['Construction', 'Couverture'],
+  'tole': ['Construction', 'Couverture'],
+  'tôle': ['Construction', 'Couverture'],
+  'sheet': ['Construction', 'Couverture'],
+  'peinture': ['Construction', 'Finitions'],
+  'paint': ['Construction', 'Finitions'],
+  'carrelage': ['Construction', 'Finitions'],
+  'ceramic': ['Construction', 'Finitions'],
+  'plomberie': ['Construction', 'Équipements'],
+  'plumbing': ['Construction', 'Équipements'],
+  'électricité': ['Construction', 'Équipements'],
+  'electricity': ['Construction', 'Équipements'],
+  'électric': ['Construction', 'Équipements'],
+
+  // Chimie & Plastique
+  'plastique': ['Chimie', 'Plastique'],
+  'plastic': ['Chimie', 'Plastique'],
+  'pétrole': ['Chimie', 'Pétrochimie'],
+  'petrol': ['Chimie', 'Pétrochimie'],
+  'oil': ['Chimie', 'Pétrochimie'],
+  'engrais': ['Chimie', 'Agrochimie'],
+  'fertilizer': ['Chimie', 'Agrochimie'],
+  'pesticide': ['Chimie', 'Agrochimie'],
+  'produit chimique': ['Chimie', 'Chimie industrielle'],
+  'chemical': ['Chimie', 'Chimie industrielle'],
+  'caoutchouc': ['Chimie', 'Caoutchouc'],
+  'rubber': ['Chimie', 'Caoutchouc'],
+  'peinture': ['Chimie', 'Peintures'],
+  'paint': ['Chimie', 'Peintures'],
+  'détergent': ['Chimie', 'Produits ménagers'],
+  'detergent': ['Chimie', 'Produits ménagers'],
+  'savon': ['Chimie', 'Produits ménagers'],
+  'soap': ['Chimie', 'Produits ménagers'],
+  'cosmétique': ['Chimie', 'Cosmétiques'],
+  'cosmetic': ['Chimie', 'Cosmétiques'],
+  'beauté': ['Chimie', 'Cosmétiques'],
+  'beauty': ['Chimie', 'Cosmétiques'],
+  'parfum': ['Chimie', 'Parfumerie'],
+  'perfume': ['Chimie', 'Parfumerie'],
+
+  // Électronique & Électricité
+  'électronique': ['Électronique', 'Équipements'],
+  'electronique': ['Électronique', 'Équipements'],
+  'electronics': ['Électronique', 'Équipements'],
+  'téléphone': ['Électronique', 'Télécommunications'],
+  'telephone': ['Électronique', 'Télécommunications'],
+  'phone': ['Électronique', 'Télécommunications'],
+  'mobile': ['Électronique', 'Télécommunications'],
+  'ordinateur': ['Électronique', 'Informatique'],
+  'computer': ['Électronique', 'Informatique'],
+  'ordinateur': ['Électronique', 'Informatique'],
+  'laptop': ['Électronique', 'Informatique'],
+  'tv': ['Électronique', 'Audiovisuel'],
+  'télévision': ['Électronique', 'Audiovisuel'],
+  'television': ['Électronique', 'Audiovisuel'],
+  'radio': ['Électronique', 'Audiovisuel'],
+  'électroménager': ['Électronique', 'Électroménager'],
+  'electromenager': ['Électronique', 'Électroménager'],
+  'appliance': ['Électronique', 'Électroménager'],
+  'frigo': ['Électronique', 'Électroménager'],
+  'refrigerator': ['Électronique', 'Électroménager'],
+  'climatisation': ['Électronique', 'Électroménager'],
+  'ac': ['Électronique', 'Électroménager'],
+  'air conditioner': ['Électronique', 'Électroménager'],
+  'solaire': ['Électronique', 'Énergie'],
+  'solar': ['Électronique', 'Énergie'],
+  'panneau': ['Électronique', 'Énergie'],
+  'panel': ['Électronique', 'Énergie'],
+  'batterie': ['Électronique', 'Stockage'],
+  'battery': ['Électronique', 'Stockage'],
+  'câble': ['Électronique', 'Câblerie'],
+  'cable': ['Électronique', 'Câblerie'],
+  'composant': ['Électronique', 'Composants'],
+  'component': ['Électronique', 'Composants'],
+  'carte': ['Électronique', 'Composants'],
+  'board': ['Électronique', 'Composants'],
+  'circuit': ['Électronique', 'Composants'],
+  'led': ['Électronique', 'Éclairage'],
+  'ampoule': ['Électronique', 'Éclairage'],
+  'light': ['Électronique', 'Éclairage'],
+
+  // Minerais & Mines
+  'or': ['Mines', 'Minerais'],
+  'gold': ['Mines', 'Minerais'],
+  'diamant': ['Mines', 'Minerais'],
+  'diamond': ['Mines', 'Minerais'],
+  'pierre': ['Mines', 'Minerais'],
+  'stone': ['Mines', 'Minerais'],
+  'minerai': ['Mines', 'Minerais'],
+  'ore': ['Mines', 'Minerais'],
+  'charbon': ['Mines', 'Énergie'],
+  'coal': ['Mines', 'Énergie'],
+  'zinc': ['Mines', 'Minerais'],
+  'cuivre': ['Mines', 'Minerais'],
+  'copper': ['Mines', 'Minerais'],
+  'aluminium': ['Mines', 'Minerais'],
+  'aluminum': ['Mines', 'Minerais'],
+  'manganèse': ['Mines', 'Minerais'],
+  'manganese': ['Mines', 'Minerais'],
+  'nickel': ['Mines', 'Minerais'],
+  'cobalt': ['Mines', 'Minerais'],
+  'lithium': ['Mines', 'Minerais'],
+  'granite': ['Mines', 'Pierres'],
+  'marbre': ['Mines', 'Pierres'],
+  'marble': ['Mines', 'Pierres'],
+  'bauxite': ['Mines', 'Minerais'],
+
+  // Énergie
+  'énergie': ['Énergie', 'Production'],
+  'energie': ['Énergie', 'Production'],
+  'energy': ['Énergie', 'Production'],
+  'pétrole': ['Énergie', 'Hydrocarbures'],
+  'petrol': ['Énergie', 'Hydrocarbures'],
+  'oil': ['Énergie', 'Hydrocarbures'],
+  'gaz': ['Énergie', 'Hydrocarbures'],
+  'gas': ['Énergie', 'Hydrocarbures'],
+  'solaire': ['Énergie', 'Renouvelable'],
+  'solar': ['Énergie', 'Renouvelable'],
+  'éolien': ['Énergie', 'Renouvelable'],
+  'wind': ['Énergie', 'Renouvelable'],
+  'biogaz': ['Énergie', 'Renouvelable'],
+  'biogas': ['Énergie', 'Renouvelable'],
+  'biomasse': ['Énergie', 'Renouvelable'],
+  'biomass': ['Énergie', 'Renouvelable'],
+  'électricité': ['Énergie', 'Distribution'],
+  'electricity': ['Énergie', 'Distribution'],
+  'générateur': ['Énergie', 'Équipements'],
+  'generator': ['Énergie', 'Équipements'],
+  'transfo': ['Énergie', 'Équipements'],
+  'transformer': ['Énergie', 'Équipements'],
+
+  // Transport & Logistique (produits uniquement)
+  'véhicule': ['Automobile', 'Véhicules'],
+  'vehicule': ['Automobile', 'Véhicules'],
+  'vehicle': ['Automobile', 'Véhicules'],
+  'voiture': ['Automobile', 'Véhicules'],
+  'car': ['Automobile', 'Véhicules'],
+  'moto': ['Automobile', 'Motos'],
+  'motorcycle': ['Automobile', 'Motos'],
+  'camion': ['Automobile', 'Poids lourds'],
+  'truck': ['Automobile', 'Poids lourds'],
+  'bus': ['Automobile', 'Transport'],
+  'pièce': ['Automobile', 'Pièces détachées'],
+  'piece': ['Automobile', 'Pièces détachées'],
+  'part': ['Automobile', 'Pièces détachées'],
+  'pneu': ['Automobile', 'Pneumatiques'],
+  'pneumatic': ['Automobile', 'Pneumatiques'],
+  'tire': ['Automobile', 'Pneumatiques'],
+  'batterie': ['Automobile', 'Pièces'],
+  'battery': ['Automobile', 'Pièces'],
+  'huile': ['Automobile', 'Lubrifiants'],
+  'oil': ['Automobile', 'Lubrifiants'],
+  'lubrifiant': ['Automobile', 'Lubrifiants'],
+  'lubricant': ['Automobile', 'Lubrifiants'],
+  'équipement': ['Automobile', 'Accessoires'],
+  'equipment': ['Automobile', 'Accessoires'],
+
+  // Santé & Pharmacie
+  'médicament': ['Pharmacie', 'Médicaments'],
+  'medicament': ['Pharmacie', 'Médicaments'],
+  'drug': ['Pharmacie', 'Médicaments'],
+  'pharma': ['Pharmacie', 'Médicaments'],
+  'vaccin': ['Pharmacie', 'Vaccins'],
+  'vaccine': ['Pharmacie', 'Vaccins'],
+  'dispositif médical': ['Médical', 'Dispositifs'],
+  'medical device': ['Médical', 'Dispositifs'],
+  'matériel médical': ['Médical', 'Équipements'],
+  'medical equipment': ['Médical', 'Équipements'],
+  'laboratoire': ['Médical', 'Laboratoire'],
+  'laboratory': ['Médical', 'Laboratoire'],
+  'test': ['Médical', 'Diagnostics'],
+  'diagnostic': ['Médical', 'Diagnostics'],
+  'masque': ['Médical', 'Protection'],
+  'mask': ['Médical', 'Protection'],
+  'gant': ['Médical', 'Protection'],
+  'glove': ['Médical', 'Protection'],
+  'seringue': ['Médical', 'Consommables'],
+  'syringe': ['Médical', 'Consommables'],
+
+  // Bois & Meuble
+  'bois': ['Bois', 'Bois brut'],
+  'wood': ['Bois', 'Bois brut'],
+  'forêt': ['Bois', 'Exploitation'],
+  'forest': ['Bois', 'Exploitation'],
+  'meuble': ['Bois', 'Meubles'],
+  'furniture': ['Bois', 'Meubles'],
+  'contreplaqué': ['Bois', 'Panneaux'],
+  'plywood': ['Bois', 'Panneaux'],
+  'mdf': ['Bois', 'Panneaux'],
+  'charbon': ['Bois', 'Combustible'],
+  'charcoal': ['Bois', 'Combustible'],
+
+  // Artisanat & Décoration
+  'artisanat': ['Artisanat', 'Produits artisanaux'],
+  'craft': ['Artisanat', 'Produits artisanaux'],
+  'décoration': ['Artisanat', 'Décoration'],
+  'decoration': ['Artisanat', 'Décoration'],
+  'céramique': ['Artisanat', 'Céramiques'],
+  'ceramic': ['Artisanat', 'Céramiques'],
+  'poterie': ['Artisanat', 'Poterie'],
+  'pottery': ['Artisanat', 'Poterie'],
+  'tissage': ['Artisanat', 'Textile artisanal'],
+  'weaving': ['Artisanat', 'Textile artisanal'],
+  'cuir': ['Artisanat', 'Maroquinerie'],
+  'leather': ['Artisanat', 'Maroquinerie'],
+  'bijou': ['Artisanat', 'Bijouterie'],
+  'jewelry': ['Artisanat', 'Bijouterie'],
+  'perle': ['Artisanat', 'Bijouterie'],
+  'bead': ['Artisanat', 'Bijouterie'],
+
+  // Emballage
+  'emballage': ['Emballage', 'Emballages'],
+  'packaging': ['Emballage', 'Emballages'],
+  'carton': ['Emballage', 'Carton'],
+  'cardboard': ['Emballage', 'Carton'],
+  'plastique': ['Emballage', 'Plastique'],
+  'plastic': ['Emballage', 'Plastique'],
+  'bouteille': ['Emballage', 'Bouteilles'],
+  'bottle': ['Emballage', 'Bouteilles'],
+  'sachet': ['Emballage', 'Sachets'],
+  'pouch': ['Emballage', 'Sachets'],
+  'étiquette': ['Emballage', 'Étiquettes'],
+  'label': ['Emballage', 'Étiquettes'],
+
+  // Papeterie
+  'papier': ['Papeterie', 'Papier'],
+  'paper': ['Papeterie', 'Papier'],
+  'cahier': ['Papeterie', 'Fournitures'],
+  'notebook': ['Papeterie', 'Fournitures'],
+  'stylo': ['Papeterie', 'Fournitures'],
+  'pen': ['Papeterie', 'Fournitures'],
+  'carton': ['Papeterie', 'Carton'],
+
+  // Import/Export général
+  'import': ['Import/Export', 'Services'],
+  'export': ['Import/Export', 'Services'],
+  'commerce': ['Import/Export', 'Commerce'],
+  'trading': ['Import/Export', 'Commerce'],
+  'fret': ['Import/Export', 'Logistique'],
+  'freight': ['Import/Export', 'Logistique'],
+  'douane': ['Import/Export', 'Services'],
+  'custom': ['Import/Export', 'Services'],
+};
+
+// Reverse mapping: category -> keywords
+const REVERSE_CATEGORY_MAP: { [category: string]: string[] } = {};
+for (const [keyword, categories] of Object.entries(CATEGORY_KEYWORDS)) {
+  for (const cat of categories) {
+    if (!REVERSE_CATEGORY_MAP[cat]) {
+      REVERSE_CATEGORY_MAP[cat] = [];
+    }
+    if (!REVERSE_CATEGORY_MAP[cat].includes(keyword)) {
+      REVERSE_CATEGORY_MAP[cat].push(keyword);
+    }
+  }
+}
+
 /**
  * Check if a category is a service category (should be excluded from product search)
  */
@@ -385,6 +804,36 @@ function isServiceCategory(category: string | undefined): boolean {
   const catLower = category.toLowerCase().trim();
   return SERVICE_CATEGORIES.has(catLower) || 
          Array.from(SERVICE_CATEGORIES).some(sc => catLower.includes(sc));
+}
+
+/**
+ * Infer categories from search keywords using the knowledge base
+ * Returns an array of category names that match the keywords
+ */
+function inferCategoriesFromKeywords(keywords: string[]): string[] {
+  const inferredCategories = new Set<string>();
+  
+  for (const keyword of keywords) {
+    const keywordLower = keyword.toLowerCase();
+    
+    // Direct match in CATEGORY_KEYWORDS
+    if (CATEGORY_KEYWORDS[keywordLower]) {
+      for (const cat of CATEGORY_KEYWORDS[keywordLower]) {
+        inferredCategories.add(cat);
+      }
+    }
+    
+    // Partial match (keyword contains known term)
+    for (const [knownKeyword, categories] of Object.entries(CATEGORY_KEYWORDS)) {
+      if (keywordLower.includes(knownKeyword) || knownKeyword.includes(keywordLower)) {
+        for (const cat of categories) {
+          inferredCategories.add(cat);
+        }
+      }
+    }
+  }
+  
+  return Array.from(inferredCategories);
 }
 
 /**
@@ -406,7 +855,7 @@ function calculateSupplierRelevanceScore(
   const supplierDesc = (supplier.description || '').toLowerCase();
   const prodCat = (productCategory || '').toLowerCase();
   const prodName = productName.toLowerCase();
-  const prodDesc = (productDescription || '').toLowerCase();
+  // Note: prodDesc available for future use
   
   // 1. CATEGORY MATCH (Highest priority - 40 points)
   if (prodCat && supplierCategory) {
@@ -456,31 +905,118 @@ function calculateSupplierRelevanceScore(
   }
   
   // 4. VERIFIED/APPROVED BOOST (10 points)
-  if (supplier.verified && supplier.approved) {
-    score += 10;
-    matchDetails.push('verified_approved');
-  }
-  
-  // 5. RATING BOOST (up to 10 points based on rating)
-  if (supplier.rating && supplier.rating > 0) {
-    score += Math.min(supplier.rating * 2, 10);
-    matchDetails.push(`rating:${supplier.rating}`);
-  }
-  
-  return { score, matchDetails };
 }
 
+/**
+ * Enhanced keyword extraction with multi-word term support
+ * Extracts both individual words and compound terms
+ */
 function extractSearchKeywords(query: string): string[] {
   if (!query) return [];
+  
   const STOP_WORDS = new Set([
-    "a","an","the","and","or","of","for","to","in","on","avec","pour","de","des","du","la","le","les","un","une"
+    "a","an","the","and","or","of","for","to","in","on","avec","pour","de","des","du","la","le","les","un","une","et","ou","dans","sur","je","tu","il","elle","nous","vous","ils","elles"
   ]);
+  
   const normalized = query.toLowerCase().trim().replace(/\s+/g, " ");
-  const tokens = normalized.split(/[\s,;:\-|\/\(\)\[\]\{\}_\*\.]+/);
-  const keywords = tokens.filter(
+  
+  // Extract compound terms first (multi-word keywords from knowledge base)
+  const compoundKeywords: string[] = [];
+  const remainingText = normalized;
+  
+  // Sort compound terms by length (longest first) to match "dispositif médical" before "médical"
+  const compoundTerms = Object.keys(CATEGORY_KEYWORDS)
+    .filter(kw => kw.includes(' '))
+    .sort((a, b) => b.length - a.length);
+  
+  let workingText = remainingText;
+  for (const term of compoundTerms) {
+    if (workingText.includes(term)) {
+      compoundKeywords.push(term);
+      workingText = workingText.replace(term, ' ');
+    }
+  }
+  
+  // Extract individual tokens from remaining text
+  const tokens = workingText.split(/[\s,;:\-|\/\(\)\[\]\{\}_\*\.]+/);
+  const singleKeywords = tokens.filter(
     (t) => t.length > 1 && !STOP_WORDS.has(t) && !/^\d+$/.test(t)
   );
-  return [...new Set(keywords)];
+  
+  return [...new Set([...compoundKeywords, ...singleKeywords])];
+}
+
+/**
+ * Calculate product relevance score based on name, description, and inferred categories
+ */
+function calculateProductRelevanceScore(
+  product: any,
+  query: string,
+  keywords: string[],
+  inferredCategories: string[]
+): number {
+  let score = 0;
+  
+  const name = (product.name || "").toLowerCase();
+  const desc = (product.description || "").toLowerCase();
+  const prodCategory = (product.category || "").toLowerCase();
+  const fullQuery = query.toLowerCase().trim();
+  
+  // 1. EXACT NAME MATCH (highest priority)
+  if (name === fullQuery) {
+    score += 100;
+  } else if (name.includes(fullQuery)) {
+    score += 50;
+  }
+  
+  // 2. INDIVIDUAL KEYWORD MATCHES IN NAME/DESCRIPTION
+  for (const kw of keywords) {
+    if (kw.length < 2) continue;
+    
+    if (name.includes(kw)) {
+      score += 20;
+      // Bonus if keyword is at start of name
+      if (name.startsWith(kw)) score += 10;
+    }
+    if (desc.includes(kw)) {
+      score += 10;
+    }
+  }
+  
+  // 3. INFERRED CATEGORY MATCHING (major boost)
+  if (inferredCategories.length > 0 && prodCategory) {
+    for (const inferredCat of inferredCategories) {
+      const inferredCatLower = inferredCat.toLowerCase();
+      
+      // Exact category match
+      if (prodCategory === inferredCatLower) {
+        score += 60;
+      }
+      // Partial category match
+      else if (prodCategory.includes(inferredCatLower) || inferredCatLower.includes(prodCategory)) {
+        score += 40;
+      }
+      
+      // Check if product name contains keywords associated with inferred category
+      const relatedKeywords = REVERSE_CATEGORY_MAP[inferredCat] || [];
+      for (const relatedKw of relatedKeywords) {
+        if (name.includes(relatedKw.toLowerCase())) {
+          score += 15;
+        }
+      }
+    }
+  }
+  
+  // 4. KEYWORD MATCH IN PRODUCT KEYWORDS FIELD (if exists)
+  if (product.keywords && Array.isArray(product.keywords)) {
+    for (const kw of keywords) {
+      if (product.keywords.some((pk: string) => pk.toLowerCase().includes(kw))) {
+        score += 25;
+      }
+    }
+  }
+  
+  return score;
 }
 
 /**
@@ -508,13 +1044,18 @@ export const searchProducts = action({
 
     const hasQuery = !!(args.q && args.q.trim());
     const keywords = hasQuery ? extractSearchKeywords(args.q!) : [];
+    
+    // Infer categories from search keywords (e.g., "riz" -> ["Agroalimentaire", "Céréales"])
+    const inferredCategories = hasQuery ? inferCategoriesFromKeywords(keywords) : [];
 
     // Hard cap to keep memory bounded (applied inside internal query)
-    const RAW_LIMIT = 1000;
+    // Increased to 10000 to accommodate all products (7753 total)
+    const RAW_LIMIT = 10000;
     const rawProducts = await ctx.runQuery(
       internal.products._getProductsForSearchBase,
       {
         category: args.category,
+        inferredCategories: inferredCategories.length > 0 ? inferredCategories : undefined,
         limit: RAW_LIMIT,
       }
     );
@@ -538,32 +1079,27 @@ export const searchProducts = action({
       return true;
     });
 
-    // Text & price filters + relevance score
+    // Text & price filters + relevance score using enhanced category inference
     scored = scored.filter((p) => {
-      let score = 0;
+      // Calculate enhanced relevance score with category inference
+      const score = hasQuery 
+        ? calculateProductRelevanceScore(p, args.q!, keywords, inferredCategories)
+        : 0;
 
-      const name = (p.name || "").toLowerCase();
-      const desc = (p.description || "").toLowerCase();
-
-      if (hasQuery) {
-        const fullQuery = args.q!.toLowerCase().trim();
-        if (name.includes(fullQuery)) {
-          score += 40;
-        }
-        for (const kw of keywords) {
-          if (kw.length < 2) continue;
-          if (name.includes(kw)) score += 15;
-          if (desc.includes(kw)) score += 8;
-        }
-        // Drop products that don't match at all when a query is provided
-        if (score === 0) return false;
-      }
-
+      // Price filters
       if (args.minPrice !== undefined && p.price < (args.minPrice as number)) {
         return false;
       }
       if (args.maxPrice !== undefined && p.price > (args.maxPrice as number)) {
         return false;
+      }
+      
+      // For queries, require a minimum relevance score to filter out unrelated products
+      if (hasQuery) {
+        // Must have a meaningful match (name, description, category, or keywords)
+        if (score < 10) {
+          return false;
+        }
       }
 
       (p as ScoredProduct)._score = score;
@@ -572,16 +1108,18 @@ export const searchProducts = action({
 
     // Suppliers per CATEGORY (many products not linked directly)
     // Using improved scoring based on category + name/description matching
+    // Also include inferred categories from search keywords
     const categoryToSuppliers = new Map<string, any[]>();
+    const productCategories = scored
+      .map((p) => (p.category || "").toString())
+      .filter((c) => c && c.trim().length > 0);
+    
+    // Combine product categories with inferred categories for better supplier matching
     const categoriesForMapping = Array.from(
-      new Set(
-        scored
-          .map((p) => (p.category || "").toString())
-          .filter((c) => c && c.trim().length > 0)
-      )
+      new Set([...productCategories, ...inferredCategories])
     );
 
-    for (const cat of categoriesForMapping) {
+    for (const cat of categoriesForMapping as string[]) {
       try {
         const candidates = await ctx.runQuery(
           internal.suppliers._getSuppliersByCategory,

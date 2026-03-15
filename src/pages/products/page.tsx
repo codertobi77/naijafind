@@ -494,38 +494,73 @@ export default function ProductSearchPage() {
                   })}
                 </div>
 
-                {/* Pagination */}
+                {/* Pagination - Concise version with first/last and arrows */}
                 {totalPages > 1 && (
                   <div className="mt-8 flex justify-center">
-                    <div className="inline-flex items-center gap-1">
+                    <div className="inline-flex items-center gap-1 bg-white rounded-lg shadow-sm border border-gray-200 p-1">
+                      {/* First page */}
+                      <button
+                        onClick={() => setCurrentPage(0)}
+                        disabled={currentPage === 0}
+                        className="px-2 py-1.5 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={t('pagination.first')}
+                      >
+                        <i className="ri-skip-back-line" />
+                      </button>
+                      
+                      {/* Previous */}
                       <button
                         onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
                         disabled={currentPage === 0}
-                        className="px-2 py-1 rounded-lg text-gray-600 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="px-2 py-1.5 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={t('pagination.previous')}
                       >
-                        <i className="ri-arrow-left-line" />
+                        <i className="ri-arrow-left-s-line text-lg" />
                       </button>
-                      {Array.from({ length: totalPages }).map((_, index) => (
-                        <button
-                          key={index}
-                          onClick={() => setCurrentPage(index)}
-                          className={`px-3 py-1.5 rounded-lg text-sm ${
-                            currentPage === index
-                              ? 'bg-green-600 text-white'
-                              : 'text-gray-700 hover:bg-gray-100'
-                          }`}
-                        >
-                          {index + 1}
-                        </button>
-                      ))}
-                      <button
-                        onClick={() =>
-                          setCurrentPage((p) => Math.min(totalPages - 1, p + 1))
+
+                      {/* Page numbers - show max 5 pages */}
+                      {(() => {
+                        const maxVisible = 5;
+                        let start = Math.max(0, currentPage - Math.floor(maxVisible / 2));
+                        let end = Math.min(totalPages, start + maxVisible);
+                        
+                        if (end - start < maxVisible) {
+                          start = Math.max(0, end - maxVisible);
                         }
+                        
+                        return Array.from({ length: end - start }, (_, i) => start + i).map((pageNum) => (
+                          <button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`min-w-[2rem] px-2 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                              currentPage === pageNum
+                                ? 'bg-green-600 text-white'
+                                : 'text-gray-700 hover:bg-gray-100'
+                            }`}
+                          >
+                            {pageNum + 1}
+                          </button>
+                        ));
+                      })()}
+
+                      {/* Next */}
+                      <button
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
                         disabled={currentPage >= totalPages - 1}
-                        className="px-2 py-1 rounded-lg text-gray-600 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="px-2 py-1.5 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={t('pagination.next')}
                       >
-                        <i className="ri-arrow-right-line" />
+                        <i className="ri-arrow-right-s-line text-lg" />
+                      </button>
+                      
+                      {/* Last page */}
+                      <button
+                        onClick={() => setCurrentPage(totalPages - 1)}
+                        disabled={currentPage >= totalPages - 1}
+                        className="px-2 py-1.5 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={t('pagination.last')}
+                      >
+                        <i className="ri-skip-forward-line" />
                       </button>
                     </div>
                   </div>
