@@ -110,21 +110,23 @@ export const _getSuppliersByIds = internalQuery({
 });
 
 /**
- * Internal: Get products with search optimization
+ * Internal: Get products for search optimization
  * Uses indexes to minimize data read
+ * 
+ * IMPORTANT: Returns ALL products by default, regardless of isSearchable flag.
+ * The isSearchable filter is only applied when explicitly requested.
  */
 export const _getProductsForSearch = internalQuery({
   args: {
     category: v.optional(v.string()),
     status: v.optional(v.string()),
     limit: v.optional(v.number()),
-    isSearchable: v.optional(v.boolean()),
+    isSearchable: v.optional(v.boolean()), // Only filter if explicitly provided
   },
   handler: async (ctx, args) => {
     const limit = Math.min(args.limit ?? 500, 1000);
-    // Only filter by isSearchable if explicitly provided
-    const filterBySearchable = args.isSearchable !== undefined;
-    const searchable = args.isSearchable !== false; // Default to true if filtering
+    // Only filter by isSearchable if explicitly provided (not undefined)
+    const shouldFilterBySearchable = args.isSearchable !== undefined;
 
     let products: any[] = [];
 
@@ -135,29 +137,35 @@ export const _getProductsForSearch = internalQuery({
         .withIndex("status_category", (q) =>
           q.eq("status", args.status!).eq("category", args.category!)
         )
-        .filter((q) => filterBySearchable ? q.eq(q.field("isSearchable"), searchable) : true)
+        .filter((q) => 
+          shouldFilterBySearchable ? q.eq(q.field("isSearchable"), args.isSearchable!) : true
+        )
         .take(limit);
     } else if (args.category) {
       products = await ctx.db
         .query("products")
         .withIndex("category", (q) => q.eq("category", args.category!))
-        .filter((q) => filterBySearchable ? q.eq(q.field("isSearchable"), searchable) : true)
+        .filter((q) => 
+          shouldFilterBySearchable ? q.eq(q.field("isSearchable"), args.isSearchable!) : true
+        )
         .take(limit);
     } else if (args.status) {
       products = await ctx.db
         .query("products")
         .withIndex("status", (q) => q.eq("status", args.status!))
-        .filter((q) => filterBySearchable ? q.eq(q.field("isSearchable"), searchable) : true)
+        .filter((q) => 
+          shouldFilterBySearchable ? q.eq(q.field("isSearchable"), args.isSearchable!) : true
+        )
         .take(limit);
     } else {
-      // Use isSearchable index when no other filters
-      if (filterBySearchable) {
+      // No filters - fetch ALL products (no isSearchable filter by default)
+      if (shouldFilterBySearchable) {
         products = await ctx.db
           .query("products")
-          .withIndex("isSearchable", (q) => q.eq("isSearchable", searchable))
+          .withIndex("isSearchable", (q) => q.eq("isSearchable", args.isSearchable!))
           .take(limit);
       } else {
-        // No filters - fetch all active products
+        // Default behavior: return all products regardless of isSearchable
         products = await ctx.db.query("products").take(limit);
       }
     }
@@ -316,14 +324,15 @@ export const searchProductsMultilingual = action({
       : [];
 
     // Step 1: Get base products using indexed query
-    // Fetch products with isSearchable filter for better control
+    // IMPORTANT: Do NOT filter by isSearchable by default
+    // Only apply filters when explicitly provided by the user
     const rawProducts = await ctx.runQuery(
       internal.productSearch._getProductsForSearch,
       {
         category: args.category,
         status: "active",
         limit: 1000,
-        isSearchable: true, // Only show products marked as searchable
+        // isSearchable is intentionally omitted to show ALL products by default
       }
     );
 
