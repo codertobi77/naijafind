@@ -193,6 +193,7 @@ function SearchInputWithSuggestions({
   onAddRecentSearch?: (search: string) => void;
   onClearRecentSearches?: () => void;
 }) {
+  const { t } = useTranslation();
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<SuggestionItem[]>([]);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);

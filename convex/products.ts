@@ -1079,6 +1079,17 @@ export const searchProducts = action({
       return true;
     });
 
+    // FILTER BY NAME MATCH: Only show products whose name contains the search query
+    // This is applied AFTER the category pre-filter as an additional layer
+    if (hasQuery && args.q) {
+      const queryLower = args.q.toLowerCase().trim();
+      scored = scored.filter((p) => {
+        const name = (p.name || "").toLowerCase();
+        // Keep only products whose name contains the search query
+        return name.includes(queryLower);
+      });
+    }
+
     // Text & price filters + relevance score using enhanced category inference
     scored = scored.filter((p) => {
       // Calculate enhanced relevance score with category inference
