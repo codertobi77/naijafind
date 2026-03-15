@@ -1132,13 +1132,16 @@ export const searchProducts = action({
 
     for (const cat of categoriesForMapping as string[]) {
       try {
+        console.log(`Fetching suppliers for category: ${cat}`);
         const candidates = await ctx.runQuery(
           internal.suppliers._getSuppliersByCategory,
           { category: cat, limit: 50 }
         );
+        console.log(`Found ${candidates.length} candidates for category ${cat}`);
         if (candidates.length > 0) {
           // Filter out service category suppliers
           const productSuppliers = candidates.filter((s: any) => !isServiceCategory(s.category));
+          console.log(`After service filter: ${productSuppliers.length} suppliers for ${cat}`);
           
           if (productSuppliers.length > 0) {
             // Score and sort suppliers using the new relevance scoring
@@ -1185,12 +1188,18 @@ export const searchProducts = action({
     }
 
     // Attach suppliers snapshots (all potential suppliers for the product's category)
+    console.log(`Attaching suppliers to ${scored.length} products. Category map has ${categoryToSuppliers.size} categories`);
+    categoryToSuppliers.forEach((suppliers, cat) => {
+      console.log(`  Category "${cat}": ${suppliers.length} suppliers`);
+    });
+    
     scored = scored
       .map((p) => {
         const list =
           p.category && typeof p.category === "string"
             ? categoryToSuppliers.get(p.category) || []
             : [];
+        console.log(`Product "${p.name}" (category: ${p.category}): ${list.length} suppliers attached`);
         return { ...p, _suppliers: list } as ScoredProduct;
       })
       .filter((p) => {

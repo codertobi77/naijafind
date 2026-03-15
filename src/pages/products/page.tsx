@@ -605,6 +605,10 @@ export default function ProductSearchPage() {
               setRequestSubmitting(false);
             }
           }}
+          onCancelRequest={() => {
+            setShowRequestForm(false);
+            setRequestMessage('');
+          }}
         />
       )}
     </div>
@@ -622,6 +626,7 @@ function ProductDetailsModal({
   setRequestMessage,
   requestSubmitting,
   onRequestSubmit,
+  onCancelRequest,
 }: {
   product: ProductResult;
   isOpen: boolean;
@@ -632,6 +637,7 @@ function ProductDetailsModal({
   setRequestMessage: (msg: string) => void;
   requestSubmitting: boolean;
   onRequestSubmit: () => void;
+  onCancelRequest: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -689,7 +695,9 @@ function ProductDetailsModal({
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                 <i className="ri-store-2-line mr-2 text-green-600" />
-                {t('products.potential_suppliers_title')}
+                {product.category 
+                  ? t('products.suppliers_in_category', { category: product.category })
+                  : t('products.potential_suppliers_title')}
               </h3>
               <span className="text-sm text-gray-500">
                 {potentialSuppliers.length} {t('products.suppliers_found')}
@@ -800,10 +808,7 @@ function ProductDetailsModal({
                     )}
                   </button>
                   <button
-                    onClick={() => {
-                      setShowRequestForm(false);
-                      setRequestMessage('');
-                    }}
+                    onClick={onCancelRequest}
                     className="px-6 py-3 bg-white text-gray-700 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-all font-semibold"
                   >
                     {t('products.cancel')}

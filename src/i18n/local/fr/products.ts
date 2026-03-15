@@ -17,6 +17,7 @@ export const products = {
   "products.view_supplier": "Voir le fournisseur",
 
   "products.details_title": "Détails du produit",
+  "products.suppliers_in_category": "Fournisseurs de la catégorie {{category}}",
   "products.suppliers_found": "fournisseurs trouvés",
   "products.no_suppliers_found": "Aucun fournisseur trouvé pour ce produit. Vous pouvez demander à l'administrateur de rechercher des fournisseurs pour vous.",
   "products.request_supplier_search": "Demander une recherche de fournisseurs",
