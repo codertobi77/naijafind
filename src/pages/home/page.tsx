@@ -666,42 +666,29 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
         {/* Form Content - Minimal */}
         <div className="p-5">
           {activeTab === 'products' ? (
-            /* Products Tab - Search with product-focused suggestions + category */
+            /* Products Tab - Search with category field */
             <div className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <SearchInputWithSuggestions
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  placeholder={t('search.product_placeholder', 'Rechercher un produit...')}
-                  label=""
-                  icon="ri-search-line"
-                  type="search"
-                  recentSearches={recentSearches}
-                  onAddRecentSearch={onAddRecentSearch}
-                  onClearRecentSearches={onClearRecentSearches}
-                  suggestionPriority="product"
-                />
-                <FormSelect
-                  value={category}
-                  onChange={setCategory}
-                  options={[
-                    { value: '', label: t('search.all_categories', 'Toutes les catégories') },
-                    ...(categories?.map((cat) => ({ value: cat.name, label: cat.name })) || [])
-                  ]}
-                  placeholder={t('search.category_placeholder', 'Catégorie')}
-                  icon="ri-folder-3-line"
-                />
-              </div>
               <SearchInputWithSuggestions
-                value={searchLocation}
-                onChange={setSearchLocation}
-                placeholder={t('search.location_placeholder', 'Localisation')}
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder={t('search.product_placeholder', 'Rechercher un produit...')}
                 label=""
-                icon="ri-map-pin-line"
-                type="location"
-                recentSearches={recentLocations}
-                onAddRecentSearch={onAddRecentLocation}
-                onClearRecentSearches={onClearRecentLocations}
+                icon="ri-search-line"
+                type="search"
+                recentSearches={recentSearches}
+                onAddRecentSearch={onAddRecentSearch}
+                onClearRecentSearches={onClearRecentSearches}
+                suggestionPriority="product"
+              />
+              <FormSelect
+                value={category}
+                onChange={setCategory}
+                options={[
+                  { value: '', label: t('search.all_categories', 'Toutes les catégories') },
+                  ...(categories?.map((cat) => ({ value: cat.name, label: cat.name })) || [])
+                ]}
+                placeholder={t('search.category_placeholder', 'Catégorie')}
+                icon="ri-folder-3-line"
               />
             </div>
           ) : (
@@ -852,6 +839,9 @@ export default function Home() {
     message: '',
     icon: 'success' as 'success' | 'info' | 'warning'
   });
+
+  // Purchase request popup state - shows every time on site open
+  const [purchaseRequestModalOpen, setPurchaseRequestModalOpen] = useState(true);
 
   // Handle location state message
   useEffect(() => {
@@ -1388,6 +1378,86 @@ export default function Home() {
                 </p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Purchase Request Modal - Shows every time on site open */}
+      {purchaseRequestModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setPurchaseRequestModalOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                    <i className="ri-shopping-cart-2-line text-2xl"></i>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold">Demande d'achat</h3>
+                    <p className="text-green-100 text-sm">Trouvez les meilleurs fournisseurs</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setPurchaseRequestModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+                >
+                  <i className="ri-close-line text-lg"></i>
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-gray-600 mb-6">
+                Vous avez besoin de produits ou de services ? Faites une demande d'achat et recevez des propositions de nos fournisseurs vérifiés au Nigeria.
+              </p>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setPurchaseRequestModalOpen(false);
+                    navigate('/purchase-request');
+                  }}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-green-500 bg-green-50 hover:bg-green-100 transition-all group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i className="ri-file-list-3-line text-2xl"></i>
+                  </div>
+                  <div className="flex-1 text-left">
+                    <h4 className="font-semibold text-gray-900">Faire une demande</h4>
+                    <p className="text-sm text-gray-500">Décrivez vos besoins et recevez des devis</p>
+                  </div>
+                  <i className="ri-arrow-right-line text-green-600"></i>
+                </button>
+
+                <button
+                  onClick={() => setPurchaseRequestModalOpen(false)}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-gray-100 hover:border-gray-300 hover:bg-gray-50 transition-all group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-gray-100 text-gray-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i className="ri-search-line text-2xl"></i>
+                  </div>
+                  <div className="flex-1 text-left">
+                    <h4 className="font-semibold text-gray-900">Continuer la recherche</h4>
+                    <p className="text-sm text-gray-500">Explorer les fournisseurs disponibles</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 text-center">
+              <p className="text-xs text-gray-500">
+                Plus de 25,000 entreprises nigérianes disponibles
+              </p>
+            </div>
           </div>
         </div>
       )}
