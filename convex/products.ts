@@ -1213,57 +1213,56 @@ export const searchProducts = action({
     }
 
     // Attach suppliers snapshots (all potential suppliers for the product's category)
-<<<<<<< HEAD
     console.log(`Attaching suppliers to ${scored.length} products. Category map has ${categoryToSuppliers.size} categories`);
-    
+
     // Get all suppliers as fallback
     let allSuppliers: any[] = [];
     categoryToSuppliers.forEach((suppliers, cat) => {
       console.log(`  Category "${cat}": ${suppliers.length} suppliers`);
       allSuppliers.push(...suppliers);
     });
-=======
->>>>>>> 706dfa88e9d72ee9d9d7c8d23772f8c89538778a
-    
+
     // Remove duplicates from allSuppliers
-    const uniqueAllSuppliers = Array.from(new Map(allSuppliers.map(s => [s._id, s])).values());
+    const uniqueAllSuppliers = Array.from(
+      new Map(allSuppliers.map((s) => [s._id, s])).values()
+    );
     console.log(`Total unique suppliers across all categories: ${uniqueAllSuppliers.length}`);
-    
+
     scored = scored
       .map((p) => {
-<<<<<<< HEAD
         let list: any[] = [];
-        
-        // Try exact category match first (case-sensitive for exact match)
+
+        // Try exact category match first
         if (p.category && typeof p.category === "string") {
           list = categoryToSuppliers.get(p.category) || [];
-          
+
           // If no exact match, try case-insensitive match
           if (list.length === 0) {
             const prodCatLower = p.category.toLowerCase().trim();
             for (const [mapCat, suppliers] of categoryToSuppliers.entries()) {
               if (mapCat.toLowerCase().trim() === prodCatLower) {
                 list = suppliers;
-                console.log(`Case-insensitive match: "${p.category}" -> "${mapCat}" (${suppliers.length} suppliers)`);
+                console.log(
+                  `Case-insensitive match: "${p.category}" -> "${mapCat}" (${suppliers.length} suppliers)`
+                );
                 break;
               }
             }
           }
         }
-        
+
         // Fallback: if no suppliers for this category, show all suppliers
         if (list.length === 0 && uniqueAllSuppliers.length > 0) {
-          console.log(`No suppliers for category "${p.category}", using all ${uniqueAllSuppliers.length} suppliers as fallback`);
+          console.log(
+            `No suppliers for category "${p.category}", using all ${uniqueAllSuppliers.length} suppliers as fallback`
+          );
           list = uniqueAllSuppliers;
         }
-        
-        console.log(`Product "${p.name}" (category: ${p.category}): ${list.length} suppliers attached`);
-=======
-        const list =
-          p.category && typeof p.category === "string"
-            ? categoryToSuppliers.get(p.category) || []
-            : [];
->>>>>>> 706dfa88e9d72ee9d9d7c8d23772f8c89538778a
+
+        console.log(
+          `Product "${p.name}" (category: ${p.category}): ${list.length} suppliers attached`
+        );
+
         return { ...p, _suppliers: list } as ScoredProduct;
       })
       .filter((p) => {

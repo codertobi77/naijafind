@@ -192,6 +192,7 @@ function SearchInputWithSuggestions({
   recentSearches: string[];
   onAddRecentSearch?: (search: string) => void;
   onClearRecentSearches?: () => void;
+  suggestionPriority?: 'product' | 'supplier' | 'category';
 }) {
   const { t } = useTranslation();
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -400,7 +401,7 @@ function SearchInputWithSuggestions({
     );
   };
 
-  // Group suggestions by type for display
+  // Group suggestions by type for display - prioritize based on suggestionPriority
   const groupedSuggestions = filteredSuggestions.reduce((acc, item) => {
     if (!acc[item.type]) acc[item.type] = [];
     acc[item.type].push(item);
@@ -414,9 +415,15 @@ function SearchInputWithSuggestions({
     location: t('search.type.locations'),
   };
 
-  const typeOrder = type === 'location'
-    ? ['location']
-    : ['supplier', 'product', 'category'];
+  // Order types based on suggestionPriority prop
+  const getTypeOrder = () => {
+    if (type === 'location') return ['location'];
+    if (suggestionPriority === 'product') return ['product', 'category', 'supplier'];
+    if (suggestionPriority === 'supplier') return ['supplier', 'category', 'product'];
+    return ['product', 'supplier', 'category']; // default
+  };
+
+  const typeOrder = getTypeOrder();
 
   const showRecentSection = !value.trim() && recentSearches.length > 0 && !hasSearched;
   const showEmptyState = hasSearched && !isLoading && filteredSuggestions.length === 0 && value.trim().length > 0;
@@ -456,7 +463,7 @@ function SearchInputWithSuggestions({
       </div>
 
       {showSuggestions && (
-        <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
+        <div className="absolute z-50 w-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden" style={{ maxHeight: '400px' }}>
           {/* Loading state */}
           {isLoading && (
             <div className="px-4 py-6 flex items-center justify-center gap-2 text-gray-500">
@@ -532,7 +539,7 @@ function SearchInputWithSuggestions({
                 </span>
               </div>
 
-              <div className="max-h-80 overflow-y-auto">
+              <div className="max-h-60 overflow-y-auto">
                 {typeOrder.map((typeKey) => {
                   const items = groupedSuggestions[typeKey];
                   if (!items || items.length === 0) return null;
@@ -657,7 +664,7 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
         {/* Form Content - Minimal */}
         <div className="p-5">
           {activeTab === 'products' ? (
-            /* Products Tab - Single clean field */
+            /* Products Tab - Search with product-focused suggestions */
             <div>
               <SearchInputWithSuggestions
                 value={searchQuery}
@@ -669,22 +676,36 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
                 recentSearches={recentSearches}
                 onAddRecentSearch={onAddRecentSearch}
                 onClearRecentSearches={onClearRecentSearches}
+                suggestionPriority="product"
               />
             </div>
           ) : (
-            /* Suppliers Tab - Two fields side by side */
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <SearchInputWithSuggestions
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder={t('search.supplier_placeholder', 'Nom du fournisseur')}
-                label=""
-                icon="ri-building-4-line"
-                type="search"
-                recentSearches={recentSearches}
-                onAddRecentSearch={onAddRecentSearch}
-                onClearRecentSearches={onClearRecentSearches}
-              />
+            /* Suppliers Tab - Three fields: name, category, location */
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <SearchInputWithSuggestions
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder={t('search.supplier_placeholder', 'Nom du fournisseur')}
+                  label=""
+                  icon="ri-building-4-line"
+                  type="search"
+                  recentSearches={recentSearches}
+                  onAddRecentSearch={onAddRecentSearch}
+                  onClearRecentSearches={onClearRecentSearches}
+                  suggestionPriority="supplier"
+                />
+                <FormSelect
+                  value={category}
+                  onChange={setCategory}
+                  options={[
+                    { value: '', label: t('search.all_categories', 'Toutes les catégories') },
+                    ...(categories?.map((cat) => ({ value: cat.name, label: cat.name })) || [])
+                  ]}
+                  placeholder={t('search.category_placeholder', 'Catégorie')}
+                  icon="ri-folder-3-line"
+                />
+              </div>
               <SearchInputWithSuggestions
                 value={searchLocation}
                 onChange={setSearchLocation}
