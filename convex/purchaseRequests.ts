@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 
 /**
  * Create a new purchase request
- * Simplified version with 4 fields: description, quantity, budget, whatsapp
+ * Simplified version with image support
  */
 export const createPurchaseRequest = action({
   args: {
@@ -13,6 +13,7 @@ export const createPurchaseRequest = action({
     unit: v.string(),
     budget: v.optional(v.string()),
     whatsapp: v.string(),
+    image: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Apply rate limiting - max 3 requests per hour per phone/IP
@@ -34,13 +35,14 @@ export const createPurchaseRequest = action({
     
     const now = new Date().toISOString();
     
-    // Create purchase request with simplified fields
+    // Create purchase request with image
     const requestId = await ctx.db.insert("purchaseRequests", {
       description: args.description,
       quantity: args.quantity,
       unit: args.unit,
       budget: args.budget,
       whatsapp: args.whatsapp,
+      image: args.image,
       status: 'pending',
       userId: userId,
       createdAt: now,
@@ -258,9 +260,147 @@ export const submitQuote = mutation({
   }
 });
 
-// ==========================================
-// INTERNAL HELPERS
-// ==========================================
+/**
+ * Get all purchase requests (admin only)
+ */
+export const getAllPurchaseRequests = query({
+  args: {
+    status: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Non autorisé");
+    }
+    
+    // Check if user is admin
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", identity.email))
+      .first();
+    
+    if (!user?.is_admin) {
+      throw new Error("Accès refusé. Admin uniquement.");
+    }
+    
+    const limit = Math.min(args.limit ?? 100, 500);
+    
+    let requests;
+    if (args.status) {
+      requests = await ctx.db
+        .query("purchaseRequests")
+        .withIndex("status", (q) => q.eq("status", args.status))
+        .order("desc")
+        .take(limit);
+    } else {
+      requests = await ctx.db
+        .query("purchaseRequests")
+        .order("desc")
+        .take(limit);
+    }
+    
+    return requests;
+  },
+});
+
+/**
+ * Get purchase request statistics (admin only)
+ */
+export const getPurchaseRequestStats = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Non autorisé");
+    }
+    
+    // Check if user is admin
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", identity.email))
+      .first();
+    
+    if (!user?.is_admin) {
+      throw new Error("Accès refusé. Admin uniquement.");
+    }
+    
+    const allRequests = await ctx.db.query("purchaseRequests").collect();
+    
+    const pending = allRequests.filter(r => r.status === 'pending').length;
+    const contacted = allRequests.filter(r => r.status === 'contacted').length;
+    const quoted = allRequests.filter(r => r.status === 'quoted').length;
+    const completed = allRequests.filter(r => r.status === 'completed').length;
+    const cancelled = allRequests.filter(r => r.status === 'cancelled').length;
+    
+    // Get today's requests
+    const today = new Date().toISOString().split('T')[0];
+    const todayRequests = allRequests.filter(r => r.createdAt.startsWith(today)).length;
+    
+    return {
+      total: allRequests.length,
+      pending,
+      contacted,
+      quoted,
+      completed,
+      cancelled,
+      todayRequests,
+    };
+  },
+});
+
+/**
+ * Update purchase request status with notes (admin only)
+ */
+export const updatePurchaseRequestStatusAdmin = mutation({
+  args: {
+    id: v.id("purchaseRequests"),
+    status: v.string(),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Non autorisé");
+    }
+    
+    // Check if user is admin
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", identity.email))
+      .first();
+    
+    if (!user?.is_admin) {
+      throw new Error("Accès refusé. Admin uniquement.");
+    }
+    
+    const request = await ctx.db.get(args.id);
+    if (!request) {
+      throw new Error("Demande non trouvée");
+    }
+    
+    const now = new Date().toISOString();
+    
+    await ctx.db.patch(args.id, {
+      status: args.status,
+      updatedAt: now,
+    });
+    
+    // Notify the requester
+    await ctx.db.insert("notifications", {
+      userId: request.userId,
+      type: 'purchase_request_update',
+      title: 'Mise à jour de votre demande',
+      message: `Votre demande a été mise à jour: ${args.status}${args.notes ? ` - ${args.notes}` : ''}`,
+      data: { requestId: args.id, status: args.status, notes: args.notes },
+      read: false,
+      actionUrl: `/dashboard/purchase-requests/${args.id}`,
+      createdAt: now,
+    });
+    
+    return { success: true };
+  },
+});
 
 /**
  * Internal: Find matching suppliers for a purchase request

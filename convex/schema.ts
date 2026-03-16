@@ -402,6 +402,20 @@ export default defineSchema({
     .index("status", ["status"])
     .index("createdAt", ["createdAt"]),
 
+  // Supplier Search Tracking: Track what users are searching for
+  supplierSearches: defineTable({
+    query: v.string(),
+    category: v.optional(v.string()),
+    location: v.optional(v.string()),
+    userId: v.optional(v.string()),
+    ipAddress: v.optional(v.string()),
+    resultsCount: v.number(),
+    createdAt: v.string(),
+  })
+    .index("createdAt", ["createdAt"])
+    .index("query", ["query"])
+    .index("userId", ["userId"]),
+
   // Quotes: Supplier quotes for purchase requests
   quotes: defineTable({
     requestId: v.id("purchaseRequests"),

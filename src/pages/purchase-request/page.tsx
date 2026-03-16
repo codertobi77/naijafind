@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Header } from '../../components/base';
-import { Package, DollarSign, FileText, Send, ChevronDown, MessageCircle } from 'lucide-react';
+import { Package, DollarSign, FileText, Send, ChevronDown, MessageCircle, Upload, X } from 'lucide-react';
 
 // Quantity units - now internationalized
 const getQuantityUnits = (t: (key: string) => string) => [
@@ -31,6 +31,9 @@ export default function PurchaseRequestPage() {
     budget: '',
     whatsapp: '',
   });
+  
+  const [image, setImage] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -69,6 +72,7 @@ export default function PurchaseRequestPage() {
         unit: formData.unit,
         budget: formData.budget || undefined,
         whatsapp: formData.whatsapp,
+        image: image || undefined,
       });
       
       if (result.success) {
@@ -181,6 +185,70 @@ export default function PurchaseRequestPage() {
               />
               {errors.description && (
                 <p className="text-red-500 text-sm mt-1">{errors.description}</p>
+              )}
+            </div>
+
+            {/* Product Image Upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Upload className="w-4 h-4 text-green-600" />
+                {t('purchase_request.image', 'Photo du produit (optionnel)')}
+              </label>
+              {imagePreview ? (
+                <div className="relative w-full h-48 rounded-lg overflow-hidden border border-gray-200">
+                  <img 
+                    src={imagePreview} 
+                    alt="Preview" 
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImage(null);
+                      setImagePreview(null);
+                    }}
+                    className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          alert('L\'image ne doit pas dépasser 5 Mo');
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          const result = reader.result as string;
+                          setImage(result);
+                          setImagePreview(result);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="hidden"
+                    id="image-upload"
+                  />
+                  <label
+                    htmlFor="image-upload"
+                    className="flex flex-col items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-gray-300 border-dashed rounded-lg appearance-none cursor-pointer hover:border-green-500 focus:outline-none"
+                  >
+                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-500">
+                      {t('purchase_request.upload_image', 'Cliquez pour ajouter une photo')}
+                    </span>
+                    <span className="text-xs text-gray-400 mt-1">
+                      {t('purchase_request.image_max_size', 'Max 5 Mo')}
+                    </span>
+                  </label>
+                </div>
               )}
             </div>
 
