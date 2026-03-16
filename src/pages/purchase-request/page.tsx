@@ -134,36 +134,36 @@ export default function PurchaseRequestPage() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50">
       <Header />
       
-      {/* Hero Section */}
+      {/* Hero Section - Reduced height for better proportions */}
       <div 
-        className="relative py-16 sm:py-20"
+        className="relative py-10 sm:py-12"
         style={{
-          backgroundImage: 'linear-gradient(to bottom, rgba(0,0,0,0.5), rgba(0,0,0,0.6)), url(https://readdy.ai/api/search-image?query=African%20business%20meeting%20handshake%20professional%20warehouse%20modern%20commerce%20Nigeria%20trading%20deal%20agreement%20suppliers%20b2b%20partnership&width=1200&height=400&seq=purchase-hero&orientation=landscape)',
+          backgroundImage: 'linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0.5)), url(https://readdy.ai/api/search-image?query=African%20business%20meeting%20handshake%20professional%20warehouse%20modern%20commerce%20Nigeria%20trading%20deal%20agreement%20suppliers%20b2b%20partnership&width=1200&height=300&seq=purchase-hero&orientation=landscape)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
       >
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
             {t('purchase_request.title', 'Publiez une demande d\'achat')}
           </h1>
-          <p className="text-lg text-white/90 max-w-2xl mx-auto">
+          <p className="text-base text-white/90 max-w-2xl mx-auto">
             {t('purchase_request.subtitle', 'Recevez rapidement des propositions de fournisseurs qualifiés.')}
           </p>
         </div>
       </div>
 
-      {/* Form Section */}
-      <div className="max-w-3xl mx-auto px-4 -mt-8 pb-16">
+      {/* Form Section - Better spacing without overlap */}
+      <div className="max-w-3xl mx-auto px-4 py-8 pb-16">
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          {/* Form Header */}
-          <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-            <p className="text-gray-600 text-center">
+          {/* Form Header - Better contrast and spacing */}
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-5 border-b border-green-100">
+            <p className="text-gray-700 text-center text-sm sm:text-base font-medium">
               {t('purchase_request.form_header', 'Remplissez le formulaire ci-dessous et obtenez des offres des meilleurs fournisseurs')}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
+          <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5">
             {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
