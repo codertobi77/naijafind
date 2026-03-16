@@ -456,7 +456,7 @@ export default function AdminPage(){
   const { t } = useTranslation();
   const { formatCurrency } = useCurrency();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications' | 'import' | 'productImport' | 'adBanners' | 'claims'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications' | 'import' | 'productImport' | 'adBanners' | 'claims' | 'purchaseRequests'>('overview');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -593,7 +593,18 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
     {},
     { staleTime: 2 * 60 * 1000 }
   );
-  const sendAdminNotification = useMutation(api.notifications.sendAdminNotification);
+  // Purchase Requests data
+  const { data: purchaseRequests, refetch: refetchPurchaseRequests } = useConvexQuery(
+    api.purchaseRequests.getAllPurchaseRequests,
+    { limit: 100 },
+    { staleTime: 30 * 1000 }
+  );
+  const { data: purchaseRequestStats } = useConvexQuery(
+    api.purchaseRequests.getPurchaseRequestStats,
+    {},
+    { staleTime: 30 * 1000 }
+  );
+  const updatePurchaseRequestStatus = useMutation(api.purchaseRequests.updatePurchaseRequestStatusAdmin);
   const sendBulkNotification = useMutation(api.notifications.sendBulkNotification);
 
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -1973,6 +1984,178 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
         return <AdBannerManager />;
       case 'claims':
         return <SupplierClaimsManager />;
+      case 'purchaseRequests':
+        return (
+          <div className="space-y-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Demandes d'achat
+                </h2>
+                <p className="mt-1 text-gray-600">
+                  Gérez les demandes d'achat des clients
+                </p>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+              <StatCard
+                label="Total"
+                value={purchaseRequestStats?.total || 0}
+                icon="ri-shopping-cart-line"
+                iconColor="text-blue-600"
+                iconBg="bg-blue-100"
+              />
+              <StatCard
+                label="En attente"
+                value={purchaseRequestStats?.pending || 0}
+                icon="ri-time-line"
+                iconColor="text-yellow-600"
+                iconBg="bg-yellow-100"
+              />
+              <StatCard
+                label="Contactés"
+                value={purchaseRequestStats?.contacted || 0}
+                icon="ri-phone-line"
+                iconColor="text-purple-600"
+                iconBg="bg-purple-100"
+              />
+              <StatCard
+                label="Devis reçus"
+                value={purchaseRequestStats?.quoted || 0}
+                icon="ri-file-list-line"
+                iconColor="text-indigo-600"
+                iconBg="bg-indigo-100"
+              />
+              <StatCard
+                label="Terminés"
+                value={purchaseRequestStats?.completed || 0}
+                icon="ri-check-line"
+                iconColor="text-green-600"
+                iconBg="bg-green-100"
+              />
+              <StatCard
+                label="Aujourd'hui"
+                value={purchaseRequestStats?.todayRequests || 0}
+                icon="ri-calendar-line"
+                iconColor="text-orange-600"
+                iconBg="bg-orange-100"
+              />
+            </div>
+
+            {/* Purchase Requests Table */}
+            <div className="bg-white rounded-lg border p-6">
+              <h3 className="font-semibold mb-4">Toutes les demandes</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">Date</th>
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">Description</th>
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">Quantité</th>
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">Budget</th>
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">WhatsApp</th>
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">Statut</th>
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">Image</th>
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {purchaseRequests && purchaseRequests.length > 0 ? (
+                      purchaseRequests.map((request: any) => (
+                        <tr key={request._id} className="border-b hover:bg-gray-50">
+                          <td className="px-2 py-3">
+                            {new Date(request.createdAt).toLocaleDateString('fr-FR')}
+                          </td>
+                          <td className="px-2 py-3 font-medium max-w-xs truncate">
+                            {request.description}
+                          </td>
+                          <td className="px-2 py-3">
+                            {request.quantity} {request.unit}
+                          </td>
+                          <td className="px-2 py-3">
+                            {request.budget || '-'}
+                          </td>
+                          <td className="px-2 py-3">
+                            <a 
+                              href={`https://wa.me/${request.whatsapp.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-green-600 hover:underline"
+                            >
+                              {request.whatsapp}
+                            </a>
+                          </td>
+                          <td className="px-2 py-3">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              request.status === 'contacted' ? 'bg-blue-100 text-blue-800' :
+                              request.status === 'quoted' ? 'bg-purple-100 text-purple-800' :
+                              request.status === 'completed' ? 'bg-green-100 text-green-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {request.status === 'pending' ? 'En attente' :
+                               request.status === 'contacted' ? 'Contacté' :
+                               request.status === 'quoted' ? 'Devis reçu' :
+                               request.status === 'completed' ? 'Terminé' :
+                               request.status}
+                            </span>
+                          </td>
+                          <td className="px-2 py-3">
+                            {request.image ? (
+                              <a 
+                                href={request.image}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline text-xs"
+                              >
+                                Voir l'image
+                              </a>
+                            ) : (
+                              '-'
+                            )}
+                          </td>
+                          <td className="px-2 py-3">
+                            <select
+                              value={request.status}
+                              onChange={async (e) => {
+                                try {
+                                  await updatePurchaseRequestStatus({
+                                    id: request._id,
+                                    status: e.target.value,
+                                    notes: `Statut mis à jour par l'admin`
+                                  });
+                                  refetchPurchaseRequests();
+                                  showToast('success', 'Statut mis à jour');
+                                } catch (error: any) {
+                                  showToast('error', error.message || 'Erreur lors de la mise à jour');
+                                }
+                              }}
+                              className="text-xs px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-green-500"
+                            >
+                              <option value="pending">En attente</option>
+                              <option value="contacted">Contacté</option>
+                              <option value="quoted">Devis reçu</option>
+                              <option value="completed">Terminé</option>
+                              <option value="cancelled">Annulé</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={8} className="text-center text-gray-400 p-4">
+                          Aucune demande d'achat
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
       default:
         return null;
     }
@@ -2773,6 +2956,18 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
               >
                 <i className="ri-shield-user-line text-lg" />
                 {!sidebarCollapsed && <span className="font-medium">{t('claims.sidebar.menu')}</span>}
+              </button>
+              <button
+                onClick={() => { setActiveTab('purchaseRequests'); setSidebarOpen(false); }}
+                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                  activeTab === 'purchaseRequests'
+                    ? 'bg-green-600 text-white shadow'
+                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
+                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
+                title={sidebarCollapsed ? 'Demandes d\'achat' : undefined}
+              >
+                <i className="ri-shopping-cart-line text-lg" />
+                {!sidebarCollapsed && <span className="font-medium">Demandes d'achat</span>}
               </button>
             </div>
           </nav>
