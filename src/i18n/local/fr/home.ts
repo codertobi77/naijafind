@@ -5,7 +5,7 @@ export const home = {
   "hero.search_placeholder": "Recherche des produits, services ou entreprises",
   "hero.location_placeholder": "Votre localisation",
   "hero.cta": "Rechercher maintenant",
-  "hero.badge_trusted": "Approuvé par plus de 25 000 entreprises nigérianes",
+  "hero.badge_trusted": "Accédez à plus de {{count, number}} entreprises nigérianes",
 
   // Stats section
   "stats.suppliers": "Fournisseurs",

@@ -83,7 +83,7 @@ export const search = {
   "search.type.products": "Produits",
   "search.type.categories": "Catégories",
   "search.type.locations": "Lieux",
-  "search.results_count": "résultat{{plural}}",
+  "search.results_count": "résultat{{count, plural, one {} other {s}}}",
   "search.try_other_terms": "Essayez avec d'autres termes",
   "search.recent_searches": "Recherches récentes",
   "search.clear": "Effacer",

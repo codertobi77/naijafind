@@ -157,6 +157,7 @@ interface SearchHeroProps {
   onAddRecentLocation: (location: string) => void;
   onClearRecentSearches: () => void;
   onClearRecentLocations: () => void;
+  supplierCount?: number;
 }
 
 
@@ -621,7 +622,7 @@ function SearchInputWithSuggestions({
   );
 }
 
-function SearchHero({ t, searchQuery, searchLocation, category, categories, setSearchQuery, setSearchLocation, setCategory, onSearch, recentSearches, recentLocations, onAddRecentSearch, onAddRecentLocation, onClearRecentSearches, onClearRecentLocations }: SearchHeroProps) {
+function SearchHero({ t, searchQuery, searchLocation, category, categories, setSearchQuery, setSearchLocation, setCategory, onSearch, recentSearches, recentLocations, onAddRecentSearch, onAddRecentLocation, onClearRecentSearches, onClearRecentLocations, supplierCount }: SearchHeroProps) {
   const [activeTab, setActiveTab] = useState<'products' | 'suppliers'>('products');
 
   return (
@@ -629,7 +630,7 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
       backgroundImage="https://readdy.ai/api/search-image?query=Modern%20Nigerian%20marketplace%20with%20vendors%20selling%20colorful%20products%2C%20bustling%20commercial%20district%20in%20Lagos%20with%20traditional%20and%20modern%20buildings%2C%20vibrant%20street%20scene%20with%20people%20shopping%2C%20warm%20golden%20lighting%2C%20professional%20photography%20style%2C%20clean%20organized%20market%20stalls&width=1200&height=600&seq=hero-nigeria&orientation=landscape"
       backgroundGradient="from-black/60 via-black/50 to-black/40"
       showBadge={true}
-      badgeText={t('hero.badge_trusted', 'Plateforme B2B de confiance')}
+      badgeText={t('hero.badge_trusted', { count: supplierCount || 25000 })}
       badgeIcon=""
       title={t('hero.title', 'Trouvez les meilleurs fournisseurs au Nigeria')}
       subtitle={t('hero.subtitle', 'Découvrez et contactez directement des entreprises selon vos critères.')}
@@ -723,7 +724,10 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
 
           {/* Search Button - Clean */}
           <button
-            onClick={() => onSearch(activeTab)}
+            onClick={() => {
+              setShowSuggestions(false);
+              onSearch(activeTab);
+            }}
             className="w-full mt-4 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 hover:shadow-md transition-all duration-200 font-medium flex items-center justify-center gap-2"
           >
             <i className="ri-search-line"></i>
@@ -796,6 +800,13 @@ export default function Home() {
   const { data: homepageBanners } = useConvexQuery(
     api.adBanners.getActiveBannersByPosition,
     { position: 'homepage_top' },
+    { staleTime: 5 * 60 * 1000 }
+  );
+
+  // Fetch homepage stats for supplier count
+  const { data: homepageStats } = useConvexQuery(
+    api.statsOptimized.getHomepageStats,
+    {},
     { staleTime: 5 * 60 * 1000 }
   );
 
@@ -921,6 +932,7 @@ export default function Home() {
         onAddRecentLocation={onAddRecentLocation}
         onClearRecentSearches={onClearRecentSearches}
         onClearRecentLocations={onClearRecentLocations}
+        supplierCount={homepageStats?.totalSuppliers}
       />
 
       {/* Stats Section */}
