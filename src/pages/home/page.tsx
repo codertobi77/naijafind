@@ -182,6 +182,7 @@ function SearchInputWithSuggestions({
   recentSearches,
   onAddRecentSearch,
   onClearRecentSearches,
+  suggestionPriority,
 }: {
   value: string;
   onChange: (value: string) => void;
