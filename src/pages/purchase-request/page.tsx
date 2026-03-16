@@ -253,7 +253,7 @@ export default function PurchaseRequestPage() {
             </div>
 
             {/* Quantity & Budget Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               {/* Quantity */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
@@ -266,21 +266,21 @@ export default function PurchaseRequestPage() {
                     value={formData.quantity}
                     onChange={(e) => handleChange('quantity', e.target.value)}
                     placeholder="50"
-                    className={`flex-1 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
+                    className={`flex-1 min-w-0 px-3 sm:px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm sm:text-base ${
                       errors.quantity ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
-                  <div className="relative">
+                  <div className="relative flex-shrink-0">
                     <select
                       value={formData.unit}
                       onChange={(e) => handleChange('unit', e.target.value)}
-                      className="appearance-none px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white min-w-[110px] text-sm"
+                      className="appearance-none w-[90px] sm:w-[100px] px-2 sm:px-3 py-3 pr-8 sm:pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white text-sm"
                     >
                       {getQuantityUnits(t).map(unit => (
                         <option key={unit.value} value={unit.value}>{unit.label}</option>
                       ))}
                     </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                    <ChevronDown className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
                   </div>
                 </div>
                 {errors.quantity && (
@@ -299,7 +299,7 @@ export default function PurchaseRequestPage() {
                   value={formData.budget}
                   onChange={(e) => handleChange('budget', e.target.value)}
                   placeholder={t('purchase_request.budget_placeholder', 'Ex: 5000 €')}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                  className="w-full px-3 sm:px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm sm:text-base"
                 />
               </div>
             </div>
