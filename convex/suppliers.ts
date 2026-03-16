@@ -313,45 +313,57 @@ function calculateRelevanceScore(
   targetCategories: Set<string>,
   matchingProducts: any[]
 ): { score: number; matchDetails: string[] } {
+  if (!supplier || typeof supplier !== "object") {
+    return { score: 0, matchDetails: [] };
+  }
+
   let score = 0;
   const matchDetails: string[] = [];
-  const supplierCategory = (supplier.category || '').toLowerCase();
-  const supplierName = (supplier.business_name || '').toLowerCase();
-  const supplierDesc = (supplier.description || '').toLowerCase();
-  
-  // 1. CATEGORY MATCH (Highest priority - 50 points)
-  if (targetCategories.size > 0) {
-    const categoryMatch = Array.from(targetCategories).some(targetCat => 
-      supplierCategory === targetCat || 
-      supplierCategory.includes(targetCat) ||
-      targetCat.includes(supplierCategory)
-    );
+
+  const supplierCategory = String(supplier.category || "").toLowerCase();
+  const supplierName = String(supplier.business_name || "").toLowerCase();
+  const supplierDesc = String(supplier.description || "").toLowerCase();
+
+  const safeKeywords = Array.isArray(keywords) ? keywords : [];
+  const safeMatchingProducts = Array.isArray(matchingProducts) ? matchingProducts : [];
+  const safeTargetCategories = Array.from(targetCategories).filter(
+    (cat): cat is string => typeof cat === "string" && cat.trim().length > 0
+  );
+
+  if (safeTargetCategories.length > 0) {
+    const categoryMatch = safeTargetCategories.some((targetCat) => {
+      const normalized = targetCat.toLowerCase();
+      return (
+        supplierCategory === normalized ||
+        supplierCategory.includes(normalized) ||
+        normalized.includes(supplierCategory)
+      );
+    });
+
     if (categoryMatch) {
       score += 50;
-      matchDetails.push('category');
+      matchDetails.push("category");
     }
   }
-  
-  // 2. PRODUCT NAME/DESCRIPTION KEYWORD MATCH (30 points each keyword)
-  const bigrams = extractNGrams(keywords, 2);
-  const trigrams = extractNGrams(keywords, 3);
-  
-  for (const product of matchingProducts) {
-    const productName = (product.name || '').toLowerCase();
-    const productDesc = (product.description || '').toLowerCase();
-    
-    // Bigram matching in product name (high value)
+
+  const bigrams = extractNGrams(safeKeywords, 2);
+
+  for (const product of safeMatchingProducts) {
+    if (!product || typeof product !== "object") continue;
+
+    const productName = String(product.name || "").toLowerCase();
+    const productDesc = String(product.description || "").toLowerCase();
+
     for (const bigram of bigrams) {
       if (productName.includes(bigram)) {
         score += 30;
         matchDetails.push(`product_bigram:${bigram}`);
       }
     }
-    
-    // Single keyword matching
-    for (const keyword of keywords) {
-      if (keyword.length < 3) continue; // Skip short keywords
-      
+
+    for (const keyword of safeKeywords) {
+      if (!keyword || keyword.length < 3) continue;
+
       if (productName.includes(keyword)) {
         score += 20;
         matchDetails.push(`product_keyword:${keyword}`);
@@ -362,34 +374,27 @@ function calculateRelevanceScore(
       }
     }
   }
-  
-  // 3. SUPPLIER NAME MATCH (20 points each keyword)
-  for (const keyword of keywords) {
-    if (keyword.length < 3) continue;
-    
+
+  for (const keyword of safeKeywords) {
+    if (!keyword || keyword.length < 3) continue;
+
     if (supplierName.includes(keyword)) {
       score += 20;
       matchDetails.push(`supplier_name:${keyword}`);
     }
-  }
-  
-  // 4. SUPPLIER DESCRIPTION MATCH (10 points each keyword)
-  for (const keyword of keywords) {
-    if (keyword.length < 3) continue;
-    
+
     if (supplierDesc.includes(keyword)) {
       score += 10;
       matchDetails.push(`supplier_desc:${keyword}`);
     }
   }
-  
-  // 5. BOOST for exact phrase match in supplier name
-  const searchPhrase = keywords.join(' ');
-  if (supplierName.includes(searchPhrase)) {
+
+  const searchPhrase = safeKeywords.join(" ").trim();
+  if (searchPhrase && supplierName.includes(searchPhrase)) {
     score += 40;
-    matchDetails.push('exact_name_match');
+    matchDetails.push("exact_name_match");
   }
-  
+
   return { score, matchDetails };
 }
 
@@ -660,32 +665,40 @@ export const _getSuppliersByCategory = internalQuery({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const category = args.category?.trim();
+    if (!category) return [];
+
     const limit = Math.min(args.limit ?? 2000, 2000);
-    
-    // First try: exact match with the category index
+
     let suppliers = await ctx.db
       .query("suppliers")
-      .withIndex("approved_category", (q) => 
-        q.eq("approved", true).eq("category", args.category)
+      .withIndex("approved_category", (q) =>
+        q.eq("approved", true).eq("category", category)
       )
       .take(limit);
-    
-    // Second try: case-insensitive fallback if no results
+
     if (suppliers.length === 0) {
-      const categoryLower = args.category.toLowerCase();
+      const categoryLower = category.toLowerCase();
       const allSuppliers = await ctx.db
         .query("suppliers")
         .withIndex("approved", (q) => q.eq("approved", true))
         .take(limit * 2);
-      
-      suppliers = allSuppliers.filter(s => 
-        s.category?.toLowerCase() === categoryLower ||
-        s.category?.toLowerCase().includes(categoryLower) ||
-        categoryLower.includes(s.category?.toLowerCase() || '')
-      ).slice(0, limit);
+
+      suppliers = allSuppliers
+        .filter((s) => {
+          const supplierCategory = s.category?.toLowerCase().trim();
+          if (!supplierCategory) return false;
+
+          return (
+            supplierCategory === categoryLower ||
+            supplierCategory.includes(categoryLower) ||
+            categoryLower.includes(supplierCategory)
+          );
+        })
+        .slice(0, limit);
     }
-    
-    return suppliers.map(s => ({
+
+    return suppliers.map((s) => ({
       _id: s._id,
       business_name: s.business_name,
       description: s.description,
@@ -705,6 +718,31 @@ export const _getSuppliersByCategory = internalQuery({
       phone: s.phone,
       email: s.email,
     }));
+  }
+});
+
+/**
+ * Internal query: Get all unique supplier categories from approved suppliers
+ * MEMORY OPTIMIZED: Aggregates categories efficiently
+ */
+export const _getAllSupplierCategories = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    // Get all approved suppliers and extract unique categories
+    const suppliers = await ctx.db
+      .query("suppliers")
+      .withIndex("approved", (q) => q.eq("approved", true))
+      .take(5000);
+    
+    // Extract unique non-empty categories
+    const categories = new Set<string>();
+    for (const s of suppliers) {
+      if (s.category && s.category.trim().length > 0) {
+        categories.add(s.category.trim());
+      }
+    }
+    
+    return Array.from(categories);
   },
 });
 
@@ -895,45 +933,69 @@ export const searchSuppliers = action({
       // ==========================================
       // PHASE 2: SUPPLIER FETCHING BY CATEGORY
       // ==========================================
-      
+
       if (targetCategories.size > 0) {
-        // Fetch suppliers for each target category using index
         const categoryResults: any[] = [];
-        
-        for (const targetCat of targetCategories) {
-          // Use index-based query for each category (max 500 per category)
-          const catSuppliers = await ctx.runQuery(internal.suppliers._getSuppliersByCategory, {
-            category: targetCat,
-            limit: 500
-          });
-          categoryResults.push(...catSuppliers);
-        }
-        
-        // Remove duplicates (supplier might be in multiple category queries)
-        const uniqueSuppliers = new Map();
-        categoryResults.forEach((s: any) => {
-          if (!uniqueSuppliers.has(s._id)) {
-            uniqueSuppliers.set(s._id, s);
+
+        // Normaliser + filtrer les catégories invalides
+        const safeTargetCategories = Array.from(targetCategories)
+          .filter((cat): cat is string => typeof cat === "string")
+          .map(cat => cat.trim())
+          .filter(cat => cat.length > 0);
+
+        for (const targetCat of safeTargetCategories) {
+          try {
+            const catSuppliers = await ctx.runQuery(
+              internal.suppliers._getSuppliersByCategory,
+              {
+                category: targetCat,
+                limit: 500,
+              }
+            );
+
+            if (Array.isArray(catSuppliers) && catSuppliers.length > 0) {
+              categoryResults.push(
+                ...catSuppliers.filter(
+                  (s: any) => s && s._id && typeof s.business_name !== "undefined"
+                )
+              );
+            }
+          } catch (error) {
+            console.error(`Error fetching suppliers for category "${targetCat}":`, error);
           }
-        });
-        
-        // Calculate relevance scores
-        scoredSuppliers = Array.from(uniqueSuppliers.values()).map((supplier: any) => {
-          const { score, matchDetails } = calculateRelevanceScore(
-            supplier,
-            keywords,
-            targetCategories,
-            matchingProducts
-          );
-          return {
-            ...supplier,
-            _score: score,
-            _matchDetails: matchDetails,
-          };
-        });
-        
-        // Filter out zero scores
-        scoredSuppliers = scoredSuppliers.filter(s => s._score > 0);
+        }
+
+        // Remove duplicates safely
+        const uniqueSuppliers = new Map<string, any>();
+        for (const supplier of categoryResults) {
+          if (!supplier || !supplier._id) continue;
+          const key = String(supplier._id);
+          if (!uniqueSuppliers.has(key)) {
+            uniqueSuppliers.set(key, supplier);
+          }
+        }
+
+        // Calculate relevance scores safely
+        scoredSuppliers = Array.from(uniqueSuppliers.values())
+          .filter((supplier: any) => supplier && typeof supplier === "object")
+          .map((supplier: any) => {
+            const relevance =
+              calculateRelevanceScore(
+                supplier,
+                keywords,
+                new Set(safeTargetCategories),
+                Array.isArray(matchingProducts) ? matchingProducts : []
+              ) ?? { score: 0, matchDetails: [] };
+
+            return {
+              ...supplier,
+              _score: relevance.score ?? 0,
+              _matchDetails: Array.isArray(relevance.matchDetails)
+                ? relevance.matchDetails
+                : [],
+            };
+          })
+          .filter((s: any) => s._score > 0);
       }
       
       // ==========================================

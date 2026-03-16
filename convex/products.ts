@@ -1117,18 +1117,24 @@ export const searchProducts = action({
       return true;
     }) as ScoredProduct[];
 
-    // Suppliers per CATEGORY (many products not linked directly)
-    // Using improved scoring based on category + name/description matching
-    // Also include inferred categories from search keywords
+    // Suppliers per CATEGORY - fetch ALL supplier categories as fallback
     const categoryToSuppliers = new Map<string, any[]>();
+    
+    // First, get all unique supplier categories from the database
+    const allSupplierCategories = await ctx.runQuery(
+      internal.suppliers._getAllSupplierCategories
+    );
+    console.log(`Found ${allSupplierCategories.length} unique supplier categories in database`);
+    
+    // Combine product categories with all supplier categories for maximum coverage
     const productCategories = scored
       .map((p) => (p.category || "").toString())
       .filter((c) => c && c.trim().length > 0);
     
-    // Combine product categories with inferred categories for better supplier matching
     const categoriesForMapping = Array.from(
-      new Set([...productCategories, ...inferredCategories])
+      new Set([...productCategories, ...inferredCategories, ...allSupplierCategories])
     );
+    console.log(`Categories for mapping: ${categoriesForMapping.join(',')}`);
 
     for (const cat of categoriesForMapping as string[]) {
       try {
@@ -1182,23 +1188,53 @@ export const searchProducts = action({
             categoryToSuppliers.set(cat, sorted);
           }
         }
-      } catch {
-        // ignore category mapping failures
+      } catch (err) {
+        // Log error for debugging but continue with other categories
+        console.error(`Error fetching suppliers for category "${cat}":`, err);
       }
     }
 
     // Attach suppliers snapshots (all potential suppliers for the product's category)
     console.log(`Attaching suppliers to ${scored.length} products. Category map has ${categoryToSuppliers.size} categories`);
+    
+    // Get all suppliers as fallback
+    let allSuppliers: any[] = [];
     categoryToSuppliers.forEach((suppliers, cat) => {
       console.log(`  Category "${cat}": ${suppliers.length} suppliers`);
+      allSuppliers.push(...suppliers);
     });
+    
+    // Remove duplicates from allSuppliers
+    const uniqueAllSuppliers = Array.from(new Map(allSuppliers.map(s => [s._id, s])).values());
+    console.log(`Total unique suppliers across all categories: ${uniqueAllSuppliers.length}`);
     
     scored = scored
       .map((p) => {
-        const list =
-          p.category && typeof p.category === "string"
-            ? categoryToSuppliers.get(p.category) || []
-            : [];
+        let list: any[] = [];
+        
+        // Try exact category match first (case-sensitive for exact match)
+        if (p.category && typeof p.category === "string") {
+          list = categoryToSuppliers.get(p.category) || [];
+          
+          // If no exact match, try case-insensitive match
+          if (list.length === 0) {
+            const prodCatLower = p.category.toLowerCase().trim();
+            for (const [mapCat, suppliers] of categoryToSuppliers.entries()) {
+              if (mapCat.toLowerCase().trim() === prodCatLower) {
+                list = suppliers;
+                console.log(`Case-insensitive match: "${p.category}" -> "${mapCat}" (${suppliers.length} suppliers)`);
+                break;
+              }
+            }
+          }
+        }
+        
+        // Fallback: if no suppliers for this category, show all suppliers
+        if (list.length === 0 && uniqueAllSuppliers.length > 0) {
+          console.log(`No suppliers for category "${p.category}", using all ${uniqueAllSuppliers.length} suppliers as fallback`);
+          list = uniqueAllSuppliers;
+        }
+        
         console.log(`Product "${p.name}" (category: ${p.category}): ${list.length} suppliers attached`);
         return { ...p, _suppliers: list } as ScoredProduct;
       })
