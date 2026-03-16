@@ -905,6 +905,12 @@ function calculateSupplierRelevanceScore(
   }
   
   // 4. VERIFIED/APPROVED BOOST (10 points)
+  if (supplier.verified && supplier.approved) {
+    score += 10;
+    matchDetails.push('verified_boost');
+  }
+
+  return { score, matchDetails };
 }
 
 /**
@@ -1138,29 +1144,41 @@ export const searchProducts = action({
 
     for (const cat of categoriesForMapping as string[]) {
       try {
-        console.log(`Fetching suppliers for category: ${cat}`);
         const candidates = await ctx.runQuery(
           internal.suppliers._getSuppliersByCategory,
           { category: cat, limit: 50 }
         );
-        console.log(`Found ${candidates.length} candidates for category ${cat}`);
         if (candidates.length > 0) {
-          // Filter out service category suppliers
-          const productSuppliers = candidates.filter((s: any) => !isServiceCategory(s.category));
-          console.log(`After service filter: ${productSuppliers.length} suppliers for ${cat}`);
+          // Filter out service category suppliers - ONLY if the target category itself isn't a service category
+          const isTargetService = isServiceCategory(cat);
+          const productSuppliers = candidates.filter((s: any) => {
+            if (isTargetService) return true; // Keep all if we're explicitly looking for services
+            return !isServiceCategory(s.category);
+          });
           
           if (productSuppliers.length > 0) {
             // Score and sort suppliers using the new relevance scoring
             const scoredSuppliers = productSuppliers.map((s: any) => {
               // Get the product that triggered this category search
               const matchingProduct = scored.find(p => p.category === cat);
-              const { score, matchDetails } = calculateSupplierRelevanceScore(
+            let score = 0;
+            let matchDetails: string[] = [];
+            try {
+              const result = calculateSupplierRelevanceScore(
                 s,
                 cat,
                 keywords,
                 matchingProduct?.name || '',
                 matchingProduct?.description
               );
+              score = result.score;
+              matchDetails = result.matchDetails;
+            } catch (err) {
+              console.error(`Error calculating relevance score for supplier ${s._id}:`, err);
+              // Fallback score if calculation fails
+              score = 1;
+              matchDetails = ['error_fallback'];
+            }
               return {
                 ...s,
                 _supplierScore: score,
@@ -1195,6 +1213,7 @@ export const searchProducts = action({
     }
 
     // Attach suppliers snapshots (all potential suppliers for the product's category)
+<<<<<<< HEAD
     console.log(`Attaching suppliers to ${scored.length} products. Category map has ${categoryToSuppliers.size} categories`);
     
     // Get all suppliers as fallback
@@ -1203,6 +1222,8 @@ export const searchProducts = action({
       console.log(`  Category "${cat}": ${suppliers.length} suppliers`);
       allSuppliers.push(...suppliers);
     });
+=======
+>>>>>>> 706dfa88e9d72ee9d9d7c8d23772f8c89538778a
     
     // Remove duplicates from allSuppliers
     const uniqueAllSuppliers = Array.from(new Map(allSuppliers.map(s => [s._id, s])).values());
@@ -1210,6 +1231,7 @@ export const searchProducts = action({
     
     scored = scored
       .map((p) => {
+<<<<<<< HEAD
         let list: any[] = [];
         
         // Try exact category match first (case-sensitive for exact match)
@@ -1236,6 +1258,12 @@ export const searchProducts = action({
         }
         
         console.log(`Product "${p.name}" (category: ${p.category}): ${list.length} suppliers attached`);
+=======
+        const list =
+          p.category && typeof p.category === "string"
+            ? categoryToSuppliers.get(p.category) || []
+            : [];
+>>>>>>> 706dfa88e9d72ee9d9d7c8d23772f8c89538778a
         return { ...p, _suppliers: list } as ScoredProduct;
       })
       .filter((p) => {
