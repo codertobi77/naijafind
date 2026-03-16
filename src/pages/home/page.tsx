@@ -666,19 +666,42 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
         {/* Form Content - Minimal */}
         <div className="p-5">
           {activeTab === 'products' ? (
-            /* Products Tab - Search with product-focused suggestions */
-            <div>
+            /* Products Tab - Search with product-focused suggestions + category */
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <SearchInputWithSuggestions
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder={t('search.product_placeholder', 'Rechercher un produit...')}
+                  label=""
+                  icon="ri-search-line"
+                  type="search"
+                  recentSearches={recentSearches}
+                  onAddRecentSearch={onAddRecentSearch}
+                  onClearRecentSearches={onClearRecentSearches}
+                  suggestionPriority="product"
+                />
+                <FormSelect
+                  value={category}
+                  onChange={setCategory}
+                  options={[
+                    { value: '', label: t('search.all_categories', 'Toutes les catégories') },
+                    ...(categories?.map((cat) => ({ value: cat.name, label: cat.name })) || [])
+                  ]}
+                  placeholder={t('search.category_placeholder', 'Catégorie')}
+                  icon="ri-folder-3-line"
+                />
+              </div>
               <SearchInputWithSuggestions
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder={t('search.product_placeholder', 'Rechercher un produit...')}
+                value={searchLocation}
+                onChange={setSearchLocation}
+                placeholder={t('search.location_placeholder', 'Localisation')}
                 label=""
-                icon="ri-search-line"
-                type="search"
-                recentSearches={recentSearches}
-                onAddRecentSearch={onAddRecentSearch}
-                onClearRecentSearches={onClearRecentSearches}
-                suggestionPriority="product"
+                icon="ri-map-pin-line"
+                type="location"
+                recentSearches={recentLocations}
+                onAddRecentSearch={onAddRecentLocation}
+                onClearRecentSearches={onClearRecentLocations}
               />
             </div>
           ) : (
