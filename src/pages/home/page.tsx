@@ -735,7 +735,6 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
           {/* Search Button - Clean */}
           <button
             onClick={() => {
-              setShowSuggestions(false);
               onSearch(activeTab);
             }}
             className="w-full mt-4 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 hover:shadow-md transition-all duration-200 font-medium flex items-center justify-center gap-2"
