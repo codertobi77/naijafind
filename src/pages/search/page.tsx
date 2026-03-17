@@ -390,7 +390,7 @@ function SupplierMapView({ suppliers, userLocation }: { suppliers: Supplier[]; u
 
   // Update map center and markers when suppliers change
   useEffect(() => {
-    if (mapInstanceRef.current) {
+    if (mapInstanceRef.current && suppliers.length > 0) {
       mapInstanceRef.current.setCenter([mapCenter.lng, mapCenter.lat]);
       mapInstanceRef.current.setZoom(mapZoom);
       
@@ -1061,7 +1061,8 @@ export default function Search() {
         }
         
         // Hard cap for map view to prevent huge payloads + thousands of DOM markers
-        const MAP_RESULTS_LIMIT = 500;
+        // Increased from 500 to 5000 to show more suppliers on map
+        const MAP_RESULTS_LIMIT = 5000;
 
         const result = await withTimeout(
           searchSuppliersAction({

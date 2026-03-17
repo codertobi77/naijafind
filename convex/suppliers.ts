@@ -668,7 +668,7 @@ export const _getSuppliersByCategory = internalQuery({
     const category = args.category?.trim();
     if (!category) return [];
 
-    const limit = Math.min(args.limit ?? 2000, 2000);
+    const limit = Math.min(args.limit ?? 2000, 5000); // Increased max limit to 5000
 
     let suppliers = await ctx.db
       .query("suppliers")
@@ -949,7 +949,7 @@ export const searchSuppliers = action({
               internal.suppliers._getSuppliersByCategory,
               {
                 category: targetCat,
-                limit: 500,
+                limit: 5000, // Increased from 500 to fetch more suppliers
               }
             );
 
@@ -1009,7 +1009,7 @@ export const searchSuppliers = action({
         const fallbackQuery = rawQuery.toLowerCase();
         const maxFallbackIterations = 5; // Prevent infinite loops
         
-        for (let i = 0; i < maxFallbackIterations && fallbackResults.length < 500; i++) {
+        for (let i = 0; i < maxFallbackIterations && fallbackResults.length < 5000; i++) {
           const result = await ctx.runQuery(internal.suppliers._getSuppliersPaginated, {
             cursor,
             limit: 200
@@ -1032,7 +1032,7 @@ export const searchSuppliers = action({
           cursor = result.continueCursor;
         }
         
-        scoredSuppliers = fallbackResults.slice(0, 500);
+        scoredSuppliers = fallbackResults.slice(0, 5000);
       }
       
     } else {
