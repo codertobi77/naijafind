@@ -4,7 +4,7 @@ import { lazy } from 'react';
 const Home = lazy(() => import('../pages/home/page'));
 const Search = lazy(() => import('../pages/search/page'));
 const ProductsSearch = lazy(() => import('../pages/products/page'));
-const SuppliersSearch = lazy(() => import('../pages/suppliers/search'));
+const SuppliersSearch = lazy(() => import('../pages/search/page'));
 const PurchaseRequest = lazy(() => import('../pages/purchase-request/page'));
 const SupplierDetail = lazy(() => import('../pages/supplier/page'));
 const Categories = lazy(() => import('../pages/categories/page'));
