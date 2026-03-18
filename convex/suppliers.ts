@@ -1841,39 +1841,276 @@ export const rejectClaim = mutation({
   }
 });
 
-// Create a supplier search request from product details
-export const createSupplierRequest = mutation({
+// ==========================================
+// REMOVE DUPLICATE SUPPLIERS
+// ==========================================
+
+/**
+ * Action pour supprimer automatiquement tous les doublons de suppliers
+ * (même nom d'entreprise, différents emails ou contacts)
+ * Garde le supplier le plus complet (verified, avec plus de données)
+ */
+export const removeDuplicateSuppliers = action({
   args: {
-    productName: v.string(),
-    productCategory: v.optional(v.string()),
-    message: v.string(),
+    dryRun: v.optional(v.boolean()), // Si true, ne supprime pas réellement, retourne juste les stats
   },
   handler: async (ctx, args) => {
-    // Get current user
-    const identity = await ctx.auth.getUserIdentity();
+    const { dryRun = false } = args;
     
-    // In Convex, we should use the identity to find the user in our 'users' table if needed,
-    // or just use the identity information directly.
-    const userEmail = identity?.email || 'anonymous@naijafind.com';
-    const userName = identity?.name || 'Anonymous User';
-
-    // Create a contact entry for the supplier search request
-    const contactId = await ctx.db.insert("contacts", {
-      name: userName,
-      email: userEmail,
-      subject: `Recherche Fournisseur: ${args.productName}`,
-      message: `Produit: ${args.productName}\nCatégorie: ${args.productCategory || 'N/A'}\n\nMessage de l'utilisateur:\n${args.message}`,
-      type: 'supplier',
-      status: 'pending',
-      created_at: new Date().toISOString(),
-    });
-
+    // Vérifier que l'utilisateur est admin
+    
+    // Récupérer tous les suppliers
+    const allSuppliers = await ctx.runQuery(internal.suppliersInternal.getAllSuppliersInternal);
+    
+    // Normaliser le nom d'entreprise (minuscules, trim, sans espaces multiples)
+    const normalizeName = (name: string): string => {
+      return name.toLowerCase().trim().replace(/\s+/g, ' ').replace(/[^\w\s]/g, '');
+    };
+    
+    // Grouper les suppliers par nom normalisé
+    const groups = new Map<string, typeof allSuppliers>();
+    
+    for (const supplier of allSuppliers) {
+      const normalizedName = normalizeName(supplier.business_name);
+      if (!groups.has(normalizedName)) {
+        groups.set(normalizedName, []);
+      }
+      groups.get(normalizedName)!.push(supplier);
+    }
+    
+    // Identifier les doublons (groupes avec plus d'un supplier)
+    const duplicates: Array<{
+      businessName: string;
+      suppliers: typeof allSuppliers;
+      keepId: string;
+      deleteIds: string[];
+    }> = [];
+    
+    for (const [normalizedName, suppliers] of groups) {
+      if (suppliers.length > 1) {
+        // Score chaque supplier pour déterminer lequel garder
+        const scored = suppliers.map(s => ({
+          ...s,
+          score: calculateSupplierScore(s),
+        }));
+        
+        // Trier par score décroissant
+        scored.sort((a, b) => b.score - a.score);
+        
+        const keep = scored[0];
+        const toDelete = scored.slice(1);
+        
+        duplicates.push({
+          businessName: suppliers[0].business_name,
+          suppliers: scored,
+          keepId: keep._id,
+          deleteIds: toDelete.map(s => s._id),
+        });
+      }
+    }
+    
+    if (dryRun) {
+      return {
+        success: true,
+        dryRun: true,
+        totalSuppliers: allSuppliers.length,
+        duplicateGroups: duplicates.length,
+        duplicatesToRemove: duplicates.reduce((sum, d) => sum + d.deleteIds.length, 0),
+        details: duplicates.map(d => ({
+          businessName: d.businessName,
+          keepId: d.keepId,
+          keepScore: d.suppliers.find(s => s._id === d.keepId)?.score,
+          deleteCount: d.deleteIds.length,
+          deleteIds: d.deleteIds,
+        })),
+      };
+    }
+    
+    // Supprimer les doublons et migrer les données
+    const results = {
+      deleted: 0,
+      productsReassigned: 0,
+      reviewsReassigned: 0,
+      messagesReassigned: 0,
+      quoteRequestsReassigned: 0,
+      candidatesReassigned: 0,
+      errors: [] as string[],
+    };
+    
+    for (const duplicate of duplicates) {
+      try {
+        // Migrer les produits du supplier supprimé vers celui gardé
+        const products = await ctx.runQuery(internal.products.getProductsBySupplierIdInternal, {
+          supplierId: duplicate.deleteIds[0], // On gère un par un
+        });
+        
+        for (const product of products) {
+          try {
+            await ctx.runMutation(internal.products.updateProductSupplierInternal, {
+              productId: product._id,
+              newSupplierId: duplicate.keepId,
+            });
+            results.productsReassigned++;
+          } catch (e) {
+            results.errors.push(`Erreur migration produit ${product._id}: ${e}`);
+          }
+        }
+        
+        // Migrer les reviews
+        const reviews = await ctx.runQuery(internal.reviews.getReviewsBySupplierIdInternal, {
+          supplierId: duplicate.deleteIds[0],
+        });
+        
+        for (const review of reviews) {
+          try {
+            // Vérifier si l'utilisateur a déjà laissé une review sur le supplier gardé
+            const existingReview = await ctx.runQuery(internal.reviews.getReviewByUserAndSupplierInternal, {
+              userId: review.userId,
+              supplierId: duplicate.keepId,
+            });
+            
+            if (existingReview) {
+              // Supprimer la review en doublon
+              await ctx.runMutation(internal.reviews.deleteReviewInternal, {
+                reviewId: review._id,
+              });
+            } else {
+              // Migrer la review
+              await ctx.runMutation(internal.reviews.updateReviewSupplierInternal, {
+                reviewId: review._id,
+                newSupplierId: duplicate.keepId,
+              });
+              results.reviewsReassigned++;
+            }
+          } catch (e) {
+            results.errors.push(`Erreur migration review ${review._id}: ${e}`);
+          }
+        }
+        
+        // Migrer les messages
+        const messages = await ctx.runQuery(internal.messages.getMessagesBySupplierIdInternal, {
+          supplierId: duplicate.deleteIds[0],
+        });
+        
+        for (const message of messages) {
+          try {
+            await ctx.runMutation(internal.messages.updateMessageSupplierInternal, {
+              messageId: message._id,
+              newSupplierId: duplicate.keepId,
+            });
+            results.messagesReassigned++;
+          } catch (e) {
+            results.errors.push(`Erreur migration message ${message._id}: ${e}`);
+          }
+        }
+        
+        // Migrer les quoteRequests liées
+        const quoteSuppliers = await ctx.runQuery(internal.quoteRequests.getQuoteRequestSuppliersBySupplierIdInternal, {
+          supplierId: duplicate.deleteIds[0],
+        });
+        
+        for (const qs of quoteSuppliers) {
+          try {
+            await ctx.runMutation(internal.quoteRequests.updateQuoteRequestSupplierInternal, {
+              quoteRequestSupplierId: qs._id,
+              newSupplierId: duplicate.keepId,
+            });
+            results.quoteRequestsReassigned++;
+          } catch (e) {
+            results.errors.push(`Erreur migration quoteRequestSupplier ${qs._id}: ${e}`);
+          }
+        }
+        
+        // Migrer les productSupplierCandidates
+        const candidates = await ctx.runQuery(internal.suppliersInternal.getCandidatesBySupplierIdInternal, {
+          supplierId: duplicate.deleteIds[0],
+        });
+        
+        for (const candidate of candidates) {
+          try {
+            // Vérifier si le candidat existe déjà pour ce produit/supplier
+            const existingCandidate = await ctx.runQuery(internal.suppliersInternal.getCandidateByProductAndSupplierInternal, {
+              productId: candidate.productId,
+              supplierId: duplicate.keepId,
+            });
+            
+            if (existingCandidate) {
+              // Supprimer le doublon
+              await ctx.runMutation(internal.suppliersInternal.deleteCandidateInternal, {
+                candidateId: candidate._id,
+              });
+            } else {
+              // Migrer
+              await ctx.runMutation(internal.suppliersInternal.updateCandidateSupplierInternal, {
+                candidateId: candidate._id,
+                newSupplierId: duplicate.keepId,
+              });
+              results.candidatesReassigned++;
+            }
+          } catch (e) {
+            results.errors.push(`Erreur migration candidate ${candidate._id}: ${e}`);
+          }
+        }
+        
+        // Supprimer le supplier en doublon
+        for (const deleteId of duplicate.deleteIds) {
+          try {
+            await ctx.runMutation(internal.suppliersInternal.deleteSupplierInternal, {
+              supplierId: deleteId,
+            });
+            results.deleted++;
+          } catch (e) {
+            results.errors.push(`Erreur suppression supplier ${deleteId}: ${e}`);
+          }
+        }
+        
+      } catch (e) {
+        results.errors.push(`Erreur traitement doublon ${duplicate.businessName}: ${e}`);
+      }
+    }
+    
     return {
       success: true,
-      contactId,
-      message: "Demande de recherche de fournisseur soumise avec succès",
+      dryRun: false,
+      totalSuppliers: allSuppliers.length,
+      duplicateGroups: duplicates.length,
+      ...results,
+      summary: `Supprimé ${results.deleted} suppliers, migré ${results.productsReassigned} produits, ${results.reviewsReassigned} reviews, ${results.messagesReassigned} messages, ${results.quoteRequestsReassigned} quoteRequests, ${results.candidatesReassigned} candidates`,
     };
-  }
+  },
 });
+
+/**
+ * Calcule un score pour déterminer quel supplier garder (plus haut = meilleur)
+ */
+function calculateSupplierScore(supplier: any): number {
+  let score = 0;
+  
+  // Priorité aux suppliers vérifiés et approuvés
+  if (supplier.verified) score += 100;
+  if (supplier.approved) score += 50;
+  if (supplier.featured) score += 25;
+  
+  // Plus de données = meilleur
+  if (supplier.description && supplier.description.length > 50) score += 20;
+  if (supplier.website) score += 15;
+  if (supplier.logo_url || supplier.image) score += 10;
+  if (supplier.phone) score += 5;
+  if (supplier.address) score += 5;
+  if (supplier.latitude && supplier.longitude) score += 10;
+  if (supplier.imageGallery && supplier.imageGallery.length > 0) score += 5;
+  if (supplier.social_links && Object.keys(supplier.social_links).length > 0) score += 5;
+  if (supplier.business_hours && Object.keys(supplier.business_hours).length > 0) score += 5;
+  
+  // Plus de reviews = plus établi
+  score += Number(supplier.reviews_count || 0n) * 2;
+  score += (supplier.rating || 0) * 10;
+  
+  // Plus ancien = plus établi (légèrement)
+  const age = Date.now() - new Date(supplier.created_at).getTime();
+  score += Math.min(age / (1000 * 60 * 60 * 24 * 30), 10); // Max 10 points pour l'ancienneté
+  
+  return score;
+}
 
 

@@ -8,6 +8,9 @@
   "scripts": {
     "create-admin": "node scripts/create-admin.js",
     "init-categories": "node scripts/init-categories.js",
+    "dedup:suppliers": "node scripts/dedup-suppliers.js",
+    "dedup:suppliers:prod": "node scripts/dedup-suppliers.js --prod",
+    "dedup:suppliers:run": "node scripts/dedup-suppliers.js --prod --execute",
     "migrate:products": "npx convex run productMigration:migrateAllProductsCLI --prod",
     "migrate:dry-run": "echo 'Dry run not available - use migrate:products directly'",
     "migrate:complete": "npx convex run productMigration:migrateAllProductsCLI --prod",

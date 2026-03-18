@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
@@ -177,4 +177,67 @@ export const deleteReview = mutation({
     
     return { success: true };
   }
+});
+
+// ==========================================
+// INTERNAL FUNCTIONS FOR SUPPLIER DEDUPLICATION
+// ==========================================
+
+/**
+ * Internal query: Get reviews by supplier ID
+ */
+export const getReviewsBySupplierIdInternal = internalQuery({
+  args: {
+    supplierId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("reviews")
+      .withIndex("supplierId", (q) => q.eq("supplierId", args.supplierId))
+      .collect();
+  },
+});
+
+/**
+ * Internal query: Get review by user and supplier
+ */
+export const getReviewByUserAndSupplierInternal = internalQuery({
+  args: {
+    userId: v.string(),
+    supplierId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("reviews")
+      .withIndex("userId", (q) => q.eq("userId", args.userId))
+      .filter((q) => q.eq(q.field("supplierId"), args.supplierId))
+      .first();
+  },
+});
+
+/**
+ * Internal mutation: Delete review by ID
+ */
+export const deleteReviewInternal = internalMutation({
+  args: {
+    reviewId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.reviewId as any);
+  },
+});
+
+/**
+ * Internal mutation: Update review supplier ID
+ */
+export const updateReviewSupplierInternal = internalMutation({
+  args: {
+    reviewId: v.string(),
+    newSupplierId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.reviewId as any, {
+      supplierId: args.newSupplierId,
+    });
+  },
 });

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Header } from '../../components/base';
-import { Package, DollarSign, FileText, Send, ChevronDown, MessageCircle, Upload, X } from 'lucide-react';
+import { Package, FileText, Send, ChevronDown, MessageCircle, Upload, X } from 'lucide-react';
 
 // Quantity units - now internationalized
 const getQuantityUnits = (t: (key: string) => string) => [
@@ -28,7 +28,6 @@ export default function PurchaseRequestPage() {
     description: '',
     quantity: '',
     unit: 'tonnes',
-    budget: '',
     whatsapp: '',
   });
   
@@ -70,7 +69,6 @@ export default function PurchaseRequestPage() {
         description: formData.description,
         quantity: Number(formData.quantity),
         unit: formData.unit,
-        budget: formData.budget || undefined,
         whatsapp: formData.whatsapp,
         image: image || undefined,
       });
@@ -252,56 +250,38 @@ export default function PurchaseRequestPage() {
               )}
             </div>
 
-            {/* Quantity & Budget Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              {/* Quantity */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                  <Package className="w-4 h-4 text-green-600" />
-                  {t('purchase_request.quantity', 'Quantité')}
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    value={formData.quantity}
-                    onChange={(e) => handleChange('quantity', e.target.value)}
-                    placeholder="50"
-                    className={`flex-1 min-w-0 px-3 sm:px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm sm:text-base ${
-                      errors.quantity ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                  />
-                  <div className="relative flex-shrink-0">
-                    <select
-                      value={formData.unit}
-                      onChange={(e) => handleChange('unit', e.target.value)}
-                      className="appearance-none w-[90px] sm:w-[100px] px-2 sm:px-3 py-3 pr-8 sm:pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white text-sm"
-                    >
-                      {getQuantityUnits(t).map(unit => (
-                        <option key={unit.value} value={unit.value}>{unit.label}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
-                  </div>
-                </div>
-                {errors.quantity && (
-                  <p className="text-red-500 text-sm mt-1">{errors.quantity}</p>
-                )}
-              </div>
-
-              {/* Budget */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-green-600" />
-                  {t('purchase_request.budget', 'Budget')}
-                </label>
+            {/* Quantity */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Package className="w-4 h-4 text-green-600" />
+                {t('purchase_request.quantity', 'Quantité')}
+              </label>
+              <div className="flex gap-2">
                 <input
-                  type="text"
-                  value={formData.budget}
-                  onChange={(e) => handleChange('budget', e.target.value)}
-                  placeholder={t('purchase_request.budget_placeholder', 'Ex: 5000 €')}
-                  className="w-full px-3 sm:px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm sm:text-base"
+                  type="number"
+                  value={formData.quantity}
+                  onChange={(e) => handleChange('quantity', e.target.value)}
+                  placeholder="50"
+                  className={`flex-1 min-w-0 px-3 sm:px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-sm sm:text-base ${
+                    errors.quantity ? 'border-red-300' : 'border-gray-300'
+                  }`}
                 />
+                <div className="relative flex-shrink-0">
+                  <select
+                    value={formData.unit}
+                    onChange={(e) => handleChange('unit', e.target.value)}
+                    className="appearance-none w-[90px] sm:w-[100px] px-2 sm:px-3 py-3 pr-8 sm:pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white text-sm"
+                  >
+                    {getQuantityUnits(t).map(unit => (
+                      <option key={unit.value} value={unit.value}>{unit.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                </div>
               </div>
+              {errors.quantity && (
+                <p className="text-red-500 text-sm mt-1">{errors.quantity}</p>
+              )}
             </div>
 
             {/* WhatsApp */}

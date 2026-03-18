@@ -239,6 +239,22 @@ export const me = query({
 });
 
 /**
+ * Internal query: Get user by email (public internal for deduplication)
+ */
+export const getUserByEmailInternal = internalQuery({
+  args: {
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", args.email))
+      .first();
+    return user;
+  },
+});
+
+/**
  * Internal query: Get user by email
  */
 export const _getUserByEmail = internalQuery({

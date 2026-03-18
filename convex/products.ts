@@ -1,4 +1,4 @@
-import { query, mutation, action, internalQuery } from "./_generated/server";
+import { query, mutation, action, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -1359,5 +1359,40 @@ export const searchProducts = action({
     });
 
     return { products: page, total };
+  },
+});
+
+// ==========================================
+// INTERNAL FUNCTIONS FOR SUPPLIER DEDUPLICATION
+// ==========================================
+
+/**
+ * Internal query: Get products by supplier ID
+ */
+export const getProductsBySupplierIdInternal = internalQuery({
+  args: {
+    supplierId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("products")
+      .withIndex("supplierId", (q) => q.eq("supplierId", args.supplierId))
+      .collect();
+  },
+});
+
+/**
+ * Internal mutation: Update product supplier ID
+ */
+export const updateProductSupplierInternal = internalMutation({
+  args: {
+    productId: v.string(),
+    newSupplierId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.productId as any, {
+      supplierId: args.newSupplierId,
+      updated_at: new Date().toISOString(),
+    });
   },
 });

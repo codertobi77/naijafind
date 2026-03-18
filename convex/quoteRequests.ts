@@ -1,4 +1,4 @@
-import { mutation, query, action, internalMutation } from "./_generated/server";
+import { mutation, query, action, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -579,5 +579,40 @@ export const getQuoteRequestStats = action({
     }
 
     return stats;
+  },
+});
+
+// ==========================================
+// INTERNAL FUNCTIONS FOR SUPPLIER DEDUPLICATION
+// ==========================================
+
+/**
+ * Internal query: Get quote request suppliers by supplier ID
+ */
+export const getQuoteRequestSuppliersBySupplierIdInternal = internalQuery({
+  args: {
+    supplierId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("quoteRequestSuppliers")
+      .withIndex("supplierId", (q) => q.eq("supplierId", args.supplierId as Id<"suppliers">))
+      .collect();
+  },
+});
+
+/**
+ * Internal mutation: Update quote request supplier ID
+ */
+export const updateQuoteRequestSupplierInternal = internalMutation({
+  args: {
+    quoteRequestSupplierId: v.string(),
+    newSupplierId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.quoteRequestSupplierId as Id<"quoteRequestSuppliers">, {
+      supplierId: args.newSupplierId as Id<"suppliers">,
+      updatedAt: new Date().toISOString(),
+    });
   },
 });
