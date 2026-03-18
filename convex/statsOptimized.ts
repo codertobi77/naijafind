@@ -9,8 +9,25 @@ import { api } from "./_generated/api";
  */
 
 // ============================================================================
-// CATEGORY STATS - Optimized for Categories Page
+// SIMPLE SUPPLIER COUNT - For hero badge only
 // ============================================================================
+
+/**
+ * Query: Get simple approved supplier count for hero badge
+ * Lightweight query that only returns the count, no auth required
+ */
+export const getSupplierCount = query({
+  args: {},
+  handler: async (ctx) => {
+    // Count only approved suppliers for public display
+    const approvedSuppliers = await ctx.db
+      .query("suppliers")
+      .withIndex("approved", (q) => q.eq("approved", true))
+      .collect();
+    
+    return approvedSuppliers.length;
+  },
+});
 
 /**
  * Action: Get category supplier counts efficiently

@@ -59,6 +59,11 @@ export default function Categories() {
     {},
     { staleTime: 15 * 60 * 1000 } // Categories don't change often - cache for 15 minutes
   );
+  const { data: supplierCount } = useConvexQuery(
+    api.statsOptimized.getSupplierCount,
+    {},
+    { staleTime: 5 * 60 * 1000 }
+  );
   // Use action for category stats (optimized version)
   const getCategoryStatsAction = useAction(api.statsOptimized.getCategoryStats);
   const [categoryStatsArray, setCategoryStatsArray] = useState<any>(null);
@@ -249,7 +254,7 @@ export default function Categories() {
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 text-center">
             <div>
-              <div className="text-2xl sm:text-4xl font-bold text-green-600 mb-2">25,000+</div>
+              <div className="text-2xl sm:text-4xl font-bold text-green-600 mb-2">{supplierCount?.toLocaleString() || '...'}+</div>
               <div className="text-gray-600 text-sm sm:text-base">{t('categories.verified_suppliers')}</div>
             </div>
             <div>

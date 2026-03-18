@@ -630,7 +630,7 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
       backgroundImage="https://readdy.ai/api/search-image?query=Modern%20Nigerian%20marketplace%20with%20vendors%20selling%20colorful%20products%2C%20bustling%20commercial%20district%20in%20Lagos%20with%20traditional%20and%20modern%20buildings%2C%20vibrant%20street%20scene%20with%20people%20shopping%2C%20warm%20golden%20lighting%2C%20professional%20photography%20style%2C%20clean%20organized%20market%20stalls&width=1200&height=600&seq=hero-nigeria&orientation=landscape"
       backgroundGradient="from-black/60 via-black/50 to-black/40"
       showBadge={true}
-      badgeText={t('hero.badge_trusted', { count: supplierCount || 25000 })}
+      badgeText={t('hero.badge_trusted', { count: supplierCount ?? 0 })}
       badgeIcon=""
       title={t('hero.title', 'Trouvez les meilleurs fournisseurs au Nigeria')}
       subtitle={t('hero.subtitle', 'Découvrez et contactez directement des entreprises selon vos critères.')}
@@ -812,9 +812,9 @@ export default function Home() {
     { staleTime: 5 * 60 * 1000 }
   );
 
-  // Fetch homepage stats for supplier count
-  const { data: homepageStats } = useConvexQuery(
-    api.statsOptimized.getHomepageStats,
+  // Fetch supplier count for hero badge
+  const { data: supplierCount } = useConvexQuery(
+    api.statsOptimized.getSupplierCount,
     {},
     { staleTime: 5 * 60 * 1000 }
   );
@@ -904,7 +904,7 @@ export default function Home() {
   };
 
   const stats = [
-    { icon: 'ri-building-line', iconColor: 'text-green-600', iconBg: 'from-green-100 to-emerald-100', value: '25,000+', label: t('stats.suppliers') },
+    { icon: 'ri-building-line', iconColor: 'text-green-600', iconBg: 'from-green-100 to-emerald-100', value: `${supplierCount?.toLocaleString() || '...'}+`, label: t('stats.suppliers') },
     { icon: 'ri-folder-line', iconColor: 'text-green-600', iconBg: 'from-green-100 to-emerald-100', value: '500+', label: t('stats.product_categories') },
     { icon: 'ri-map-pin-line', iconColor: 'text-green-600', iconBg: 'from-green-100 to-emerald-100', value: '36', label: t('stats.states') },
     { icon: 'ri-search-line', iconColor: 'text-green-600', iconBg: 'from-green-100 to-emerald-100', value: '1M+', label: t('stats.monthly_searches') },
@@ -944,7 +944,7 @@ export default function Home() {
         onAddRecentLocation={onAddRecentLocation}
         onClearRecentSearches={onClearRecentSearches}
         onClearRecentLocations={onClearRecentLocations}
-        supplierCount={homepageStats?.totalSuppliers}
+        supplierCount={supplierCount}
       />
 
       {/* Stats Section */}
@@ -1454,7 +1454,7 @@ export default function Home() {
             {/* Footer */}
             <div className="px-6 py-4 bg-gray-50 text-center">
               <p className="text-xs text-gray-500">
-                Plus de 25,000 entreprises nigérianes disponibles
+                Plus de {supplierCount?.toLocaleString() || '...'} entreprises nigérianes disponibles
               </p>
             </div>
           </div>

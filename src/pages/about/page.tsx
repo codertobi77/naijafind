@@ -9,6 +9,11 @@ import { SectionTitle, CTASection, ValueCard, TeamGrid } from '../../components/
 export default function About() {
   const { t } = useTranslation();
   const { data: meData } = useConvexQuery(api.users.me, {}, { staleTime: 2 * 60 * 1000 });
+  const { data: supplierCount } = useConvexQuery(
+    api.statsOptimized.getSupplierCount,
+    {},
+    { staleTime: 5 * 60 * 1000 }
+  );
 
   const values = [
     {
@@ -82,7 +87,7 @@ export default function About() {
               <p className="text-lg sm:text-xl text-gray-700 mb-10 leading-relaxed">{t('about.mission_text2')}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                 <div className="text-center p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-100 shadow-soft hover:shadow-md transition-all">
-                  <div className="text-4xl sm:text-5xl font-bold text-gradient mb-3">25,000+</div>
+                  <div className="text-4xl sm:text-5xl font-bold text-gradient mb-3">{supplierCount?.toLocaleString() || '...'}+</div>
                   <div className="text-gray-600 font-medium">{t('about.stat_suppliers')}</div>
                 </div>
                 <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 shadow-soft hover:shadow-md transition-all">

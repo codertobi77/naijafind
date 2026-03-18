@@ -5,7 +5,7 @@ export const home = {
   "hero.search_placeholder": "Search for products, services or businesses",
   "hero.location_placeholder": "Your location",
   "hero.cta": "Search Now",
-  "hero.badge_trusted": "Trusted by 25,000+ Nigerian businesses",
+  "hero.badge_trusted": "Access over {{count, number}} Nigerian businesses",
 
   // Stats section
   "stats.suppliers": "Suppliers",
