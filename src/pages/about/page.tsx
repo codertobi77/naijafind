@@ -4,7 +4,7 @@ import { Header } from '../../components/base';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { api } from '@convex/_generated/api';
 import { HeroSection, Section, Container, Footer } from '../../components/layout';
-import { SectionTitle, CTASection, ValueCard, TeamGrid } from '../../components/ui';
+import { SectionTitle, CTASection, ValueCard } from '../../components/ui';
 
 export default function About() {
   const { t } = useTranslation();
@@ -36,24 +36,6 @@ export default function About() {
       iconBg: 'from-purple-100 to-pink-100',
       title: t('about.value_efficiency_title'),
       description: t('about.value_efficiency_text'),
-    },
-  ];
-
-  const teamMembers = [
-    {
-      name: 'Adebayo Ogundimu',
-      role: t('about.team_ceo'),
-      image: `https://readdy.ai/api/search-image?query=${encodeURIComponent('Professional Nigerian businessman in modern suit, confident smile, corporate headshot, modern office background, professional lighting')}&width=300&height=300&seq=team-0&orientation=squarish`,
-    },
-    {
-      name: 'Fatima Abdullahi',
-      role: t('about.team_cto'),
-      image: `https://readdy.ai/api/search-image?query=${encodeURIComponent('Professional Nigerian businesswoman in elegant attire, confident expression, technology background, modern corporate setting, professional photography')}&width=300&height=300&seq=team-1&orientation=squarish`,
-    },
-    {
-      name: 'Chinedu Okwu',
-      role: t('about.team_cco'),
-      image: `https://readdy.ai/api/search-image?query=${encodeURIComponent('Professional Nigerian business executive in formal wear, friendly demeanor, modern office environment, natural lighting, corporate portrait')}&width=300&height=300&seq=team-2&orientation=squarish`,
     },
   ];
 
@@ -122,18 +104,6 @@ export default function About() {
               <ValueCard key={index} {...value} />
             ))}
           </div>
-        </Container>
-      </Section>
-
-      {/* Team Section */}
-      <Section background="white">
-        <Container>
-          <SectionTitle
-            badge={{ icon: 'ri-team-line', text: t('about.our_leadership_label') }}
-            title={t('about.team_title')}
-            subtitle={t('about.team_subtitle')}
-          />
-          <TeamGrid members={teamMembers} columns={3} />
         </Container>
       </Section>
 
