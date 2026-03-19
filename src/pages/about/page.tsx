@@ -17,11 +17,11 @@ export default function About() {
 
   const values = [
     {
-      icon: 'ri-shield-check-line',
+      icon: 'ri-eye-line',
       iconColor: 'text-green-600',
       iconBg: 'from-green-100 to-emerald-100',
-      title: t('about.value_trust_title'),
-      description: t('about.value_trust_text'),
+      title: t('about.value_transparency_title'),
+      description: t('about.value_transparency_text'),
     },
     {
       icon: 'ri-global-line',
@@ -31,11 +31,11 @@ export default function About() {
       description: t('about.value_access_text'),
     },
     {
-      icon: 'ri-rocket-line',
+      icon: 'ri-flashlight-line',
       iconColor: 'text-purple-600',
       iconBg: 'from-purple-100 to-pink-100',
-      title: t('about.value_innovation_title'),
-      description: t('about.value_innovation_text'),
+      title: t('about.value_efficiency_title'),
+      description: t('about.value_efficiency_text'),
     },
   ];
 
