@@ -18,9 +18,10 @@ export const contact = {
   "contact.type_feedback": "Feedback",
   "contact.info_title": "Contact information",
   "contact.address_title": "Address",
-  "contact.address_text": "123 Victoria Island\nLagos, Nigeria\n100001",
+  "contact.address_text": "Office 234, GCL Plaza\n7th Avenue, Festac. LAGOS",
   "contact.phone_title": "Phone",
   "contact.email_title": "Email",
+  "contact.email_text": "suji@olufona.com",
   "contact.hours_title": "Hours",
   "contact.hours_text": "Monday - Friday: 9:00 AM - 6:00 PM\nSaturday: 10:00 AM - 4:00 PM\nSunday: Closed",
   "contact.faq_title": "Frequently asked questions",
@@ -34,7 +35,7 @@ export const contact = {
   "contact.rate_limited": "Too many requests. Please try again later.",
   "contact.try_again_after": "Try again after",
   "contact.office_name": "Suji Office",
-  "contact.office_address": "Victoria Island, Lagos"
+  "contact.office_address": "GCL Plaza, 7th Avenue, Festac, Lagos"
 };
 
 export default contact;

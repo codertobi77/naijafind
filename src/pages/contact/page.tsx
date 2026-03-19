@@ -212,12 +212,12 @@ export default function Contact() {
     {
       icon: 'ri-phone-line',
       title: t('contact.phone_title'),
-      content: '+234 1 234 5678',
+      content: '+234 912822700',
     },
     {
       icon: 'ri-mail-line',
       title: t('contact.email_title'),
-      content: 'contact@Suji.com',
+      content: 'suji@olufona.com',
     },
     {
       icon: 'ri-time-line',
