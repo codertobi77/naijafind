@@ -302,9 +302,6 @@ export default function PurchaseRequestPage() {
               {errors.whatsapp && (
                 <p className="text-red-500 text-sm mt-1">{errors.whatsapp}</p>
               )}
-              <p className="text-xs text-gray-500 mt-1">
-                {t('purchase_request.whatsapp_hint', 'Les fournisseurs vous contacteront sur WhatsApp')}
-              </p>
             </div>
 
             {/* Submit Button */}

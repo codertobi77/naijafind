@@ -385,6 +385,7 @@ export default defineSchema({
     unit: v.string(),
     budget: v.optional(v.string()),
     whatsapp: v.string(),
+    image: v.optional(v.string()), // Image URL or base64
     // Legacy fields - kept for backward compatibility but optional
     location: v.optional(v.string()),
     currency: v.optional(v.string()),

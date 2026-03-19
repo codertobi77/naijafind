@@ -3,6 +3,61 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
 /**
+ * Internal: Create purchase request (called from action)
+ */
+export const _createPurchaseRequest = mutation({
+  args: {
+    description: v.string(),
+    quantity: v.number(),
+    unit: v.string(),
+    whatsapp: v.string(),
+    image: v.optional(v.string()),
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const now = new Date().toISOString();
+    return await ctx.db.insert("purchaseRequests", {
+      description: args.description,
+      quantity: args.quantity,
+      unit: args.unit,
+      whatsapp: args.whatsapp,
+      image: args.image,
+      status: 'pending',
+      userId: args.userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+/**
+ * Internal: Create notification (called from action)
+ */
+export const _createNotification = mutation({
+  args: {
+    userId: v.string(),
+    type: v.string(),
+    title: v.string(),
+    message: v.string(),
+    data: v.any(),
+    actionUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const now = new Date().toISOString();
+    return await ctx.db.insert("notifications", {
+      userId: args.userId,
+      type: args.type,
+      title: args.title,
+      message: args.message,
+      data: args.data,
+      read: false,
+      actionUrl: args.actionUrl,
+      createdAt: now,
+    });
+  },
+});
+
+/**
  * Create a new purchase request
  * Simplified version with image support
  */
@@ -16,7 +71,7 @@ export const createPurchaseRequest = action({
   },
   handler: async (ctx, args) => {
     // Apply rate limiting - max 3 requests per hour per phone/IP
-    await ctx.runMutation(internal.rateLimit.enforceRateLimit, {
+    await ctx.runAction(internal.rateLimit.enforceRateLimit, {
       identifier: args.whatsapp,
       action: 'purchase_request',
       limit: 3,
@@ -32,19 +87,14 @@ export const createPurchaseRequest = action({
       userId = identity.subject;
     }
     
-    const now = new Date().toISOString();
-    
-    // Create purchase request with image
-    const requestId = await ctx.db.insert("purchaseRequests", {
+    // Create purchase request via internal mutation
+    const requestId = await ctx.runMutation(internal.purchaseRequests._createPurchaseRequest, {
       description: args.description,
       quantity: args.quantity,
       unit: args.unit,
       whatsapp: args.whatsapp,
       image: args.image,
-      status: 'pending',
       userId: userId,
-      createdAt: now,
-      updatedAt: now,
     });
     
     // Find matching suppliers and notify them
@@ -59,7 +109,7 @@ export const createPurchaseRequest = action({
       
       // Create notifications for matching suppliers
       for (const supplier of matchingSuppliers) {
-        await ctx.db.insert("notifications", {
+        await ctx.runMutation(internal.purchaseRequests._createNotification, {
           userId: supplier.userId,
           type: 'purchase_request',
           title: 'Nouvelle demande d\'achat',
@@ -69,9 +119,7 @@ export const createPurchaseRequest = action({
             purchaseRequest: args,
             matchScore: supplier.matchScore,
           },
-          read: false,
           actionUrl: `/dashboard/purchase-requests/${requestId}`,
-          createdAt: now,
         });
       }
     } catch (error) {
@@ -407,13 +455,13 @@ export const updatePurchaseRequestStatusAdmin = mutation({
 export const _findMatchingSuppliers = internalQuery({
   args: {
     description: v.string(),
-    location: v.string(),
+    location: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const limit = Math.min(args.limit ?? 20, 50);
     const descLower = args.description.toLowerCase();
-    const locationLower = args.location.toLowerCase();
+    const locationLower = (args.location || '').toLowerCase();
     
     // Extract keywords from description
     const keywords = descLower
