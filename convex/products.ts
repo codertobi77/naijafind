@@ -1138,6 +1138,14 @@ export const searchProducts = action({
       return true;
     }) as ScoredProduct[];
 
+    // PERFORMANCE OPTIMIZATION: Use a Map for O(1) product lookup by category
+    const productsByCategory = new Map<string, ScoredProduct>();
+    for (const p of scored) {
+      if (p.category && !productsByCategory.has(p.category)) {
+        productsByCategory.set(p.category, p);
+      }
+    }
+
     // Suppliers per CATEGORY
     const categoryToSuppliers = new Map<string, any[]>();
     
@@ -1151,75 +1159,79 @@ export const searchProducts = action({
     );
     console.log(`Categories for mapping: ${categoriesForMapping.join(',')}`);
 
-    for (const cat of categoriesForMapping as string[]) {
-      try {
-        const candidates = await ctx.runQuery(
-          internal.suppliers._getSuppliersByCategory,
-          { category: cat, limit: 50 }
-        );
-        if (candidates.length > 0) {
-          // Filter out service category suppliers - ONLY if the target category itself isn't a service category
-          const isTargetService = isServiceCategory(cat);
-          const productSuppliers = candidates.filter((s: any) => {
-            if (isTargetService) return true; // Keep all if we're explicitly looking for services
-            return !isServiceCategory(s.category);
-          });
-          
-          if (productSuppliers.length > 0) {
-            // Score and sort suppliers using the new relevance scoring
-            const scoredSuppliers = productSuppliers.map((s: any) => {
-              // Get the product that triggered this category search
-              const matchingProduct = scored.find(p => p.category === cat);
-            let score = 0;
-            let matchDetails: string[] = [];
-            try {
-              const result = calculateSupplierRelevanceScore(
-                s,
-                cat,
-                keywords,
-                matchingProduct?.name || '',
-                matchingProduct?.description
-              );
-              score = result.score;
-              matchDetails = result.matchDetails;
-            } catch (err) {
-              console.error(`Error calculating relevance score for supplier ${s._id}:`, err);
-              // Fallback score if calculation fails
-              score = 1;
-              matchDetails = ['error_fallback'];
+    // PERFORMANCE OPTIMIZATION: Fetch suppliers for all categories in parallel to reduce RTT
+    await Promise.all(
+      categoriesForMapping.map(async (cat) => {
+        try {
+          const candidates = await ctx.runQuery(
+            internal.suppliers._getSuppliersByCategory,
+            { category: cat, limit: 50 }
+          );
+          if (candidates.length > 0) {
+            // Filter out service category suppliers - ONLY if the target category itself isn't a service category
+            const isTargetService = isServiceCategory(cat);
+            const productSuppliers = candidates.filter((s: any) => {
+              if (isTargetService) return true; // Keep all if we're explicitly looking for services
+              return !isServiceCategory(s.category);
+            });
+            
+            if (productSuppliers.length > 0) {
+              // PERFORMANCE OPTIMIZATION: Use O(1) Map lookup instead of O(N) .find()
+              const matchingProduct = productsByCategory.get(cat);
+
+              // Score and sort suppliers using the new relevance scoring
+              const scoredSuppliers = productSuppliers.map((s: any) => {
+                let score = 0;
+                let matchDetails: string[] = [];
+                try {
+                  const result = calculateSupplierRelevanceScore(
+                    s,
+                    cat,
+                    keywords,
+                    matchingProduct?.name || '',
+                    matchingProduct?.description
+                  );
+                  score = result.score;
+                  matchDetails = result.matchDetails;
+                } catch (err) {
+                  console.error(`Error calculating relevance score for supplier ${s._id}:`, err);
+                  // Fallback score if calculation fails
+                  score = 1;
+                  matchDetails = ['error_fallback'];
+                }
+                return {
+                  ...s,
+                  _supplierScore: score,
+                  _matchDetails: matchDetails,
+                };
+              });
+              
+              // Sort by the new relevance score
+              const sorted = scoredSuppliers.sort((a: any, b: any) => {
+                const scoreDiff = (b._supplierScore || 0) - (a._supplierScore || 0);
+                if (scoreDiff !== 0) return scoreDiff;
+
+                // Fallback to verified/rating sorting
+                const aVerified = a.verified && a.approved ? 1 : 0;
+                const bVerified = b.verified && b.approved ? 1 : 0;
+                if (bVerified !== aVerified) return bVerified - aVerified;
+
+                const aRating = a.rating ?? 0;
+                const bRating = b.rating ?? 0;
+                if (bRating !== aRating) return bRating - aRating;
+
+                return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
+              });
+              
+              categoryToSuppliers.set(cat, sorted);
             }
-              return {
-                ...s,
-                _supplierScore: score,
-                _matchDetails: matchDetails,
-              };
-            });
-            
-            // Sort by the new relevance score
-            const sorted = scoredSuppliers.sort((a: any, b: any) => {
-              const scoreDiff = (b._supplierScore || 0) - (a._supplierScore || 0);
-              if (scoreDiff !== 0) return scoreDiff;
-              
-              // Fallback to verified/rating sorting
-              const aVerified = a.verified && a.approved ? 1 : 0;
-              const bVerified = b.verified && b.approved ? 1 : 0;
-              if (bVerified !== aVerified) return bVerified - aVerified;
-              
-              const aRating = a.rating ?? 0;
-              const bRating = b.rating ?? 0;
-              if (bRating !== aRating) return bRating - aRating;
-              
-              return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
-            });
-            
-            categoryToSuppliers.set(cat, sorted);
           }
+        } catch (err) {
+          // Log error for debugging but continue with other categories
+          console.error(`Error fetching suppliers for category "${cat}":`, err);
         }
-      } catch (err) {
-        // Log error for debugging but continue with other categories
-        console.error(`Error fetching suppliers for category "${cat}":`, err);
-      }
-    }
+      })
+    );
 
     // Attach suppliers snapshots (all potential suppliers for the product's category)
     console.log(`Attaching suppliers to ${scored.length} products. Category map has ${categoryToSuppliers.size} categories`);
