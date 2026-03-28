@@ -41,7 +41,8 @@ type DashboardTab =
   | 'settings'
   | 'team'
   | 'galerie'
-  | 'messages';
+  | 'messages'
+  | 'purchaseRequests';
 
 interface DashboardData {
   profile: any;
@@ -67,6 +68,7 @@ function getSidebarTabs(businessType: string | undefined): Array<{ id: Dashboard
 
   const baseTabs: Array<{ id: DashboardTab; label: string; icon: string }> = [
     { id: 'overview', label: 'Aperçu', icon: 'ri-dashboard-line' },
+    { id: 'purchaseRequests', label: 'Demandes d\'achat', icon: 'ri-shopping-cart-line' },
     { id: 'profile', label: 'Profil', icon: 'ri-building-line' },
     { id: 'reviews', label: 'Avis', icon: 'ri-star-line' },
     { id: 'messages', label: 'Messages', icon: 'ri-mail-line' },
@@ -444,7 +446,12 @@ export default function Dashboard() {
   const updateProductMutation = useMutation(api.products.updateProduct);
   const deleteProductMutation = useMutation(api.products.deleteProduct);
   const updateReviewMutation = useMutation(api.reviews.updateReview);
-  const deleteReviewMutation = useMutation(api.reviews.deleteReview);
+  const deletePurchaseRequestMutation = useMutation(api.purchaseRequests.deletePurchaseRequest);
+  const { data: purchaseRequestsData } = useConvexQuery(
+    api.purchaseRequests.getMyPurchaseRequests,
+    { limit: 50 },
+    { staleTime: 60 * 1000 }
+  );
   const updateSupplierProfileMutation = useMutation(api.suppliers.updateSupplierProfile);
 
   // Toast notification system
@@ -1087,8 +1094,20 @@ export default function Dashboard() {
         );
       case 'settings':
         return <ComingSoon feature="settings" />;
-      case 'messages':
-        return <MessagesSection />;
+      case 'purchaseRequests':
+        return (
+          <PurchaseRequestsSection
+            requests={purchaseRequestsData || []}
+            onDelete={async (request) => {
+              try {
+                await deletePurchaseRequestMutation({ id: request._id });
+                showToast('success', 'Request deleted successfully');
+              } catch (err: any) {
+                showToast('error', err.message || 'Error during deletion');
+              }
+            }}
+          />
+        );
       case 'team':
         return <TeamSection />;
       default:
@@ -1415,7 +1434,7 @@ function DashboardHeader({
             {activeTab === 'analytics' && 'Analytics'}
             {activeTab === 'subscription' && 'Abonnement'}
             {activeTab === 'team' && 'Équipe'}
-            {activeTab === 'messages' && 'Messages'}
+            {activeTab === 'purchaseRequests' && 'Purchase Requests'}
           </h1>
         </div>
 
@@ -1893,3 +1912,124 @@ function ReviewsSection({
 }
 
 type ProfileData = typeof DEFAULT_PROFILE;
+
+function PurchaseRequestsSection({
+  requests,
+  onDelete,
+}: {
+  requests: any[];
+  onDelete: (request: any) => void;
+}) {
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  const getStatusBadge = (status: string) => {
+    const styles: Record<string, string> = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      contacted: 'bg-blue-100 text-blue-800',
+      quoted: 'bg-purple-100 text-purple-800',
+      completed: 'bg-green-100 text-green-800',
+      cancelled: 'bg-red-100 text-red-800',
+    };
+    const labels: Record<string, string> = {
+      pending: 'En attente',
+      contacted: 'Contacté',
+      quoted: 'Devis reçu',
+      completed: 'Complété',
+      cancelled: 'Annulé',
+    };
+    return (
+      <span className={`rounded-full px-2 py-1 text-xs font-medium ${styles[status] || 'bg-gray-100 text-gray-800'}`}>
+        {labels[status] || status}
+      </span>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900">Mes demandes d'achat</h2>
+        <p className="text-sm text-gray-600">
+          Gérez vos demandes d'achat et suivez leur statut.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        {requests.length === 0 ? (
+          <Card>
+            <div className="text-center py-8">
+              <i className="ri-shopping-cart-line text-4xl text-gray-300 mb-3" />
+              <p className="text-gray-500">Aucune demande d'achat pour le moment</p>
+              <p className="text-sm text-gray-400 mt-1">
+                Créez une demande depuis la page d'accueil
+              </p>
+            </div>
+          </Card>
+        ) : (
+          requests.map((request) => (
+            <Card key={request._id}>
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    {getStatusBadge(request.status)}
+                    <span className="text-xs text-gray-500">
+                      {new Date(request.createdAt).toLocaleDateString('fr-FR')}
+                    </span>
+                  </div>
+                  <p className="font-medium text-gray-900 mb-1">{request.description}</p>
+                  <p className="text-sm text-gray-600">
+                    Quantité: {request.quantity} {request.unit}
+                  </p>
+                  {request.whatsapp && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      <i className="ri-whatsapp-line mr-1" />
+                      {request.whatsapp}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-start gap-2">
+                  {request.image && (
+                    <img
+                      src={request.image}
+                      alt="Request"
+                      className="h-16 w-16 rounded-lg object-cover"
+                    />
+                  )}
+                </div>
+              </div>
+              <div className="mt-4 flex items-center gap-2">
+                {deleteConfirmId === request._id ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-red-600">Confirmer suppression?</span>
+                    <button
+                      onClick={() => {
+                        onDelete(request);
+                        setDeleteConfirmId(null);
+                      }}
+                      className="rounded-lg px-3 py-1 text-sm font-medium text-white bg-red-600 hover:bg-red-700"
+                    >
+                      Oui
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirmId(null)}
+                      className="rounded-lg px-3 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                    >
+                      Non
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setDeleteConfirmId(request._id)}
+                    className="rounded-lg px-3 py-1 text-sm font-medium text-red-600 hover:bg-red-50"
+                  >
+                    <i className="ri-delete-bin-line mr-1" />
+                    Supprimer
+                  </button>
+                )}
+              </div>
+            </Card>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}

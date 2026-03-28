@@ -4,6 +4,7 @@ import { api } from '@convex/_generated/api';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
+import { useDictionarySearch } from '../../hooks/useDictionarySearch';
 import { useAction } from 'convex/react';
 import type { Map, Marker, Popup } from 'mapbox-gl';
 
@@ -866,6 +867,11 @@ export default function Search() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
 
+  // Dictionary search hook
+  const { enhanceSearchQuery } = useDictionarySearch();
+  const [expandedQuery, setExpandedQuery] = useState<string | null>(null);
+  const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
+
   // Request user's geolocation
   const requestUserLocation = () => {
     if (!navigator.geolocation) {
@@ -980,6 +986,29 @@ export default function Search() {
   const searchProductsAction = useAction(api.productSearch.searchProductsMultilingual);
   const [searchResults, setSearchResults] = useState<any>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+  
+  // Enhance query with dictionary when filters.query changes
+  useEffect(() => {
+    const enhanceQuery = async () => {
+      if (!filters.query || filters.query.trim().length < 2) {
+        setExpandedQuery(null);
+        setSuggestedCategory(null);
+        return;
+      }
+      
+      try {
+        const enhanced = await enhanceSearchQuery(filters.query, filters.category || undefined);
+        if (enhanced) {
+          setExpandedQuery(enhanced.expanded.join(' '));
+          setSuggestedCategory(enhanced.suggestedCategory);
+        }
+      } catch (error) {
+        console.error('Error enhancing query:', error);
+      }
+    };
+    
+    void enhanceQuery();
+  }, [filters.query]);
   
   // Perform search when filters change
   useEffect(() => {
@@ -1344,6 +1373,23 @@ export default function Search() {
                       </>
                     )}
                   </p>
+                  
+                  {/* Dictionary expansion info */}
+                  {expandedQuery && filters.query && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      <i className="ri-book-open-line mr-1"></i>
+                      {t('search.including')}: {expandedQuery.split(' ').slice(0, 8).join(', ')}
+                      {expandedQuery.split(' ').length > 8 && '...'}
+                    </p>
+                  )}
+                  
+                  {suggestedCategory && !filters.category && (
+                    <p className="text-xs text-blue-600 mt-1 cursor-pointer hover:underline"
+                       onClick={() => setFilters({...filters, category: suggestedCategory || ''})}>
+                      <i className="ri-lightbulb-line mr-1"></i>
+                      {t('search.suggested_category')}: {suggestedCategory}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-4 w-full sm:w-auto">
                   <div className="flex bg-gray-100 rounded-xl p-1.5 shadow-sm">

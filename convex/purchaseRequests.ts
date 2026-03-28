@@ -132,6 +132,41 @@ export const createPurchaseRequest = action({
 });
 
 /**
+ * Delete a purchase request (owner only)
+ */
+export const deletePurchaseRequest = mutation({
+  args: {
+    id: v.id("purchaseRequests"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Non autorisé");
+    }
+    
+    const request = await ctx.db.get(args.id);
+    if (!request) {
+      throw new Error("Demande non trouvée");
+    }
+    
+    // Only allow owner or admin to delete
+    if (request.userId !== identity.subject) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("email", (q) => q.eq("email", identity.email))
+        .first();
+      
+      if (!user?.is_admin) {
+        throw new Error("Accès refusé");
+      }
+    }
+    
+    await ctx.db.delete(args.id);
+    return { success: true };
+  },
+});
+
+/**
  * Get purchase requests for current user
  */
 export const getMyPurchaseRequests = query({

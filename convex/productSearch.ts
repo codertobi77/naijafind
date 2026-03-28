@@ -2,6 +2,7 @@ import { query, action, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { expandQueryWithDictionary, calculateSemanticScore } from "./productDictionary";
 
 // ==========================================
 // PRODUCT-FIRST SEARCH
@@ -350,6 +351,9 @@ export const searchProductsMultilingual = action({
     }));
 
     if (hasQuery) {
+      // Expand query using dictionary for better matching
+      const expandedTerms = expandQueryWithDictionary(queryLower);
+      
       scored = scored
         .map((p) => {
           let score = 0;
@@ -360,6 +364,10 @@ export const searchProductsMultilingual = action({
           const keywords = (p.keywords || []).map((k: string) => k.toLowerCase());
           const category = (p.category || "").toLowerCase();
 
+          // Calculate semantic scores using dictionary
+          const nameSemanticScore = calculateSemanticScore(queryLower, name);
+          const descSemanticScore = calculateSemanticScore(queryLower, desc);
+          
           // Exact match in name gets highest score
           if (name === queryLower) {
             score += 100;
@@ -369,39 +377,64 @@ export const searchProductsMultilingual = action({
             matchType = "name";
           }
 
-          // Word matches in name
-          for (const word of queryWords) {
-            if (name.includes(word)) {
-              score += 20;
+          // Dictionary-enhanced word matching
+          for (const term of expandedTerms) {
+            // Name matches with expanded terms
+            if (name.includes(term)) {
+              score += 15;
               if (matchType === "none") matchType = "name";
             }
-          }
-
-          // Keyword matches
-          for (const kw of keywords) {
-            if (kw.includes(queryLower) || queryLower.includes(kw)) {
-              score += 30;
-              if (matchType === "none") matchType = "keywords";
+            
+            // Description matches with expanded terms (dictionary synonyms)
+            if (desc.includes(term)) {
+              score += 8;
+              if (matchType === "none") matchType = "description";
             }
-            for (const word of queryWords) {
-              if (kw.includes(word)) {
-                score += 10;
+            
+            // Keywords matches with expanded terms
+            for (const kw of keywords) {
+              if (kw.includes(term) || term.includes(kw)) {
+                score += 12;
+                if (matchType === "none") matchType = "keywords";
               }
             }
           }
 
-          // Description matches (lower weight)
-          if (desc.includes(queryLower)) {
-            score += 15;
-            if (matchType === "none") matchType = "description";
-          }
+          // Original word matches (fallback)
           for (const word of queryWords) {
-            if (desc.includes(word)) score += 5;
+            if (name.includes(word)) {
+              score += 10;
+              if (matchType === "none") matchType = "name";
+            }
+            if (desc.includes(word)) {
+              score += 3;
+            }
+          }
+
+          // Keyword direct matches
+          for (const kw of keywords) {
+            if (kw.includes(queryLower) || queryLower.includes(kw)) {
+              score += 20;
+              if (matchType === "none") matchType = "keywords";
+            }
+          }
+
+          // Description direct match
+          if (desc.includes(queryLower)) {
+            score += 10;
+            if (matchType === "none") matchType = "description";
           }
 
           // Category match
           if (category === queryLower || category.includes(queryLower)) {
-            score += 25;
+            score += 20;
+          }
+          
+          // Category match with expanded terms
+          for (const term of expandedTerms) {
+            if (category.includes(term)) {
+              score += 10;
+            }
           }
 
           return { ...p, _score: score, _matchType: matchType };

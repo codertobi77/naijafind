@@ -23,6 +23,7 @@ import type * as messages from "../messages.js";
 import type * as migration from "../migration.js";
 import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
+import type * as productDictionary from "../productDictionary.js";
 import type * as productMigration from "../productMigration.js";
 import type * as productSearch from "../productSearch.js";
 import type * as productSourcing from "../productSourcing.js";
@@ -67,6 +68,7 @@ declare const fullApi: ApiFromModules<{
   migration: typeof migration;
   migrations: typeof migrations;
   notifications: typeof notifications;
+  productDictionary: typeof productDictionary;
   productMigration: typeof productMigration;
   productSearch: typeof productSearch;
   productSourcing: typeof productSourcing;
