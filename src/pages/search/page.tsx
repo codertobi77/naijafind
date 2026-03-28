@@ -867,10 +867,12 @@ export default function Search() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
 
-  // Dictionary search hook
-  const { enhanceSearchQuery } = useDictionarySearch();
-  const [expandedQuery, setExpandedQuery] = useState<string | null>(null);
-  const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
+  // Dictionary search hook - DISABLED for performance
+  // const { enhanceSearchQuery } = useDictionarySearch();
+  // const [expandedQuery, setExpandedQuery] = useState<string | null>(null);
+  // const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
+  const expandedQuery = null;
+  const suggestedCategory = null;
 
   // Request user's geolocation
   const requestUserLocation = () => {
@@ -987,28 +989,28 @@ export default function Search() {
   const [searchResults, setSearchResults] = useState<any>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   
-  // Enhance query with dictionary when filters.query changes
-  useEffect(() => {
-    const enhanceQuery = async () => {
-      if (!filters.query || filters.query.trim().length < 2) {
-        setExpandedQuery(null);
-        setSuggestedCategory(null);
-        return;
-      }
-      
-      try {
-        const enhanced = await enhanceSearchQuery(filters.query, filters.category || undefined);
-        if (enhanced) {
-          setExpandedQuery(enhanced.expanded.join(' '));
-          setSuggestedCategory(enhanced.suggestedCategory);
-        }
-      } catch (error) {
-        console.error('Error enhancing query:', error);
-      }
-    };
-    
-    void enhanceQuery();
-  }, [filters.query]);
+  // Enhance query with dictionary - DISABLED for performance
+  // useEffect(() => {
+  //   const enhanceQuery = async () => {
+  //     if (!filters.query || filters.query.trim().length < 2) {
+  //       setExpandedQuery(null);
+  //       setSuggestedCategory(null);
+  //       return;
+  //     }
+  //     
+  //     try {
+  //       const enhanced = await enhanceSearchQuery(filters.query, filters.category || undefined);
+  //       if (enhanced) {
+  //         setExpandedQuery(enhanced.expanded.join(' '));
+  //         setSuggestedCategory(enhanced.suggestedCategory);
+  //       }
+  //     } catch (error) {
+  //       console.error('Error enhancing query:', error);
+  //     }
+  //   };
+  //   
+  //   void enhanceQuery();
+  // }, [filters.query]);
   
   // Perform search when filters change
   useEffect(() => {
