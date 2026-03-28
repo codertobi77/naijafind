@@ -441,16 +441,7 @@ export default function ProductSearchPage() {
                               </div>
                             )}
 
-                            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-gray-100">
-                              <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500">
-                                {product.relevanceScore !== undefined && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-50 border border-gray-100">
-                                    <i className="ri-magic-line mr-1 text-purple-500" />
-                                    {t('search.relevance')}:{' '}
-                                    {product.relevanceScore}
-                                  </span>
-                                )}
-                              </div>
+                            <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
                               <button
                                 onClick={() => setSelectedProduct(product)}
                                 className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
