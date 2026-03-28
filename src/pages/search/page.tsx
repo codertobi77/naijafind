@@ -3,7 +3,6 @@ import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '@convex/_generated/api';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
-import { SupplierAvatar } from '../../components/SupplierImage';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { useAction } from 'convex/react';
 import { useMultilingualSearch } from '../../hooks/useMultilingualSearch';
@@ -840,8 +839,8 @@ export default function Search() {
   const navigate = useNavigate();
   // Search page is publicly accessible - no auth required
 
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [allMapSuppliers, setAllMapSuppliers] = useState<Supplier[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [allMapProducts, setAllMapProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [paginationLoading, setPaginationLoading] = useState(false);
   const [allSuppliersLoading, setAllSuppliersLoading] = useState(false);
@@ -861,7 +860,7 @@ export default function Search() {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const itemsPerPage = 20;
 
-  const cityOptions = Array.from(new Set(suppliers.map(s => s.location.split(',')[0].trim())));
+  const cityOptions = Array.from(new Set(products.flatMap(p => p.suppliers?.map((s: any) => s.location) || [])));
   const citySuggestions = ['Lagos', 'Abuja', 'Ibadan', 'Port Harcourt']; // mock pop
 
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -981,8 +980,8 @@ export default function Search() {
   // Multilingual search hook for Alibaba-style search
   const { translateQuery, isTranslating: isSearchTranslating } = useMultilingualSearch();
 
-  // Setup action for search
-  const searchSuppliersAction = useAction(api.suppliers.searchSuppliers);
+  // Setup action for product search
+  const searchProductsAction = useAction(api.productSearch.searchProductsMultilingual);
   const [searchResults, setSearchResults] = useState<any>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [translatedQuery, setTranslatedQuery] = useState<string | null>(null);
@@ -1010,18 +1009,13 @@ export default function Search() {
         }
       
         const result = await withTimeout(
-          searchSuppliersAction({
+          searchProductsAction({
             q: searchQuery || undefined,
             category: filters.category || undefined,
-            location: filters.location || undefined,
-            lat: effectiveLocationCoords?.lat,
-            lng: effectiveLocationCoords?.lng,
-            radiusKm: Number(filters.distance || '50'),
-            minRating: filters.rating ? Number(filters.rating) : undefined,
-            verified: filters.verified || undefined,
+            language: 'fr',
             limit: BigInt(itemsPerPage),
             offset: BigInt(currentPage * itemsPerPage),
-            sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | 'alpha_asc' | 'alpha_desc' | undefined,
+            sortBy: sortBy === 'relevance' ? 'relevance' : sortBy === 'alpha_asc' ? 'price_asc' : sortBy === 'alpha_desc' ? 'price_desc' : 'relevance',
           }),
           30000, // 30 second timeout
           t('search.timeout_error')
@@ -1065,18 +1059,13 @@ export default function Search() {
         const MAP_RESULTS_LIMIT = 5000;
 
         const result = await withTimeout(
-          searchSuppliersAction({
+          searchProductsAction({
             q: searchQuery || undefined,
             category: filters.category || undefined,
-            location: filters.location || undefined,
-            lat: effectiveLocationCoords?.lat,
-            lng: effectiveLocationCoords?.lng,
-            radiusKm: Number(filters.distance || '50'),
-            minRating: filters.rating ? Number(filters.rating) : undefined,
-            verified: filters.verified || undefined,
+            language: 'fr',
             limit: BigInt(MAP_RESULTS_LIMIT),
             offset: BigInt(0),
-            sortBy: sortBy as 'relevance' | 'distance' | 'rating' | 'reviews' | 'alpha_asc' | 'alpha_desc' | undefined,
+            sortBy: sortBy === 'relevance' ? 'relevance' : sortBy === 'alpha_asc' ? 'price_asc' : sortBy === 'alpha_desc' ? 'price_desc' : 'relevance',
           }),
           30000,
           t('search.map_timeout_error')
@@ -1092,63 +1081,63 @@ export default function Search() {
     void performMapSearch();
   }, [viewMode, filters, sortBy, effectiveLocationCoords?.lat, effectiveLocationCoords?.lng, translateQuery]);
 
-  // Process paginated suppliers for list view
+  // Process paginated products for list view
   useEffect(() => {
     if (!searchResults) return;
-    const list = (searchResults.suppliers || []).map((s: any) => ({
-      id: (s._id ?? s.id) as string,
-      name: s.business_name ?? s.name ?? '',
-      category: s.category ?? '',
-      location: s.location ?? [s.city, s.state].filter(Boolean).join(', '),
-      rating: s.rating ?? 0,
-      review_count: s.reviews_count ?? 0,
-      distance: (s as any).distance,
-      verified: !!s.verified,
-      image_url: s.image ?? s.image_url ?? s.logo_url ?? '',
-      description: s.description ?? '',
-      phone: s.phone ?? '',
-      email: s.email ?? '',
-      // Include location data for map
-      latitude: s.latitude,
-      longitude: s.longitude,
-      city: s.city,
-      state: s.state,
-      country: s.country,
-      address: s.address,
-    })) as Supplier[];
-    setSuppliers(list);
-    setTotalCount(searchResults.total ?? list.length);
+    const productList = (searchResults.products || []).map((p: any) => ({
+      id: p._id as string,
+      name: p.name ?? '',
+      description: p.description ?? p.shortDescription ?? '',
+      price: p.price,
+      category: p.category ?? '',
+      images: p.images || [],
+      relevanceScore: p.relevanceScore ?? 0,
+      suppliers: (p.suppliers || []).map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        rating: s.rating ?? 0,
+        review_count: s.reviews_count ?? 0,
+        verified: !!s.verified,
+        location: [s.city, s.state].filter(Boolean).join(', '),
+        category: s.category ?? '',
+        matchScore: s.matchScore ?? 0,
+        matchConfidence: s.matchConfidence ?? 'medium',
+      })),
+      totalSuppliers: p.totalSuppliers ?? 0,
+    }));
+    setProducts(productList);
+    setTotalCount(searchResults.total ?? productList.length);
     // Scroll to results after loading completes
-    if (!loading && list.length > 0) {
+    if (!loading && productList.length > 0) {
       handleScrollToResults();
     }
   }, [searchResults, loading, currentPage]);
   
-  // Process ALL suppliers for map view (no pagination)
+  // Process ALL products for map view (no pagination)
   useEffect(() => {
     if (!mapSearchResults) return;
-    const allList = (mapSearchResults.suppliers || []).map((s: any) => ({
-      id: (s._id ?? s.id) as string,
-      name: s.business_name ?? s.name ?? '',
-      category: s.category ?? '',
-      location: s.location ?? [s.city, s.state].filter(Boolean).join(', '),
-      rating: s.rating ?? 0,
-      review_count: s.reviews_count ?? 0,
-      distance: (s as any).distance,
-      verified: !!s.verified,
-      image_url: s.image ?? s.image_url ?? s.logo_url ?? '',
-      description: s.description ?? '',
-      phone: s.phone ?? '',
-      email: s.email ?? '',
-      // Include location data for map
-      latitude: s.latitude,
-      longitude: s.longitude,
-      city: s.city,
-      state: s.state,
-      country: s.country,
-      address: s.address,
-    })) as Supplier[];
-    setAllMapSuppliers(allList);
+    const allList = (mapSearchResults.products || []).map((p: any) => ({
+      id: p._id as string,
+      name: p.name ?? '',
+      description: p.description ?? p.shortDescription ?? '',
+      price: p.price,
+      category: p.category ?? '',
+      images: p.images || [],
+      relevanceScore: p.relevanceScore ?? 0,
+      suppliers: (p.suppliers || []).map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        rating: s.rating ?? 0,
+        review_count: s.reviews_count ?? 0,
+        verified: !!s.verified,
+        location: [s.city, s.state].filter(Boolean).join(', '),
+        category: s.category ?? '',
+        matchScore: s.matchScore ?? 0,
+        matchConfidence: s.matchConfidence ?? 'medium',
+      })),
+      totalSuppliers: p.totalSuppliers ?? 0,
+    }));
+    setAllMapProducts(allList);
   }, [mapSearchResults]);
 
   useEffect(() => {
@@ -1381,10 +1370,10 @@ export default function Search() {
                       <>
                         <i className="ri-checkbox-circle-line text-green-600 mr-2"></i>
                         {totalCount === 0 ? (
-                          <>0 {t('search.suppliers')} {t('search.results')}</>
+                          <>0 {t('search.products')} {t('search.results')}</>
                         ) : (
                           <>
-                            {currentPage * itemsPerPage + 1}-{Math.min((currentPage + 1) * itemsPerPage, totalCount)}/{totalCount} {t('search.suppliers')}
+                            {currentPage * itemsPerPage + 1}-{Math.min((currentPage + 1) * itemsPerPage, totalCount)}/{totalCount} {t('search.products')}
                           </>
                         )}
                         {translatedQuery && (
@@ -1455,7 +1444,12 @@ export default function Search() {
 
             {viewMode === 'map' && (
               <div className="bg-white rounded-lg shadow-sm mb-6 h-64 sm:h-96 overflow-hidden">
-                <SupplierMapView suppliers={allMapSuppliers} userLocation={userLocation} />
+                <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                  <div className="text-center text-gray-500">
+                    <i className="ri-map-pin-line text-4xl mb-2"></i>
+                    <p>{t('search.map_view_unavailable')}</p>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1476,85 +1470,83 @@ export default function Search() {
               </div>
             ) : (
               <div className="space-y-6">
-                {suppliers.map((supplier: any) => {
-                  const supplierId = supplier.id;
-                  const supplierName = supplier.name;
+                {products.map((product: any) => {
+                  const productId = product.id;
+                  const mainSupplier = product.suppliers?.[0];
                                 
                   return (
-                    <div key={supplierId} className="bg-white rounded-2xl shadow-soft hover:shadow-medium transition-all duration-300 border border-gray-100 hover:-translate-y-1">
+                    <div key={productId} className="bg-white rounded-2xl shadow-soft hover:shadow-medium transition-all duration-300 border border-gray-100 hover:-translate-y-1">
                       <div className="p-6">
                         <div className="flex gap-6">
-                          <div className="w-20 sm:w-28 h-20 sm:h-28 flex-shrink-0">
-                            <SupplierAvatar
-                              name={supplierName}
-                              category={supplier.category}
-                              size="lg"
-                              className="rounded-xl"
-                            />
+                          <div className="w-20 sm:w-28 h-20 sm:h-28 flex-shrink-0 bg-gray-100 rounded-xl overflow-hidden">
+                            {product.images?.[0] ? (
+                              <img 
+                                src={product.images[0]} 
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                                <i className="ri-box-3-line text-3xl text-gray-400"></i>
+                              </div>
+                            )}
                           </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex-1 min-w-0">
                               <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2 mb-2">
-                                <span className="truncate">{supplier.name}</span>
-                                {supplier.verified && (
-                                  <span className="badge badge-verified flex-shrink-0">
-                                    <i className="ri-verified-badge-fill mr-1"></i>
-                                    <span className="hidden sm:inline">Vérifié</span>
-                                    <span className="sm:hidden">✓</span>
-                                  </span>
-                                )}
+                                <span className="truncate">{product.name}</span>
                               </h3>
                               <p className="text-green-600 text-sm font-semibold flex items-center">
-                                <i className="ri-store-2-line mr-1"></i>
-                                {supplier.category}
+                                <i className="ri-price-tag-3-line mr-1"></i>
+                                {product.category}
+                                {product.price && (
+                                  <span className="ml-3 text-gray-700">₦{product.price.toLocaleString()}</span>
+                                )}
                               </p>
                             </div>
                             <div className="text-right ml-2 flex-shrink-0">
-                              <div className="flex items-center gap-1.5 mb-1 bg-gradient-to-br from-yellow-50 to-orange-50 px-3 py-2 rounded-xl border border-yellow-200">
-                                <i className="ri-star-fill text-yellow-500 text-sm"></i>
-                                <div className="font-bold text-sm text-gray-900">{supplier.rating}</div>
-                                <div className="text-gray-500 text-xs">({supplier.review_count})</div>
-                              </div>
-                              {supplier.distance && (
-                                <p className="text-xs text-gray-500">{supplier.distance.toFixed(1)} km</p>
-                              )}
-                            </div>
-                          </div>
-                          <p className="text-gray-600 text-sm mb-3 line-clamp-2">{supplier.description}</p>
-                          <div className="space-y-1 sm:space-y-2 mb-4">
-                            <div className="flex items-center text-xs sm:text-sm text-gray-600">
-                              <i className="ri-map-pin-line mr-2 text-green-600 flex-shrink-0"></i>
-                              <div className="min-w-0">
-                                <div className="font-medium truncate">{supplier.location}</div>
-                                <div className="text-xs text-gray-500">{t('search.full_address_available')}</div>
+                              <div className="flex items-center gap-1.5 mb-1 bg-gradient-to-br from-blue-50 to-indigo-50 px-3 py-2 rounded-xl border border-blue-200">
+                                <i className="ri-store-2-line text-blue-500 text-sm"></i>
+                                <div className="font-bold text-sm text-gray-900">{product.totalSuppliers}</div>
+                                <div className="text-gray-500 text-xs">{t('search.suppliers')}</div>
                               </div>
                             </div>
-                            <div className="flex items-center text-xs sm:text-sm text-gray-600">
-                              <i className="ri-phone-line mr-2 text-green-600 flex-shrink-0"></i>
-                              <span className="truncate">{supplier.phone}</span>
-                            </div>
-                            <div className="flex items-center text-xs sm:text-sm text-gray-600">
-                              <i className="ri-mail-line mr-2 text-green-600 flex-shrink-0"></i>
-                              <span className="truncate">{supplier.email}</span>
-                            </div>
                           </div>
+                          <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
+                          
+                          {/* Suppliers list */}
+                          {product.suppliers && product.suppliers.length > 0 && (
+                            <div className="mb-4">
+                              <p className="text-xs font-semibold text-gray-500 uppercase mb-2">{t('search.available_from')}:</p>
+                              <div className="flex flex-wrap gap-2">
+                                {product.suppliers.slice(0, 3).map((s: any) => (
+                                  <Link
+                                    key={s.id}
+                                    to={`/supplier/${s.id}`}
+                                    className="inline-flex items-center gap-1 px-2 py-1 bg-gray-50 rounded-lg text-xs text-gray-700 hover:bg-gray-100 transition-colors"
+                                  >
+                                    {s.verified && <i className="ri-verified-badge-fill text-green-500"></i>}
+                                    <span className="truncate max-w-[120px]">{s.name}</span>
+                                    {s.rating > 0 && (
+                                      <span className="flex items-center text-yellow-600">
+                                        <i className="ri-star-fill text-[10px]"></i>
+                                        {s.rating}
+                                      </span>
+                                    )}
+                                  </Link>
+                                ))}
+                                {product.suppliers.length > 3 && (
+                                  <span className="inline-flex items-center px-2 py-1 bg-gray-50 rounded-lg text-xs text-gray-500">
+                                    +{product.suppliers.length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
                           <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                             <div className="flex items-center space-x-2">
-                              <a
-                                href={`tel:${supplier.phone}`}
-                                className="p-2 text-gray-400 hover:text-green-600 transition-colors"
-                                title={t('search.call')}
-                              >
-                                <i className="ri-phone-line text-base sm:text-lg"></i>
-                              </a>
-                              <a
-                                href={`mailto:${supplier.email}`}
-                                className="p-2 text-gray-400 hover:text-green-600 transition-colors"
-                                title={t('search.send_email')}
-                              >
-                                <i className="ri-mail-line text-base sm:text-lg"></i>
-                              </a>
                               <button
                                 onClick={() => (document.querySelector('#vapi-widget-floating-button') as HTMLElement | null)?.click()}
                                 className="p-2 text-gray-400 hover:text-purple-600 transition-colors"
@@ -1564,7 +1556,7 @@ export default function Search() {
                               </button>
                             </div>
                             <Link
-                              to={`/supplier/${supplier.id}`}
+                              to={`/product/${product.id}`}
                               className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
                             >
                               {t('search.view_details')}
@@ -1579,11 +1571,11 @@ export default function Search() {
             </div>
           )}
 
-            {!loading && suppliers.length > 0 && (
+            {!loading && products.length > 0 && (
               <div className="mt-8 flex flex-col items-center gap-4">
                 {/* Total count */}
                 <p className="text-sm text-gray-600">
-                  {t('search.total_suppliers', { count: totalCount })}
+                  {t('search.total_products', { count: totalCount })}
                 </p>
                 
                 <div className="flex justify-center">
