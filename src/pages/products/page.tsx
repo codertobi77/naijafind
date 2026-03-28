@@ -5,7 +5,6 @@ import { useAction } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { Header } from '../../components/base';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
-import { useMultilingualSearch } from '../../hooks/useMultilingualSearch';
 import { useMutation } from 'convex/react';
 
 const ITEMS_PER_PAGE = 20;
@@ -81,14 +80,12 @@ export default function ProductSearchPage() {
     products: [],
     total: 0,
   });
-  const [translatedQuery, setTranslatedQuery] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<ProductResult | null>(null);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [requestMessage, setRequestMessage] = useState('');
 
   const searchProducts = useAction(api.products.searchProducts);
-  const { translateQuery, translateResults, isTranslating } = useMultilingualSearch();
   const createSupplierRequestMutation = useMutation(api.suppliers.createSupplierRequest);
 
   // Categories for filters
@@ -112,24 +109,11 @@ export default function ProductSearchPage() {
     const runSearch = async () => {
       setLoading(true);
       setError(null);
-      setTranslatedQuery(null);
 
       try {
-        let searchQuery = filters.query.trim();
-        if (searchQuery) {
-          const translationResult = await translateQuery(searchQuery, {
-            skipIfEnglish: true,
-            detectSourceLang: true,
-          });
-          if (translationResult.wasTranslated) {
-            searchQuery = translationResult.translatedQuery;
-            setTranslatedQuery(filters.query.trim());
-          }
-        }
-
         const result = await withTimeout(
           searchProducts({
-            q: searchQuery || undefined,
+            q: filters.query || undefined,
             category: filters.category || undefined,
             minPrice: filters.minPrice ? Number(filters.minPrice) : undefined,
             maxPrice: filters.maxPrice ? Number(filters.maxPrice) : undefined,
@@ -142,12 +126,7 @@ export default function ProductSearchPage() {
           t('search.timeout_error')
         );
 
-        let products = (result as any).products || [];
-        
-        // Translate product results to user's language
-        if (products.length > 0) {
-          products = await translateResults(products, ['name', 'description', 'shortDescription', 'category']);
-        }
+        const products = (result as any).products || [];
 
         setResults({
           products,
@@ -164,7 +143,7 @@ export default function ProductSearchPage() {
     };
 
     void runSearch();
-  }, [filters, sortBy, currentPage, searchProducts, translateQuery, translateResults, t]);
+  }, [filters, sortBy, currentPage, searchProducts, t]);
 
   const totalPages = Math.max(1, Math.ceil(results.total / ITEMS_PER_PAGE));
 
@@ -293,24 +272,16 @@ export default function ProductSearchPage() {
                     {t('products.results_title')}
                   </h1>
                   <p className="text-sm text-gray-600 flex items-center flex-wrap gap-2">
-                    {loading || isTranslating ? (
+                    {loading ? (
                       <>
                         <i className="ri-loader-4-line animate-spin mr-1" />
-                        {isTranslating
-                          ? t('search.translating') || 'Traduction...'
-                          : t('search.loading')}
+                        {t('search.loading')}
                       </>
                     ) : (
                       <>
                         <i className="ri-checkbox-circle-line text-green-600 mr-1" />
                         {results.total} {t('products.label')}
                       </>
-                    )}
-                    {translatedQuery && (
-                      <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-                        <i className="ri-translate-2 mr-1" />
-                        {t('search.translated_from')}: "{translatedQuery}"
-                      </span>
                     )}
                   </p>
                 </div>

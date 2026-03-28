@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { useAction } from 'convex/react';
-import { useMultilingualSearch } from '../../hooks/useMultilingualSearch';
 import type { Map, Marker, Popup } from 'mapbox-gl';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
@@ -977,42 +976,22 @@ export default function Search() {
   // Use user's location if available, otherwise fall back to selected city coordinates
   const effectiveLocationCoords = userLocation || getLocationCoords(filters.location);
   
-  // Multilingual search hook for Alibaba-style search
-  const { translateQuery, isTranslating: isSearchTranslating } = useMultilingualSearch();
-
   // Setup action for product search
   const searchProductsAction = useAction(api.productSearch.searchProductsMultilingual);
   const [searchResults, setSearchResults] = useState<any>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [translatedQuery, setTranslatedQuery] = useState<string | null>(null);
   
-  // Perform search when filters change (with multilingual support)
+  // Perform search when filters change
   useEffect(() => {
     const performSearch = async () => {
       setLoading(true);
       setPaginationLoading(currentPage > 0);
-      setTranslatedQuery(null);
       
       try {
-        // Translate query to English for search (Alibaba-style)
-        let searchQuery = filters.query;
-        if (filters.query && filters.query.trim()) {
-          const translationResult = await translateQuery(filters.query.trim(), {
-            skipIfEnglish: true,
-            detectSourceLang: true,
-          });
-          
-          if (translationResult.wasTranslated) {
-            searchQuery = translationResult.translatedQuery;
-            setTranslatedQuery(filters.query); // Store original query for display
-          }
-        }
-      
         const result = await withTimeout(
           searchProductsAction({
-            q: searchQuery || undefined,
+            q: filters.query || undefined,
             category: filters.category || undefined,
-            language: 'fr',
             limit: BigInt(itemsPerPage),
             offset: BigInt(currentPage * itemsPerPage),
             sortBy: sortBy === 'relevance' ? 'relevance' : sortBy === 'alpha_asc' ? 'price_asc' : sortBy === 'alpha_desc' ? 'price_desc' : 'relevance',
@@ -1031,9 +1010,9 @@ export default function Search() {
     };
     
     void performSearch();
-  }, [filters, currentPage, sortBy, effectiveLocationCoords?.lat, effectiveLocationCoords?.lng, translateQuery]);
+  }, [filters, currentPage, sortBy]);
   
-  // Perform map search when viewMode changes to map (with multilingual support)
+  // Perform map search when viewMode changes to map
   useEffect(() => {
     if (viewMode !== 'map') return;
     
@@ -1041,28 +1020,14 @@ export default function Search() {
       setAllSuppliersLoading(true);
       
       try {
-        // Translate query to English for search (Alibaba-style)
-        let searchQuery = filters.query;
-        if (filters.query && filters.query.trim()) {
-          const translationResult = await translateQuery(filters.query.trim(), {
-            skipIfEnglish: true,
-            detectSourceLang: true,
-          });
-          
-          if (translationResult.wasTranslated) {
-            searchQuery = translationResult.translatedQuery;
-          }
-        }
-        
         // Hard cap for map view to prevent huge payloads + thousands of DOM markers
         // Increased from 500 to 5000 to show more suppliers on map
         const MAP_RESULTS_LIMIT = 5000;
 
         const result = await withTimeout(
           searchProductsAction({
-            q: searchQuery || undefined,
+            q: filters.query || undefined,
             category: filters.category || undefined,
-            language: 'fr',
             limit: BigInt(MAP_RESULTS_LIMIT),
             offset: BigInt(0),
             sortBy: sortBy === 'relevance' ? 'relevance' : sortBy === 'alpha_asc' ? 'price_asc' : sortBy === 'alpha_desc' ? 'price_desc' : 'relevance',
@@ -1079,7 +1044,7 @@ export default function Search() {
     };
     
     void performMapSearch();
-  }, [viewMode, filters, sortBy, effectiveLocationCoords?.lat, effectiveLocationCoords?.lng, translateQuery]);
+  }, [viewMode, filters, sortBy]);
 
   // Process paginated products for list view
   useEffect(() => {
@@ -1361,10 +1326,10 @@ export default function Search() {
                     {t('search.results_title')}
                   </h1>
                   <p className="text-gray-600 text-sm sm:text-base flex items-center flex-wrap gap-2">
-                    {loading || isSearchTranslating ? (
+                    {loading ? (
                       <>
                         <i className="ri-loader-4-line animate-spin mr-2"></i>
-                        {isSearchTranslating ? t('search.translating') || 'Traduction...' : t('search.loading')}
+                        {t('search.loading')}
                       </>
                     ) : (
                       <>
@@ -1375,12 +1340,6 @@ export default function Search() {
                           <>
                             {currentPage * itemsPerPage + 1}-{Math.min((currentPage + 1) * itemsPerPage, totalCount)}/{totalCount} {t('search.products')}
                           </>
-                        )}
-                        {translatedQuery && (
-                          <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full ml-2">
-                            <i className="ri-translate-2 mr-1"></i>
-                            {t('search.translated_from')}: "{translatedQuery}"
-                          </span>
                         )}
                       </>
                     )}

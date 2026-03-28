@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 
 // ==========================================
-// PRODUCT-FIRST SEARCH WITH MULTILINGUAL SUPPORT
+// PRODUCT-FIRST SEARCH
 // ==========================================
 
 /**
@@ -46,35 +46,6 @@ interface ProductSearchResult {
 // ==========================================
 // INTERNAL QUERIES
 // ==========================================
-
-/**
- * Internal: Get product translations for a set of products
- * Uses productId index for efficient lookup
- */
-export const _getProductTranslations = internalQuery({
-  args: {
-    productIds: v.array(v.id("products")),
-    language: v.string(),
-  },
-  handler: async (ctx, args): Promise<Record<string, any>> => {
-    const translations: Record<string, any> = {};
-
-    for (const productId of args.productIds) {
-      const translation = await ctx.db
-        .query("productTranslations")
-        .withIndex("productId_language", (q) =>
-          q.eq("productId", productId).eq("language", args.language)
-        )
-        .first();
-
-      if (translation && translation.translationStatus === "completed") {
-        translations[productId] = translation;
-      }
-    }
-
-    return translations;
-  },
-});
 
 /**
  * Internal: Get supplier details by IDs batch
@@ -298,39 +269,33 @@ export const getProductSuppliers = query({
 });
 
 // ==========================================
-// SEARCH ACTION WITH MULTILINGUAL SUPPORT
+// SEARCH ACTION
 // ==========================================
 
 /**
- * Action: Product-first search with multilingual support
+ * Action: Product-first search
  * 
  * PERFORMANCE NOTES:
  * - Uses indexed queries throughout (category, status, isSearchable)
  * - Fetches candidates using productId_approved index
  * - Batches supplier lookups to prevent N+1
  * - Limits all queries to prevent "too many bytes read" errors
- * - Translation lookups are batched by product IDs
  */
 export const searchProductsMultilingual = action({
   args: {
     q: v.optional(v.string()),
     category: v.optional(v.string()),
-    language: v.optional(v.string()), // Target language for results
     minPrice: v.optional(v.float64()),
     maxPrice: v.optional(v.float64()),
     verifiedSupplier: v.optional(v.boolean()),
     limit: v.optional(v.int64()),
     offset: v.optional(v.int64()),
-    sortBy: v.optional(v.string()), // 'relevance' | 'price_asc' | 'price_desc' | 'newest' | 'match_score'
+    sortBy: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<{
-    products: ProductSearchResult[];
-    total: number;
-  }> => {
+  handler: async (ctx, args) => {
     const limit = Number(args.limit ?? 20);
     const offset = Number(args.offset ?? 0);
     const sortBy = args.sortBy || "relevance";
-    const targetLang = args.language || "en";
 
     const hasQuery = !!(args.q && args.q.trim());
     const queryLower = hasQuery ? args.q!.toLowerCase().trim() : "";
@@ -455,31 +420,7 @@ export const searchProductsMultilingual = action({
       scored = scored.filter((p) => p.price !== undefined && p.price <= args.maxPrice!);
     }
 
-    // Step 4: Get translations for products in target language
-    const productIds = scored.map((p) => p._id);
-    const translations =
-      targetLang !== "en"
-        ? await ctx.runQuery(internal.productSearch._getProductTranslations, {
-            productIds,
-            language: targetLang,
-          })
-        : {};
-
-    // Apply translations to products
-    scored = scored.map((p) => {
-      const translation = translations[p._id];
-      if (translation) {
-        return {
-          ...p,
-          name: translation.name || p.name,
-          description: translation.description || p.description,
-          shortDescription: translation.shortDescription || p.shortDescription,
-        };
-      }
-      return p;
-    });
-
-    // Step 5: Get suppliers for each product
+    // Step 4: Get suppliers for each product
     // OPTIMIZED: Use batch query instead of N+1 loop
     const allCandidates: Record<string, any[]> = {};
     
@@ -577,7 +518,7 @@ export const searchProductsMultilingual = action({
       };
     });
 
-    // Step 6: Sorting
+    // Step 5: Sorting
     productsWithSuppliers.sort((a, b) => {
       switch (sortBy) {
         case "price_asc":
@@ -594,7 +535,7 @@ export const searchProductsMultilingual = action({
       }
     });
 
-    // Step 7: Pagination
+    // Step 6: Pagination
     const total: number = productsWithSuppliers.length;
     const page = productsWithSuppliers.slice(offset, offset + limit);
 
