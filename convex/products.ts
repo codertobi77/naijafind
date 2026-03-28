@@ -924,6 +924,15 @@ function calculateSupplierRelevanceScore(
   return { score, matchDetails };
 }
 
+const STOP_WORDS = new Set([
+  "a","an","the","and","or","of","for","to","in","on","avec","pour","de","des","du","la","le","les","un","une","et","ou","dans","sur","je","tu","il","elle","nous","vous","ils","elles"
+]);
+
+// Pre-sort compound terms by length (longest first) to match "dispositif médical" before "médical"
+const COMPOUND_TERMS = Object.keys(CATEGORY_KEYWORDS)
+  .filter(kw => kw.includes(' '))
+  .sort((a, b) => b.length - a.length);
+
 /**
  * Enhanced keyword extraction with multi-word term support
  * Extracts both individual words and compound terms
@@ -931,23 +940,13 @@ function calculateSupplierRelevanceScore(
 function extractSearchKeywords(query: string): string[] {
   if (!query) return [];
   
-  const STOP_WORDS = new Set([
-    "a","an","the","and","or","of","for","to","in","on","avec","pour","de","des","du","la","le","les","un","une","et","ou","dans","sur","je","tu","il","elle","nous","vous","ils","elles"
-  ]);
-  
   const normalized = query.toLowerCase().trim().replace(/\s+/g, " ");
   
   // Extract compound terms first (multi-word keywords from knowledge base)
   const compoundKeywords: string[] = [];
-  const remainingText = normalized;
   
-  // Sort compound terms by length (longest first) to match "dispositif médical" before "médical"
-  const compoundTerms = Object.keys(CATEGORY_KEYWORDS)
-    .filter(kw => kw.includes(' '))
-    .sort((a, b) => b.length - a.length);
-  
-  let workingText = remainingText;
-  for (const term of compoundTerms) {
+  let workingText = normalized;
+  for (const term of COMPOUND_TERMS) {
     if (workingText.includes(term)) {
       compoundKeywords.push(term);
       workingText = workingText.replace(term, ' ');
@@ -1092,46 +1091,38 @@ export const searchProducts = action({
       _suppliers: null,
     }));
 
-    // FILTER OUT SERVICE CATEGORIES (hotels, restaurants, etc.)
+    // CONSOLIDATED FILTER PASS: Service categories, name matching, price, and relevance
+    const queryLower = hasQuery ? args.q!.toLowerCase().trim() : "";
+
     scored = scored.filter((p) => {
+      // 1. Filter out service categories
       if (isServiceCategory(p.category)) {
         return false;
       }
-      return true;
-    });
 
-    // FILTER BY NAME MATCH: Only show products whose name contains the search query
-    // This is applied AFTER the category pre-filter as an additional layer
-    if (hasQuery && args.q) {
-      const queryLower = args.q.toLowerCase().trim();
-      scored = scored.filter((p) => {
+      // 2. Filter by name match if query exists
+      if (hasQuery) {
         const name = (p.name || "").toLowerCase();
-        // Keep only products whose name contains the search query
-        return name.includes(queryLower);
-      });
-    }
+        if (!name.includes(queryLower)) {
+          return false;
+        }
+      }
 
-    // Text & price filters + relevance score using enhanced category inference
-    scored = scored.filter((p) => {
-      // Calculate enhanced relevance score with category inference
-      const score = hasQuery 
-        ? calculateProductRelevanceScore(p, args.q!, keywords, inferredCategories, inferredCategoriesLower)
-        : 0;
-
-      // Price filters
+      // 3. Price filters
       if (args.minPrice !== undefined && p.price < (args.minPrice as number)) {
         return false;
       }
       if (args.maxPrice !== undefined && p.price > (args.maxPrice as number)) {
         return false;
       }
-      
-      // For queries, require a minimum relevance score to filter out unrelated products
-      if (hasQuery) {
-        // Must have a meaningful match (name, description, category, or keywords)
-        if (score < 10) {
-          return false;
-        }
+
+      // 4. Calculate relevance score and filter low relevance
+      const score = hasQuery
+        ? calculateProductRelevanceScore(p, args.q!, keywords, inferredCategories, inferredCategoriesLower)
+        : 0;
+
+      if (hasQuery && score < 10) {
+        return false;
       }
 
       (p as ScoredProduct)._score = score;
@@ -1151,7 +1142,8 @@ export const searchProducts = action({
     );
     console.log(`Categories for mapping: ${categoriesForMapping.join(',')}`);
 
-    for (const cat of categoriesForMapping as string[]) {
+    // Parallelize category-based supplier queries
+    await Promise.all((categoriesForMapping as string[]).map(async (cat) => {
       try {
         const candidates = await ctx.runQuery(
           internal.suppliers._getSuppliersByCategory,
@@ -1170,24 +1162,24 @@ export const searchProducts = action({
             const scoredSuppliers = productSuppliers.map((s: any) => {
               // Get the product that triggered this category search
               const matchingProduct = scored.find(p => p.category === cat);
-            let score = 0;
-            let matchDetails: string[] = [];
-            try {
-              const result = calculateSupplierRelevanceScore(
-                s,
-                cat,
-                keywords,
-                matchingProduct?.name || '',
-                matchingProduct?.description
-              );
-              score = result.score;
-              matchDetails = result.matchDetails;
-            } catch (err) {
-              console.error(`Error calculating relevance score for supplier ${s._id}:`, err);
-              // Fallback score if calculation fails
-              score = 1;
-              matchDetails = ['error_fallback'];
-            }
+              let score = 0;
+              let matchDetails: string[] = [];
+              try {
+                const result = calculateSupplierRelevanceScore(
+                  s,
+                  cat,
+                  keywords,
+                  matchingProduct?.name || '',
+                  matchingProduct?.description
+                );
+                score = result.score;
+                matchDetails = result.matchDetails;
+              } catch (err) {
+                console.error(`Error calculating relevance score for supplier ${s._id}:`, err);
+                // Fallback score if calculation fails
+                score = 1;
+                matchDetails = ['error_fallback'];
+              }
               return {
                 ...s,
                 _supplierScore: score,
@@ -1219,7 +1211,7 @@ export const searchProducts = action({
         // Log error for debugging but continue with other categories
         console.error(`Error fetching suppliers for category "${cat}":`, err);
       }
-    }
+    }));
 
     // Attach suppliers snapshots (all potential suppliers for the product's category)
     console.log(`Attaching suppliers to ${scored.length} products. Category map has ${categoryToSuppliers.size} categories`);
@@ -1246,25 +1238,29 @@ export const searchProducts = action({
       }
     };
 
+    // Create normalized category map for O(1) case-insensitive lookups
+    const normalizedCategoryToSuppliers = new Map<string, any[]>();
+    for (const [cat, suppliers] of categoryToSuppliers.entries()) {
+      normalizedCategoryToSuppliers.set(cat.toLowerCase().trim(), suppliers);
+    }
+
     const finalScoredProducts: ScoredProduct[] = [];
     for (const p of scored) {
       let list: any[] = [];
 
-      // Try exact category match first
+      // Try category match (O(1) lookup)
       if (p.category && typeof p.category === "string") {
-        list = categoryToSuppliers.get(p.category) || [];
+        const prodCat = p.category;
+        const prodCatLower = prodCat.toLowerCase().trim();
 
-        // If no exact match, try case-insensitive match
+        // Exact match first
+        list = categoryToSuppliers.get(prodCat) || [];
+
+        // Case-insensitive match from pre-calculated map
         if (list.length === 0) {
-          const prodCatLower = p.category.toLowerCase().trim();
-          for (const [mapCat, suppliers] of categoryToSuppliers.entries()) {
-            if (mapCat.toLowerCase().trim() === prodCatLower) {
-              list = suppliers;
-              console.log(
-                `Case-insensitive match: "${p.category}" -> "${mapCat}" (${suppliers.length} suppliers)`
-              );
-              break;
-            }
+          list = normalizedCategoryToSuppliers.get(prodCatLower) || [];
+          if (list.length > 0) {
+            console.log(`Case-insensitive match: "${prodCat}" found in normalized map`);
           }
         }
       }
