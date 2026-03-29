@@ -322,8 +322,8 @@ export const searchProductsMultilingual = action({
       internal.productSearch._getProductsForSearch,
       {
         category: args.category,
-        status: "active",
-        limit: 200, // Reduced from 1000 for faster search
+        limit: 200,
+        // Do NOT filter by status - show all products like admin panel does
         // isSearchable is intentionally omitted to show ALL products by default
       }
     );
