@@ -202,6 +202,7 @@ export const useMultilingualSearch = () => {
         }
 
         // Translate in batches
+        // We use a copy of the results to avoid mutating the original array
         const translatedResults = [...results];
         for (let i = 0; i < textsToTranslate.length; i += batchSize) {
           const batch = textsToTranslate.slice(i, i + batchSize);
@@ -214,7 +215,9 @@ export const useMultilingualSearch = () => {
           if (batchResult.success && batchResult.translations) {
             batchResult.translations.forEach((translation, idx) => {
               const globalIndex = i + idx;
-              const mapping = textMapping.find((m) => m.textIndex === globalIndex);
+              // OPTIMIZATION: textMapping[globalIndex] is O(1) instead of .find() which was O(N)
+              // This removes an O(N^2) bottleneck in result translation
+              const mapping = textMapping[globalIndex];
               if (mapping && translation.translatedText) {
                 translatedResults[mapping.resultIndex] = {
                   ...translatedResults[mapping.resultIndex],
