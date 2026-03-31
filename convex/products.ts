@@ -428,6 +428,10 @@ interface CategoryKeywordMap {
   [keyword: string]: string[];
 }
 
+const SEARCH_STOP_WORDS = new Set([
+  "a","an","the","and","or","of","for","to","in","on","avec","pour","de","des","du","la","le","les","un","une","et","ou","dans","sur","je","tu","il","elle","nous","vous","ils","elles"
+]);
+
 const CATEGORY_KEYWORDS: CategoryKeywordMap = {
   // Agroalimentaire
   'riz': ['Agroalimentaire', 'Céréales'],
@@ -786,6 +790,10 @@ const CATEGORY_KEYWORDS: CategoryKeywordMap = {
   'custom': ['Import/Export', 'Services'],
 };
 
+const SORTED_COMPOUND_TERMS = Object.keys(CATEGORY_KEYWORDS)
+  .filter(kw => kw.includes(' '))
+  .sort((a, b) => b.length - a.length);
+
 // Reverse mapping: category -> keywords
 const REVERSE_CATEGORY_MAP: { [category: string]: string[] } = {};
 for (const [keyword, categories] of Object.entries(CATEGORY_KEYWORDS)) {
@@ -856,7 +864,8 @@ function calculateSupplierRelevanceScore(
   productCategory: string | undefined,
   searchKeywords: string[],
   productName: string,
-  productDescription?: string
+  productDescription?: string,
+  precalculatedKeyTerms?: string[]
 ): { score: number; matchDetails: string[] } {
   let score = 0;
   const matchDetails: string[] = [];
@@ -881,7 +890,7 @@ function calculateSupplierRelevanceScore(
   
   // 2. PRODUCT NAME MATCH IN SUPPLIER NAME/DESCRIPTION (20-25 points)
   // Extract key terms from product name (excluding common words)
-  const productKeyTerms = prodName
+  const productKeyTerms = precalculatedKeyTerms || prodName
     .split(/[\s,;:\-|\/\(\)\[\]\{\}_\*\.]+/)
     .filter(term => term.length > 2 && !['the', 'and', 'for', 'with', 'de', 'et', 'pour', 'avec'].includes(term));
   
@@ -931,23 +940,14 @@ function calculateSupplierRelevanceScore(
 function extractSearchKeywords(query: string): string[] {
   if (!query) return [];
   
-  const STOP_WORDS = new Set([
-    "a","an","the","and","or","of","for","to","in","on","avec","pour","de","des","du","la","le","les","un","une","et","ou","dans","sur","je","tu","il","elle","nous","vous","ils","elles"
-  ]);
-  
   const normalized = query.toLowerCase().trim().replace(/\s+/g, " ");
   
   // Extract compound terms first (multi-word keywords from knowledge base)
   const compoundKeywords: string[] = [];
   const remainingText = normalized;
   
-  // Sort compound terms by length (longest first) to match "dispositif médical" before "médical"
-  const compoundTerms = Object.keys(CATEGORY_KEYWORDS)
-    .filter(kw => kw.includes(' '))
-    .sort((a, b) => b.length - a.length);
-  
   let workingText = remainingText;
-  for (const term of compoundTerms) {
+  for (const term of SORTED_COMPOUND_TERMS) {
     if (workingText.includes(term)) {
       compoundKeywords.push(term);
       workingText = workingText.replace(term, ' ');
@@ -957,7 +957,7 @@ function extractSearchKeywords(query: string): string[] {
   // Extract individual tokens from remaining text
   const tokens = workingText.split(/[\s,;:\-|\/\(\)\[\]\{\}_\*\.]+/);
   const singleKeywords = tokens.filter(
-    (t) => t.length > 1 && !STOP_WORDS.has(t) && !/^\d+$/.test(t)
+    (t) => t.length > 1 && !SEARCH_STOP_WORDS.has(t) && !/^\d+$/.test(t)
   );
   
   return [...new Set([...compoundKeywords, ...singleKeywords])];
@@ -1151,7 +1151,16 @@ export const searchProducts = action({
     );
     console.log(`Categories for mapping: ${categoriesForMapping.join(',')}`);
 
-    for (const cat of categoriesForMapping as string[]) {
+    // Pre-calculate category to product mapping for O(1) lookups
+    const categoryToProduct = new Map<string, any>();
+    for (const p of scored) {
+      if (p.category && !categoryToProduct.has(p.category)) {
+        categoryToProduct.set(p.category, p);
+      }
+    }
+
+    // Fetch suppliers for all categories in parallel
+    await Promise.all((categoriesForMapping as string[]).map(async (cat) => {
       try {
         const candidates = await ctx.runQuery(
           internal.suppliers._getSuppliersByCategory,
@@ -1166,10 +1175,17 @@ export const searchProducts = action({
           });
           
           if (productSuppliers.length > 0) {
+            // Get the product that triggered this category search
+            const matchingProduct = categoryToProduct.get(cat);
+
+            // Pre-calculate product key terms once for the whole category to optimize scoring
+            const precalculatedKeyTerms = (matchingProduct?.name || '')
+              .toLowerCase()
+              .split(/[\s,;:\-|\/\(\)\[\]\{\}_\*\.]+/)
+              .filter((term: string) => term.length > 2 && !['the', 'and', 'for', 'with', 'de', 'et', 'pour', 'avec'].includes(term));
+
             // Score and sort suppliers using the new relevance scoring
             const scoredSuppliers = productSuppliers.map((s: any) => {
-              // Get the product that triggered this category search
-              const matchingProduct = scored.find(p => p.category === cat);
             let score = 0;
             let matchDetails: string[] = [];
             try {
@@ -1178,7 +1194,8 @@ export const searchProducts = action({
                 cat,
                 keywords,
                 matchingProduct?.name || '',
-                matchingProduct?.description
+                matchingProduct?.description,
+                precalculatedKeyTerms
               );
               score = result.score;
               matchDetails = result.matchDetails;
@@ -1219,7 +1236,7 @@ export const searchProducts = action({
         // Log error for debugging but continue with other categories
         console.error(`Error fetching suppliers for category "${cat}":`, err);
       }
-    }
+    }));
 
     // Attach suppliers snapshots (all potential suppliers for the product's category)
     console.log(`Attaching suppliers to ${scored.length} products. Category map has ${categoryToSuppliers.size} categories`);
