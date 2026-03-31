@@ -420,6 +420,11 @@ const SERVICE_CATEGORIES = new Set([
 const SERVICE_CATEGORIES_ARRAY = Array.from(SERVICE_CATEGORIES);
 const serviceCategoryCache = new Map<string, boolean>();
 
+// Optimization: Pre-calculate search constants
+const STOP_WORDS = new Set([
+  "a","an","the","and","or","of","for","to","in","on","avec","pour","de","des","du","la","le","les","un","une","et","ou","dans","sur","je","tu","il","elle","nous","vous","ils","elles"
+]);
+
 // ==========================================
 // KNOWLEDGE BASE: Category-Keyword Mapping
 // Maps search keywords to potential product categories
@@ -786,6 +791,12 @@ const CATEGORY_KEYWORDS: CategoryKeywordMap = {
   'custom': ['Import/Export', 'Services'],
 };
 
+// Optimization: Pre-calculate compound terms for keyword extraction
+// Sort compound terms by length (longest first) to match "dispositif médical" before "médical"
+const SORTED_COMPOUND_TERMS = Object.keys(CATEGORY_KEYWORDS)
+  .filter(kw => kw.includes(' '))
+  .sort((a, b) => b.length - a.length);
+
 // Reverse mapping: category -> keywords
 const REVERSE_CATEGORY_MAP: { [category: string]: string[] } = {};
 for (const [keyword, categories] of Object.entries(CATEGORY_KEYWORDS)) {
@@ -931,23 +942,14 @@ function calculateSupplierRelevanceScore(
 function extractSearchKeywords(query: string): string[] {
   if (!query) return [];
   
-  const STOP_WORDS = new Set([
-    "a","an","the","and","or","of","for","to","in","on","avec","pour","de","des","du","la","le","les","un","une","et","ou","dans","sur","je","tu","il","elle","nous","vous","ils","elles"
-  ]);
-  
   const normalized = query.toLowerCase().trim().replace(/\s+/g, " ");
   
   // Extract compound terms first (multi-word keywords from knowledge base)
   const compoundKeywords: string[] = [];
-  const remainingText = normalized;
+  let workingText = normalized;
   
-  // Sort compound terms by length (longest first) to match "dispositif médical" before "médical"
-  const compoundTerms = Object.keys(CATEGORY_KEYWORDS)
-    .filter(kw => kw.includes(' '))
-    .sort((a, b) => b.length - a.length);
-  
-  let workingText = remainingText;
-  for (const term of compoundTerms) {
+  // Optimization: use pre-calculated sorted compound terms
+  for (const term of SORTED_COMPOUND_TERMS) {
     if (workingText.includes(term)) {
       compoundKeywords.push(term);
       workingText = workingText.replace(term, ' ');
@@ -1063,6 +1065,7 @@ export const searchProducts = action({
     const sortBy = args.sortBy || "relevance";
 
     const hasQuery = !!(args.q && args.q.trim());
+    const queryLower = hasQuery ? args.q!.toLowerCase().trim() : "";
     const keywords = hasQuery ? extractSearchKeywords(args.q!) : [];
     
     // Infer categories from search keywords (e.g., "riz" -> ["Agroalimentaire", "Céréales"])
@@ -1070,7 +1073,6 @@ export const searchProducts = action({
     const inferredCategoriesLower = inferredCategories.map(cat => cat.toLowerCase());
 
     // Hard cap to keep memory bounded (applied inside internal query)
-    // Increased to 10000 to accommodate all products (7753 total)
     const RAW_LIMIT = 10000;
     const rawProducts = await ctx.runQuery(
       internal.products._getProductsForSearchBase,
@@ -1083,111 +1085,73 @@ export const searchProducts = action({
 
     type ScoredProduct = any & {
       _score: number;
-      _suppliers?: any[] | null;
     };
 
-    let scored: ScoredProduct[] = rawProducts.map((p: any) => ({
-      ...p,
-      _score: 0,
-      _suppliers: null,
-    }));
+    // Optimization: Single-pass filtering and scoring
+    const scored: ScoredProduct[] = [];
+    const productCategorySet = new Set<string>();
 
-    // FILTER OUT SERVICE CATEGORIES (hotels, restaurants, etc.)
-    scored = scored.filter((p) => {
-      if (isServiceCategory(p.category)) {
-        return false;
-      }
-      return true;
-    });
+    for (const p of rawProducts) {
+      // 1. Filter out service categories
+      if (isServiceCategory(p.category)) continue;
 
-    // FILTER BY NAME MATCH: Only show products whose name contains the search query
-    // This is applied AFTER the category pre-filter as an additional layer
-    if (hasQuery && args.q) {
-      const queryLower = args.q.toLowerCase().trim();
-      scored = scored.filter((p) => {
-        const name = (p.name || "").toLowerCase();
-        // Keep only products whose name contains the search query
-        return name.includes(queryLower);
-      });
-    }
+      // 2. Filter by name match if query exists
+      const name = (p.name || "").toLowerCase();
+      if (hasQuery && !name.includes(queryLower)) continue;
 
-    // Text & price filters + relevance score using enhanced category inference
-    scored = scored.filter((p) => {
-      // Calculate enhanced relevance score with category inference
+      // 3. Price filters
+      if (args.minPrice !== undefined && p.price < (args.minPrice as number)) continue;
+      if (args.maxPrice !== undefined && p.price > (args.maxPrice as number)) continue;
+
+      // 4. Calculate relevance score
       const score = hasQuery 
         ? calculateProductRelevanceScore(p, args.q!, keywords, inferredCategories, inferredCategoriesLower)
         : 0;
 
-      // Price filters
-      if (args.minPrice !== undefined && p.price < (args.minPrice as number)) {
-        return false;
-      }
-      if (args.maxPrice !== undefined && p.price > (args.maxPrice as number)) {
-        return false;
-      }
+      // For queries, require a minimum relevance score
+      if (hasQuery && score < 10) continue;
+
+      const scoredProduct = { ...p, _score: score };
+      scored.push(scoredProduct);
       
-      // For queries, require a minimum relevance score to filter out unrelated products
-      if (hasQuery) {
-        // Must have a meaningful match (name, description, category, or keywords)
-        if (score < 10) {
-          return false;
-        }
+      if (p.category) {
+        productCategorySet.add(p.category.toString());
       }
+    }
 
-      (p as ScoredProduct)._score = score;
-      return true;
-    }) as ScoredProduct[];
-
-    // Suppliers per CATEGORY
-    const categoryToSuppliers = new Map<string, any[]>();
-    
     // Combine product categories with inferred categories for coverage
-    const productCategories = scored
-      .map((p) => (p.category || "").toString())
-      .filter((c) => c && c.trim().length > 0);
-    
     const categoriesForMapping = Array.from(
-      new Set([...productCategories, ...inferredCategories])
+      new Set([...productCategorySet, ...inferredCategories])
     );
-    console.log(`Categories for mapping: ${categoriesForMapping.join(',')}`);
 
-    for (const cat of categoriesForMapping as string[]) {
+    // Optimization: Parallelize supplier fetching using Promise.all
+    const categoryToSuppliers = new Map<string, any[]>();
+    const supplierFetchPromises = categoriesForMapping.map(async (cat) => {
       try {
         const candidates = await ctx.runQuery(
           internal.suppliers._getSuppliersByCategory,
           { category: cat, limit: 50 }
         );
         if (candidates.length > 0) {
-          // Filter out service category suppliers - ONLY if the target category itself isn't a service category
           const isTargetService = isServiceCategory(cat);
           const productSuppliers = candidates.filter((s: any) => {
-            if (isTargetService) return true; // Keep all if we're explicitly looking for services
+            if (isTargetService) return true;
             return !isServiceCategory(s.category);
           });
           
           if (productSuppliers.length > 0) {
-            // Score and sort suppliers using the new relevance scoring
+            // Find a product from this category to use for supplier relevance scoring
+            // Optimization: use a representative product instead of searching in every loop
+            const representativeProduct = scored.find(p => p.category === cat);
+
             const scoredSuppliers = productSuppliers.map((s: any) => {
-              // Get the product that triggered this category search
-              const matchingProduct = scored.find(p => p.category === cat);
-            let score = 0;
-            let matchDetails: string[] = [];
-            try {
-              const result = calculateSupplierRelevanceScore(
+              const { score, matchDetails } = calculateSupplierRelevanceScore(
                 s,
                 cat,
                 keywords,
-                matchingProduct?.name || '',
-                matchingProduct?.description
+                representativeProduct?.name || '',
+                representativeProduct?.description
               );
-              score = result.score;
-              matchDetails = result.matchDetails;
-            } catch (err) {
-              console.error(`Error calculating relevance score for supplier ${s._id}:`, err);
-              // Fallback score if calculation fails
-              score = 1;
-              matchDetails = ['error_fallback'];
-            }
               return {
                 ...s,
                 _supplierScore: score,
@@ -1195,12 +1159,10 @@ export const searchProducts = action({
               };
             });
             
-            // Sort by the new relevance score
-            const sorted = scoredSuppliers.sort((a: any, b: any) => {
+            scoredSuppliers.sort((a: any, b: any) => {
               const scoreDiff = (b._supplierScore || 0) - (a._supplierScore || 0);
               if (scoreDiff !== 0) return scoreDiff;
               
-              // Fallback to verified/rating sorting
               const aVerified = a.verified && a.approved ? 1 : 0;
               const bVerified = b.verified && b.approved ? 1 : 0;
               if (bVerified !== aVerified) return bVerified - aVerified;
@@ -1212,153 +1174,111 @@ export const searchProducts = action({
               return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
             });
             
-            categoryToSuppliers.set(cat, sorted);
+            categoryToSuppliers.set(cat, scoredSuppliers);
           }
         }
       } catch (err) {
-        // Log error for debugging but continue with other categories
         console.error(`Error fetching suppliers for category "${cat}":`, err);
       }
+    });
+
+    await Promise.all(supplierFetchPromises);
+
+    // Filter by verified supplier if requested
+    let filtered = scored;
+    if (args.verifiedSupplier) {
+      filtered = scored.filter(p => {
+        const suppliers = categoryToSuppliers.get(p.category || "");
+        return suppliers?.some(s => s.verified === true && s.approved === true);
+      });
     }
 
-    // Attach suppliers snapshots (all potential suppliers for the product's category)
-    console.log(`Attaching suppliers to ${scored.length} products. Category map has ${categoryToSuppliers.size} categories`);
+    // Optimization: Pre-calculate sorting tie-breakers to avoid O(N) Map lookups during sort
+    const sortingItems = filtered.map(p => {
+      const suppliers = categoryToSuppliers.get(p.category || "");
+      const topSupplier = suppliers?.[0];
+      return {
+        product: p,
+        topSupplierScore: topSupplier?._supplierScore || 0,
+        topSupplierRating: topSupplier?.rating || 0,
+      };
+    });
 
-    // Cache for fallback suppliers to avoid redundant database queries
+    // Sorting
+    sortingItems.sort((a, b) => {
+      const pa = a.product;
+      const pb = b.product;
+
+      if (sortBy === "price_asc") return (pa.price || 0) - (pb.price || 0);
+      if (sortBy === "price_desc") return (pb.price || 0) - (pa.price || 0);
+      if (sortBy === "newest") return (pb.created_at || "").localeCompare(pa.created_at || "");
+
+      // Default: relevance
+      const scoreDiff = (pb._score || 0) - (pa._score || 0);
+      if (scoreDiff !== 0) return scoreDiff;
+
+      // Tie-breaker: supplier score
+      if (b.topSupplierScore !== a.topSupplierScore) return b.topSupplierScore - a.topSupplierScore;
+
+      // Tie-breaker: supplier rating
+      if (b.topSupplierRating !== a.topSupplierRating) return b.topSupplierRating - a.topSupplierRating;
+
+      return (pb.created_at || "").localeCompare(pa.created_at || "");
+    });
+
+    const total = sortingItems.length;
+    const paginatedItems = sortingItems.slice(offset, offset + limit);
+
+    // Optimization: Only attach full supplier lists and fallback suppliers to the FINAL page results
     let fallbackSuppliers: any[] | null = null;
-
-    // Helper to get fallback suppliers lazily
     const getFallbackSuppliers = async () => {
       if (fallbackSuppliers) return fallbackSuppliers;
-
-      console.log("Fetching fallback suppliers...");
       try {
         const result = await ctx.runQuery(internal.suppliers._getSuppliersPaginated, { limit: 50 });
         fallbackSuppliers = result.page.map(s => ({
           ...s,
-          _supplierScore: 1, // Base score for fallback
+          _supplierScore: 1,
           _matchDetails: ['fallback_match']
         }));
         return fallbackSuppliers;
       } catch (err) {
-        console.error("Error fetching fallback suppliers:", err);
         return [];
       }
     };
 
-    const finalScoredProducts: ScoredProduct[] = [];
-    for (const p of scored) {
-      let list: any[] = [];
+    const products = await Promise.all(paginatedItems.map(async (item) => {
+      const p = item.product;
+      let suppliers = categoryToSuppliers.get(p.category || "") || [];
 
-      // Try exact category match first
-      if (p.category && typeof p.category === "string") {
-        list = categoryToSuppliers.get(p.category) || [];
-
-        // If no exact match, try case-insensitive match
-        if (list.length === 0) {
-          const prodCatLower = p.category.toLowerCase().trim();
-          for (const [mapCat, suppliers] of categoryToSuppliers.entries()) {
-            if (mapCat.toLowerCase().trim() === prodCatLower) {
-              list = suppliers;
-              console.log(
-                `Case-insensitive match: "${p.category}" -> "${mapCat}" (${suppliers.length} suppliers)`
-              );
-              break;
-            }
-          }
-        }
+      if (suppliers.length === 0) {
+        suppliers = await getFallbackSuppliers();
       }
 
-      // Fallback: if no suppliers for this category, fetch some approved ones
-      if (list.length === 0) {
-        list = await getFallbackSuppliers();
-        console.log(
-          `No suppliers for category "${p.category}", using ${list.length} fallback suppliers`
-        );
-      }
-
-      console.log(
-        `Product "${p.name}" (category: ${p.category}): ${list.length} suppliers attached`
-      );
-
-      finalScoredProducts.push({ ...p, _suppliers: list } as ScoredProduct);
-    }
-
-    scored = finalScoredProducts
-      .filter((p) => {
-        if (args.verifiedSupplier) {
-          const list = p._suppliers || [];
-          return list.some(
-            (s: any) => s.verified === true && s.approved === true
-          );
-        }
-        return true;
-      });
-
-    // Sorting
-    scored.sort((a, b) => {
-      if (sortBy === "price_asc") {
-        return (a.price || 0) - (b.price || 0);
-      }
-      if (sortBy === "price_desc") {
-        return (b.price || 0) - (a.price || 0);
-      }
-      if (sortBy === "newest") {
-        return (b.created_at || "").localeCompare(a.created_at || "");
-      }
-
-      // default: relevance (then rating, then newest)
-      const scoreDiff = (b._score || 0) - (a._score || 0);
-      if (scoreDiff !== 0) return scoreDiff;
-
-      // Use supplier relevance scores for sorting
-      const aSupplierScore = a._suppliers?.[0]?._supplierScore || 0;
-      const bSupplierScore = b._suppliers?.[0]?._supplierScore || 0;
-      if (bSupplierScore !== aSupplierScore) return bSupplierScore - aSupplierScore;
-
-      const aRating =
-        (a._suppliers && a._suppliers[0]?.rating) != null
-          ? a._suppliers[0].rating
-          : 0;
-      const bRating =
-        (b._suppliers && b._suppliers[0]?.rating) != null
-          ? b._suppliers[0].rating
-          : 0;
-      if (bRating !== aRating) return bRating - aRating;
-
-      return (b.created_at || "").localeCompare(a.created_at || "");
-    });
-
-    const total = scored.length;
-    const page = scored.slice(offset, offset + limit).map((p) => {
-      const { _score, _suppliers, ...productData } = p;
-
-      const supplierSnapshots =
-        (_suppliers || []).map((s: any) => ({
-          id: s._id,
-          name: s.business_name,
-          rating: s.rating,
-          reviews_count: s.reviews_count,
-          verified: s.verified,
-          location: s.location,
-          city: s.city,
-          state: s.state,
-          category: s.category,
-          matchScore: s._supplierScore || 0,
-          matchConfidence: (s._supplierScore || 0) > 50 ? 'high' : (s._supplierScore || 0) > 25 ? 'medium' : 'low',
-        })) ?? [];
+      const supplierSnapshots = suppliers.map((s: any) => ({
+        id: s._id,
+        name: s.business_name,
+        rating: s.rating,
+        reviews_count: s.reviews_count,
+        verified: s.verified,
+        location: s.location,
+        city: s.city,
+        state: s.state,
+        category: s.category,
+        matchScore: s._supplierScore || 0,
+        matchConfidence: (s._supplierScore || 0) > 50 ? 'high' : (s._supplierScore || 0) > 25 ? 'medium' : 'low',
+      }));
 
       const primarySupplier = supplierSnapshots[0] || null;
 
       return {
-        ...productData,
+        ...p,
         supplier: primarySupplier,
         potentialSuppliers: supplierSnapshots,
-        relevanceScore: _score,
+        relevanceScore: p._score,
       };
-    });
+    }));
 
-    return { products: page, total };
+    return { products, total };
   },
 });
 
