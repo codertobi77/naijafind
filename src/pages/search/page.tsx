@@ -839,8 +839,8 @@ export default function Search() {
   const navigate = useNavigate();
   // Search page is publicly accessible - no auth required
 
-  const [products, setProducts] = useState<any[]>([]);
-  const [allMapProducts, setAllMapProducts] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [allMapSuppliers, setAllMapSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [paginationLoading, setPaginationLoading] = useState(false);
   const [allSuppliersLoading, setAllSuppliersLoading] = useState(false);
@@ -860,7 +860,7 @@ export default function Search() {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const itemsPerPage = 20;
 
-  const cityOptions = Array.from(new Set(products.flatMap(p => p.suppliers?.map((s: any) => s.location) || [])));
+  const cityOptions = Array.from(new Set(suppliers.map(s => s.location).filter(Boolean)));
   const citySuggestions = ['Lagos', 'Abuja', 'Ibadan', 'Port Harcourt']; // mock pop
 
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -982,8 +982,8 @@ export default function Search() {
   // Use user's location if available, otherwise fall back to selected city coordinates
   const effectiveLocationCoords = userLocation || getLocationCoords(filters.location);
   
-  // Setup action for product search
-  const searchProductsAction = useAction(api.productSearch.searchProductsMultilingual);
+  // Setup action for supplier search
+  const searchSuppliersAction = useAction(api.suppliers.searchSuppliers);
   const [searchResults, setSearchResults] = useState<any>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   
@@ -1018,12 +1018,13 @@ export default function Search() {
       
       try {
         const result = await withTimeout(
-          searchProductsAction({
+          searchSuppliersAction({
             q: filters.query || undefined,
             category: filters.category || undefined,
+            location: filters.location || undefined,
             limit: BigInt(itemsPerPage),
             offset: BigInt(currentPage * itemsPerPage),
-            sortBy: sortBy === 'relevance' ? 'relevance' : sortBy === 'alpha_asc' ? 'price_asc' : sortBy === 'alpha_desc' ? 'price_desc' : 'relevance',
+            sortBy: sortBy === 'relevance' ? 'relevance' : sortBy === 'alpha_asc' ? 'alpha_asc' : sortBy === 'alpha_desc' ? 'alpha_desc' : sortBy === 'distance' ? 'distance' : sortBy === 'rating' ? 'rating' : 'relevance',
           }),
           30000, // 30 second timeout
           t('search.timeout_error')
@@ -1054,12 +1055,13 @@ export default function Search() {
         const MAP_RESULTS_LIMIT = 5000;
 
         const result = await withTimeout(
-          searchProductsAction({
+          searchSuppliersAction({
             q: filters.query || undefined,
             category: filters.category || undefined,
+            location: filters.location || undefined,
             limit: BigInt(MAP_RESULTS_LIMIT),
             offset: BigInt(0),
-            sortBy: sortBy === 'relevance' ? 'relevance' : sortBy === 'alpha_asc' ? 'price_asc' : sortBy === 'alpha_desc' ? 'price_desc' : 'relevance',
+            sortBy: sortBy === 'relevance' ? 'relevance' : sortBy === 'alpha_asc' ? 'alpha_asc' : sortBy === 'alpha_desc' ? 'alpha_desc' : sortBy === 'distance' ? 'distance' : sortBy === 'rating' ? 'rating' : 'relevance',
           }),
           30000,
           t('search.map_timeout_error')
@@ -1075,63 +1077,59 @@ export default function Search() {
     void performMapSearch();
   }, [viewMode, filters, sortBy]);
 
-  // Process paginated products for list view
+  // Process paginated suppliers for list view
   useEffect(() => {
     if (!searchResults) return;
-    const productList = (searchResults.products || []).map((p: any) => ({
-      id: p._id as string,
-      name: p.name ?? '',
-      description: p.description ?? p.shortDescription ?? '',
-      price: p.price,
-      category: p.category ?? '',
-      images: p.images || [],
-      relevanceScore: p.relevanceScore ?? 0,
-      suppliers: (p.suppliers || []).map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        rating: s.rating ?? 0,
-        review_count: s.reviews_count ?? 0,
-        verified: !!s.verified,
-        location: [s.city, s.state].filter(Boolean).join(', '),
-        category: s.category ?? '',
-        matchScore: s.matchScore ?? 0,
-        matchConfidence: s.matchConfidence ?? 'medium',
-      })),
-      totalSuppliers: p.totalSuppliers ?? 0,
+    const supplierList = (searchResults.suppliers || []).map((s: any) => ({
+      id: s._id as string,
+      name: s.business_name ?? '',
+      description: s.description ?? '',
+      category: s.category ?? '',
+      location: [s.city, s.state].filter(Boolean).join(', ') || s.location || '',
+      rating: s.rating ?? 0,
+      review_count: Number(s.reviews_count ?? 0),
+      verified: !!s.verified,
+      image_url: s.image || s.logo_url || '',
+      phone: s.phone ?? '',
+      email: s.email ?? '',
+      latitude: s.latitude,
+      longitude: s.longitude,
+      city: s.city,
+      state: s.state,
+      country: s.country,
+      address: s.address,
     }));
-    setProducts(productList);
-    setTotalCount(searchResults.total ?? productList.length);
+    setSuppliers(supplierList);
+    setTotalCount(searchResults.total ?? supplierList.length);
     // Scroll to results after loading completes
-    if (!loading && productList.length > 0) {
+    if (!loading && supplierList.length > 0) {
       handleScrollToResults();
     }
   }, [searchResults, loading, currentPage]);
   
-  // Process ALL products for map view (no pagination)
+  // Process ALL suppliers for map view (no pagination)
   useEffect(() => {
     if (!mapSearchResults) return;
-    const allList = (mapSearchResults.products || []).map((p: any) => ({
-      id: p._id as string,
-      name: p.name ?? '',
-      description: p.description ?? p.shortDescription ?? '',
-      price: p.price,
-      category: p.category ?? '',
-      images: p.images || [],
-      relevanceScore: p.relevanceScore ?? 0,
-      suppliers: (p.suppliers || []).map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        rating: s.rating ?? 0,
-        review_count: s.reviews_count ?? 0,
-        verified: !!s.verified,
-        location: [s.city, s.state].filter(Boolean).join(', '),
-        category: s.category ?? '',
-        matchScore: s.matchScore ?? 0,
-        matchConfidence: s.matchConfidence ?? 'medium',
-      })),
-      totalSuppliers: p.totalSuppliers ?? 0,
+    const allList = (mapSearchResults.suppliers || []).map((s: any) => ({
+      id: s._id as string,
+      name: s.business_name ?? '',
+      description: s.description ?? '',
+      category: s.category ?? '',
+      location: [s.city, s.state].filter(Boolean).join(', ') || s.location || '',
+      rating: s.rating ?? 0,
+      review_count: Number(s.reviews_count ?? 0),
+      verified: !!s.verified,
+      image_url: s.image || s.logo_url || '',
+      phone: s.phone ?? '',
+      email: s.email ?? '',
+      latitude: s.latitude,
+      longitude: s.longitude,
+      city: s.city,
+      state: s.state,
+      country: s.country,
+      address: s.address,
     }));
-    setAllMapProducts(allList);
+    setAllMapSuppliers(allList);
   }, [mapSearchResults]);
 
   useEffect(() => {
@@ -1364,10 +1362,10 @@ export default function Search() {
                       <>
                         <i className="ri-checkbox-circle-line text-green-600 mr-2"></i>
                         {totalCount === 0 ? (
-                          <>0 {t('search.products')} {t('search.results')}</>
+                          <>0 {t('search.suppliers')} {t('search.results')}</>
                         ) : (
                           <>
-                            {currentPage * itemsPerPage + 1}-{Math.min((currentPage + 1) * itemsPerPage, totalCount)}/{totalCount} {t('search.products')}
+                            {currentPage * itemsPerPage + 1}-{Math.min((currentPage + 1) * itemsPerPage, totalCount)}/{totalCount} {t('search.suppliers')}
                           </>
                         )}
                       </>
@@ -1475,24 +1473,23 @@ export default function Search() {
               </div>
             ) : (
               <div className="space-y-6">
-                {products.map((product: any) => {
-                  const productId = product.id;
-                  const mainSupplier = product.suppliers?.[0];
+                {suppliers.map((supplier: Supplier) => {
+                  const supplierId = supplier.id;
                                 
                   return (
-                    <div key={productId} className="bg-white rounded-2xl shadow-soft hover:shadow-medium transition-all duration-300 border border-gray-100 hover:-translate-y-1">
+                    <div key={supplierId} className="bg-white rounded-2xl shadow-soft hover:shadow-medium transition-all duration-300 border border-gray-100 hover:-translate-y-1">
                       <div className="p-6">
                         <div className="flex gap-6">
                           <div className="w-20 sm:w-28 h-20 sm:h-28 flex-shrink-0 bg-gray-100 rounded-xl overflow-hidden">
-                            {product.images?.[0] ? (
+                            {supplier.image_url ? (
                               <img 
-                                src={product.images[0]} 
-                                alt={product.name}
+                                src={supplier.image_url} 
+                                alt={supplier.name}
                                 className="w-full h-full object-cover"
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-                                <i className="ri-box-3-line text-3xl text-gray-400"></i>
+                                <i className="ri-store-2-line text-3xl text-gray-400"></i>
                               </div>
                             )}
                           </div>
@@ -1500,68 +1497,57 @@ export default function Search() {
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex-1 min-w-0">
                               <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2 mb-2">
-                                <span className="truncate">{product.name}</span>
+                                <span className="truncate">{supplier.name}</span>
+                                {supplier.verified && (
+                                  <i className="ri-verified-badge-fill text-green-500 text-lg"></i>
+                                )}
                               </h3>
                               <p className="text-green-600 text-sm font-semibold flex items-center">
                                 <i className="ri-price-tag-3-line mr-1"></i>
-                                {product.category}
-                                {product.price && (
-                                  <span className="ml-3 text-gray-700">₦{product.price.toLocaleString()}</span>
-                                )}
+                                {supplier.category}
                               </p>
                             </div>
                             <div className="text-right ml-2 flex-shrink-0">
-                              <div className="flex items-center gap-1.5 mb-1 bg-gradient-to-br from-blue-50 to-indigo-50 px-3 py-2 rounded-xl border border-blue-200">
-                                <i className="ri-store-2-line text-blue-500 text-sm"></i>
-                                <div className="font-bold text-sm text-gray-900">{product.totalSuppliers}</div>
-                                <div className="text-gray-500 text-xs">{t('search.suppliers')}</div>
-                              </div>
+                              {supplier.rating > 0 && (
+                                <div className="flex items-center gap-1.5 mb-1 bg-gradient-to-br from-yellow-50 to-amber-50 px-3 py-2 rounded-xl border border-yellow-200">
+                                  <i className="ri-star-fill text-yellow-500 text-sm"></i>
+                                  <div className="font-bold text-sm text-gray-900">{supplier.rating.toFixed(1)}</div>
+                                  <div className="text-gray-500 text-xs">({supplier.review_count})</div>
+                                </div>
+                              )}
                             </div>
                           </div>
-                          <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
+                          <p className="text-gray-600 text-sm mb-3 line-clamp-2">{supplier.description}</p>
                           
-                          {/* Suppliers list */}
-                          {product.suppliers && product.suppliers.length > 0 && (
-                            <div className="mb-4">
-                              <p className="text-xs font-semibold text-gray-500 uppercase mb-2">{t('search.available_from')}:</p>
-                              <div className="flex flex-wrap gap-2">
-                                {product.suppliers.slice(0, 3).map((s: any) => (
-                                  <Link
-                                    key={s.id}
-                                    to={`/supplier/${s.id}`}
-                                    className="inline-flex items-center gap-1 px-2 py-1 bg-gray-50 rounded-lg text-xs text-gray-700 hover:bg-gray-100 transition-colors"
-                                  >
-                                    {s.verified && <i className="ri-verified-badge-fill text-green-500"></i>}
-                                    <span className="truncate max-w-[120px]">{s.name}</span>
-                                    {s.rating > 0 && (
-                                      <span className="flex items-center text-yellow-600">
-                                        <i className="ri-star-fill text-[10px]"></i>
-                                        {s.rating}
-                                      </span>
-                                    )}
-                                  </Link>
-                                ))}
-                                {product.suppliers.length > 3 && (
-                                  <span className="inline-flex items-center px-2 py-1 bg-gray-50 rounded-lg text-xs text-gray-500">
-                                    +{product.suppliers.length - 3}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
+                          {/* Location */}
+                          <div className="mb-3 flex items-center gap-2 text-sm text-gray-500">
+                            <i className="ri-map-pin-line"></i>
+                            <span>{supplier.location}</span>
+                          </div>
                           
                           <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                             <div className="flex items-center space-x-2">
-                              <button
-                                onClick={() => (document.querySelector('#vapi-widget-floating-button') as HTMLElement | null)?.click()}
-                                className="p-2 text-gray-400 hover:text-purple-600 transition-colors"
-                                title={t('search.make_appointment')}
-                              >
-                                <i className="ri-calendar-line text-base sm:text-lg"></i>
-                              </button>
+                              {supplier.phone && (
+                                <a 
+                                  href={`tel:${supplier.phone}`}
+                                  className="p-2 text-gray-400 hover:text-green-600 transition-colors"
+                                  title={t('search.call')}
+                                >
+                                  <i className="ri-phone-line text-base sm:text-lg"></i>
+                                </a>
+                              )}
+                              {supplier.email && (
+                                <a 
+                                  href={`mailto:${supplier.email}`}
+                                  className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                                  title={t('search.email')}
+                                >
+                                  <i className="ri-mail-line text-base sm:text-lg"></i>
+                                </a>
+                              )}
                             </div>
                             <Link
-                              to={`/product/${product.id}`}
+                              to={`/supplier/${supplier.id}`}
                               className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
                             >
                               {t('search.view_details')}
@@ -1576,11 +1562,11 @@ export default function Search() {
             </div>
           )}
 
-            {!loading && products.length > 0 && (
+            {!loading && suppliers.length > 0 && (
               <div className="mt-8 flex flex-col items-center gap-4">
                 {/* Total count */}
                 <p className="text-sm text-gray-600">
-                  {t('search.total_products', { count: totalCount })}
+                  {t('search.total_suppliers', { count: totalCount })}
                 </p>
                 
                 <div className="flex justify-center">
