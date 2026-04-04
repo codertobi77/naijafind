@@ -460,8 +460,8 @@ export default function Home() {
     icon: 'success' as 'success' | 'info' | 'warning'
   });
 
-  // Purchase request popup state - shows every time on site open
-  const [purchaseRequestModalOpen, setPurchaseRequestModalOpen] = useState(true);
+  // Purchase request popup state - DISABLED: no longer shows automatically
+  const [purchaseRequestModalOpen, setPurchaseRequestModalOpen] = useState(false);
 
   // Handle location state message
   useEffect(() => {

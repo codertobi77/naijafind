@@ -1721,8 +1721,9 @@ interface ClaimBusinessModalProps {
 function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModalProps) {
   const { t } = useTranslation();
   const { user } = useUser();
-  const [step, setStep] = useState<'verify' | 'confirm' | 'success'>('verify');
+  const [step, setStep] = useState<'verify' | 'manual_request' | 'confirm' | 'success'>('verify');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [claimJustification, setClaimJustification] = useState('');
   const claimMutation = useMutation(api.suppliers.claimSupplier);
   
   // Get user's email addresses from Clerk
@@ -1751,7 +1752,7 @@ function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModal
     }
   };
   
-  const handleSubmitClaim = async () => {
+  const handleSubmitClaim = async (isManualRequest = false) => {
     if (!supplier || !user) return;
     
     setIsSubmitting(true);
@@ -1759,7 +1760,9 @@ function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModal
       await claimMutation({
         supplierId: supplier.id,
         userEmail: primaryEmail,
-        claimedAt: new Date().toISOString()
+        claimedAt: new Date().toISOString(),
+        claimType: isManualRequest ? 'manual_review' : 'email_verified',
+        justification: isManualRequest ? claimJustification : undefined,
       });
       setStep('success');
       showToast('success', t('claims.notification.claim_submitted'));
@@ -1823,6 +1826,9 @@ function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModal
                   <i className="ri-alert-line mr-1"></i>
                   {t('claims.modal.verify.email_match_warning')}
                 </p>
+                <p className="text-xs text-yellow-700 mt-2">
+                  Vous pouvez tout de même soumettre une demande qui sera examinée manuellement par un administrateur.
+                </p>
               </div>
             )}
             
@@ -1833,12 +1839,77 @@ function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModal
               >
                 {t('claims.modal.verify.cancel')}
               </button>
+              {hasMatchingEmail ? (
+                <button
+                  onClick={() => setStep('confirm')}
+                  className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-xs sm:text-sm"
+                >
+                  {t('claims.modal.verify.continue')}
+                </button>
+              ) : (
+                <button
+                  onClick={() => setStep('manual_request')}
+                  className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-xs sm:text-sm"
+                >
+                  Demander un examen manuel
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {step === 'manual_request' && (
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-800 mb-2">
+                <i className="ri-information-line mr-1"></i>
+                Demande d'examen manuel
+              </p>
+              <p className="text-xs text-blue-700">
+                Votre email ne correspond pas à celui de l'entreprise. Veuillez expliquer pourquoi vous souhaitez réclamer ce compte. Un administrateur examinera votre demande.
+              </p>
+            </div>
+            
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                Justification de votre demande *
+              </label>
+              <textarea
+                value={claimJustification}
+                onChange={(e) => setClaimJustification(e.target.value)}
+                placeholder="Ex: Je suis le propriétaire de cette entreprise, mon email professionnel est..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-xs sm:text-sm resize-none"
+                rows={4}
+                maxLength={500}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {claimJustification.length}/500 caractères
+              </p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <button
-                onClick={() => setStep('confirm')}
-                disabled={!hasMatchingEmail}
-                className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
+                onClick={() => setStep('verify')}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-xs sm:text-sm"
               >
-                {t('claims.modal.verify.continue')}
+                Retour
+              </button>
+              <button
+                onClick={() => handleSubmitClaim(true)}
+                disabled={isSubmitting || claimJustification.trim().length < 20}
+                className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 text-xs sm:text-sm"
+              >
+                {isSubmitting ? (
+                  <>
+                    <i className="ri-loader-4-line animate-spin mr-2"></i>
+                    Envoi...
+                  </>
+                ) : (
+                  <>
+                    <i className="ri-send-plane-line mr-2"></i>
+                    Soumettre la demande
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -1877,7 +1948,7 @@ function ClaimBusinessModal({ supplier, onClose, showToast }: ClaimBusinessModal
                 {t('claims.modal.confirm.back')}
               </button>
               <button
-                onClick={handleSubmitClaim}
+                onClick={() => handleSubmitClaim(false)}
                 disabled={isSubmitting}
                 className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 text-xs sm:text-sm"
               >

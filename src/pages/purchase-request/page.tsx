@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Header } from '../../components/base';
@@ -22,10 +22,14 @@ const getQuantityUnits = (t: (key: string) => string) => [
 export default function PurchaseRequestPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  // Get product name from query params if coming from product details
+  const productFromQuery = searchParams.get('product') || '';
   const createPurchaseRequest = useAction(api.purchaseRequests.createPurchaseRequest);
   
   const [formData, setFormData] = useState({
-    description: '',
+    description: productFromQuery,
     quantity: '',
     unit: 'tonnes',
     whatsapp: '',

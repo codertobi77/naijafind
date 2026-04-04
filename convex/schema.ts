@@ -217,6 +217,7 @@ export default defineSchema({
     userEmail: v.string(),
     supplierEmail: v.string(),
     status: v.string(), // 'pending', 'approved', 'rejected'
+    claimType: v.optional(v.union(v.literal("email_verified"), v.literal("manual_review"))),
     claimedAt: v.string(),
     verifiedAt: v.optional(v.string()),
     verifiedBy: v.optional(v.string()), // userId of admin who verified

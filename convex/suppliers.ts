@@ -1394,6 +1394,8 @@ export const claimSupplier = mutation({
     supplierId: v.id("suppliers"),
     userEmail: v.string(),
     claimedAt: v.string(),
+    claimType: v.optional(v.union(v.literal("email_verified"), v.literal("manual_review"))),
+    justification: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Get current user
@@ -1439,7 +1441,8 @@ export const claimSupplier = mutation({
       claimedAt: args.claimedAt,
       verifiedAt: undefined,
       verifiedBy: undefined,
-      notes: "",
+      notes: args.justification || "",
+      claimType: args.claimType || "email_verified",
     });
     
     // Update supplier with pending claim status

@@ -81,12 +81,8 @@ export default function ProductSearchPage() {
     total: 0,
   });
   const [selectedProduct, setSelectedProduct] = useState<ProductResult | null>(null);
-  const [showRequestForm, setShowRequestForm] = useState(false);
-  const [requestSubmitting, setRequestSubmitting] = useState(false);
-  const [requestMessage, setRequestMessage] = useState('');
 
   const searchProducts = useAction(api.products.searchProducts);
-  const createSupplierRequestMutation = useMutation(api.suppliers.createSupplierRequest);
 
   // Categories for filters
   const { data: categories } = useConvexQuery(
@@ -538,39 +534,7 @@ export default function ProductSearchPage() {
         <ProductDetailsModal
           product={selectedProduct}
           isOpen={!!selectedProduct}
-          onClose={() => {
-            setSelectedProduct(null);
-            setShowRequestForm(false);
-            setRequestMessage('');
-          }}
-          onRequestSupplier={() => setShowRequestForm(true)}
-          showRequestForm={showRequestForm}
-          requestMessage={requestMessage}
-          setRequestMessage={setRequestMessage}
-          requestSubmitting={requestSubmitting}
-          onRequestSubmit={async () => {
-            if (!requestMessage.trim()) return;
-            setRequestSubmitting(true);
-            try {
-              await createSupplierRequestMutation({
-                productName: selectedProduct.name,
-                productCategory: selectedProduct.category,
-                message: requestMessage,
-              });
-              alert(t('products.request_sent'));
-              setShowRequestForm(false);
-              setRequestMessage('');
-            } catch (error) {
-              console.error('Error submitting request:', error);
-              alert(t('products.request_error'));
-            } finally {
-              setRequestSubmitting(false);
-            }
-          }}
-          onCancelRequest={() => {
-            setShowRequestForm(false);
-            setRequestMessage('');
-          }}
+          onClose={() => setSelectedProduct(null)}
         />
       )}
     </div>
@@ -582,26 +546,13 @@ function ProductDetailsModal({
   product,
   isOpen,
   onClose,
-  onRequestSupplier,
-  showRequestForm,
-  requestMessage,
-  setRequestMessage,
-  requestSubmitting,
-  onRequestSubmit,
-  onCancelRequest,
 }: {
   product: ProductResult;
   isOpen: boolean;
   onClose: () => void;
-  onRequestSupplier: () => void;
-  showRequestForm: boolean;
-  requestMessage: string;
-  setRequestMessage: (msg: string) => void;
-  requestSubmitting: boolean;
-  onRequestSubmit: () => void;
-  onCancelRequest: () => void;
 }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const potentialSuppliers: SupplierSnapshot[] =
     (product as any).suppliers || (product as any).potentialSuppliers || [];
@@ -720,64 +671,14 @@ function ProductDetailsModal({
               </div>
             )}
 
-            {/* Request Supplier Search Button */}
-            {!showRequestForm && (
-              <button
-                onClick={onRequestSupplier}
-                className="w-full bg-green-600 text-white px-4 py-3 rounded-xl hover:bg-green-700 transition-all duration-200 font-semibold shadow-soft hover:shadow-medium flex items-center justify-center gap-2 group"
-              >
-                <i className="ri-search-eye-line text-xl group-hover:scale-110 transition-transform" />
-                {t('products.request_supplier_search')}
-              </button>
-            )}
-
-            {/* Request Form */}
-            {showRequestForm && (
-              <div className="mt-4 bg-gray-50 rounded-2xl p-6 border-2 border-green-100 shadow-inner animate-in fade-in slide-in-from-top-4 duration-300">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                    <i className="ri-edit-line text-green-600" />
-                  </div>
-                  <h4 className="font-bold text-gray-900">
-                    {t('products.request_supplier_form_title')}
-                  </h4>
-                </div>
-                
-                <textarea
-                  value={requestMessage}
-                  onChange={(e) => setRequestMessage(e.target.value)}
-                  placeholder={t('products.request_supplier_placeholder')}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm resize-none outline-none transition-all min-h-[120px]"
-                  rows={4}
-                />
-                
-                <div className="flex flex-col sm:flex-row gap-3 mt-4">
-                  <button
-                    onClick={onRequestSubmit}
-                    disabled={requestSubmitting || !requestMessage.trim()}
-                    className="flex-1 bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-soft"
-                  >
-                    {requestSubmitting ? (
-                      <>
-                        <i className="ri-loader-4-line animate-spin mr-2" />
-                        {t('products.sending')}
-                      </>
-                    ) : (
-                      <>
-                        <i className="ri-send-plane-fill mr-2" />
-                        {t('products.send_request')}
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={onCancelRequest}
-                    className="px-6 py-3 bg-white text-gray-700 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-all font-semibold"
-                  >
-                    {t('products.cancel')}
-                  </button>
-                </div>
-              </div>
-            )}
+            {/* Request Supplier Search Button - Redirects to purchase request page */}
+            <button
+              onClick={() => navigate(`/purchase-request?product=${encodeURIComponent(product.name)}`)}
+              className="w-full bg-green-600 text-white px-4 py-3 rounded-xl hover:bg-green-700 transition-all duration-200 font-semibold shadow-soft hover:shadow-medium flex items-center justify-center gap-2 group"
+            >
+              <i className="ri-send-plane-fill text-xl group-hover:scale-110 transition-transform" />
+              {t('products.send_request')}
+            </button>
           </div>
         </div>
       </div>
