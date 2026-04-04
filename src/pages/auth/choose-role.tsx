@@ -45,7 +45,15 @@ export default function ChooseRole() {
   }, [isLoaded, isSignedIn, meData, navigate, loading]);
 
   const handleRoleSelection = async (role: 'user' | 'supplier' | 'admin') => {
-    if (!isLoaded || !user) return;
+    if (!isLoaded || !user) {
+      setModalConfig({
+        title: t('common.error'),
+        message: 'Session non chargée. Veuillez rafraîchir la page ou vous reconnecter.',
+        icon: 'warning'
+      });
+      setModalOpen(true);
+      return;
+    }
 
     // Check that the user can choose the admin role
     if (role === 'admin' && meData?.user?.is_admin !== true && meData?.user?.user_type !== 'admin') {
@@ -88,9 +96,23 @@ export default function ChooseRole() {
         navigate('/');
       }
     } catch (error: any) {
+      console.error('Error creating user:', error);
+      
+      // Provide specific error messages based on the error
+      let errorMessage = error.message || t('choose_role.error');
+      
+      // Check for specific authentication errors
+      if (errorMessage.includes('Non autorisé') || errorMessage.includes('identité')) {
+        errorMessage = 'Problème d\'authentification: Votre session a expiré. Veuillez vous déconnecter et vous reconnecter pour continuer.';
+      } else if (errorMessage.includes('déjà')) {
+        errorMessage = 'Un compte existe déjà avec cet email. Si vous possédez déjà un compte, connectez-vous directement.';
+      } else if (errorMessage.includes('Server Error')) {
+        errorMessage = 'Erreur serveur temporaire. Veuillez réessayer dans quelques instants. Si le problème persiste, déconnectez-vous et reconnectez-vous.';
+      }
+      
       setModalConfig({
         title: t('common.error'),
-        message: error.message || t('choose_role.error'),
+        message: errorMessage,
         icon: 'warning'
       });
       setModalOpen(true);

@@ -5,14 +5,20 @@ import { internal } from "./_generated/api";
 // Helper function to ensure user exists
 async function ensureUserHelper(ctx: any, args: any) {
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new Error("Non autorisé");
+  if (!identity) {
+    throw new Error("Non autorisé: Impossible d'obtenir l'identité utilisateur. Veuillez vous reconnecter.");
+  }
 
   // Use email from args if provided, otherwise use identity email
   const userEmail = args.email || identity.email;
   
+  if (!userEmail) {
+    throw new Error("Email requis: Aucun email trouvé pour cet utilisateur.");
+  }
+  
   const existing = await ctx.db
     .query("users")
-    .withIndex("email", (q) => q.eq("email", userEmail ?? ""))
+    .withIndex("email", (q) => q.eq("email", userEmail))
     .first();
 
   const now = new Date().toISOString();
