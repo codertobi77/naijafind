@@ -262,6 +262,7 @@ function GallerySection({
   saving: boolean;
   planConfig: (typeof SUBSCRIPTION_PLANS)[keyof typeof SUBSCRIPTION_PLANS];
 }) {
+  const { t } = useTranslation();
   const [imageUrl, setImageUrl] = useState('');
   const [editMode, setEditMode] = useState(false);
   const gallery = profileData.imageGallery || [];

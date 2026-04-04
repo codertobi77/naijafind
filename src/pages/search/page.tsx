@@ -1447,12 +1447,7 @@ export default function Search() {
 
             {viewMode === 'map' && (
               <div className="bg-white rounded-lg shadow-sm mb-6 h-64 sm:h-96 overflow-hidden">
-                <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                  <div className="text-center text-gray-500">
-                    <i className="ri-map-pin-line text-4xl mb-2"></i>
-                    <p>{t('search.map_view_unavailable')}</p>
-                  </div>
-                </div>
+                <SupplierMapView suppliers={allMapSuppliers.length > 0 ? allMapSuppliers : suppliers} userLocation={userLocation} />
               </div>
             )}
 
