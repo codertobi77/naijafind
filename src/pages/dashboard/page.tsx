@@ -691,7 +691,7 @@ export default function Dashboard() {
       setSaveStatus('success');
       setEditMode(false);
     } catch (error) {
-      console.error('Erreur lors de la sauvegarde:', error);
+      console.error(t('dashboard.save_error'), error);
       setSaveStatus('error');
     } finally {
       setSaving(false);
@@ -1119,7 +1119,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <DashboardSidebar
-        businessName={dashboardData?.profile?.business_name || 'Mon entreprise'}
+        businessName={dashboardData?.profile?.business_name || t('dashboard.my_business')}
         planName={planConfig.name}
         tabs={getSidebarTabs(dashboardData?.profile?.business_type).map((tab) => ({
           ...tab,
@@ -1192,14 +1192,14 @@ export default function Dashboard() {
 
       <ConfirmModal
         open={showProductDeleteModal}
-        title="Supprimer le produit"
+        title={t('dashboard.delete_product')}
         message={
           productModalData
-            ? `Voulez-vous vraiment supprimer « ${productModalData.name} » ?`
+            ? t('dashboard.delete_product_confirm', { name: productModalData.name })
             : ''
         }
         loading={productOpLoading}
-        confirmLabel="Supprimer"
+        confirmLabel={t('btn.delete')}
         confirmType="danger"
         onCancel={() => setShowProductDeleteModal(false)}
         onConfirm={confirmDeleteProduct}
@@ -1222,14 +1222,14 @@ export default function Dashboard() {
 
       <ConfirmModal
         open={showReviewDeleteModal}
-        title="Supprimer l'avis"
+        title={t('dashboard.delete_review')}
         message={
           reviewModalData
-            ? `Supprimer l'avis de ${reviewModalData.customer_name || 'client'} ?`
+            ? t('dashboard.delete_review_confirm', { name: reviewModalData.customer_name || t('dashboard.client') })
             : ''
         }
         loading={reviewOpLoading}
-        confirmLabel="Supprimer"
+        confirmLabel={t('btn.delete')}
         confirmType="danger"
         onCancel={() => setShowReviewDeleteModal(false)}
         onConfirm={async () => {
@@ -1312,7 +1312,7 @@ function DashboardSidebar({
             <button
               onClick={() => setCollapsed(!collapsed)}
               className="hidden lg:flex rounded-lg p-1.5 text-gray-500 hover:bg-green-100 hover:text-green-600 transition-colors"
-              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              title={collapsed ? t('dashboard.expand_sidebar') : t('dashboard.collapse_sidebar')}
             >
               <i className={`ri-arrow-${collapsed ? 'right' : 'left'}-line text-lg`} />
             </button>
@@ -1412,30 +1412,30 @@ function DashboardHeader({
           <button
             onClick={toggleSidebar}
             className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 lg:hidden"
-            aria-label="Toggle sidebar"
+            aria-label={t('dashboard.toggle_sidebar')}
           >
             <i className="ri-menu-line text-xl" />
           </button>
           <button
             onClick={toggleCollapse}
             className="hidden lg:flex rounded-lg p-2 text-gray-600 hover:bg-gray-100"
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={collapsed ? t('dashboard.expand_sidebar') : t('dashboard.collapse_sidebar')}
+            title={collapsed ? t('dashboard.expand_sidebar') : t('dashboard.collapse_sidebar')}
           >
             <i className={`ri-arrow-${collapsed ? 'right' : 'left'}-line text-lg`} />
           </button>
           <h1 className="text-xl font-bold text-gray-900">
-            {activeTab === 'overview' && 'Aperçu'}
-            {activeTab === 'profile' && 'Profil entreprise'}
-            {activeTab === 'products' && 'Produits'}
-            {activeTab === 'galerie' && 'Galerie'}
-            {activeTab === 'settings' && 'Paramètres'}
-            {activeTab === 'reviews' && 'Avis'}
-            {activeTab === 'verification' && 'Vérification'}
-            {activeTab === 'analytics' && 'Analytics'}
-            {activeTab === 'subscription' && 'Abonnement'}
-            {activeTab === 'team' && 'Équipe'}
-            {activeTab === 'purchaseRequests' && 'Purchase Requests'}
+            {activeTab === 'overview' && t('dashboard.overview')}
+            {activeTab === 'profile' && t('dashboard.business_profile')}
+            {activeTab === 'products' && t('dashboard.products')}
+            {activeTab === 'galerie' && t('dashboard.gallery')}
+            {activeTab === 'settings' && t('dashboard.settings')}
+            {activeTab === 'reviews' && t('dashboard.reviews')}
+            {activeTab === 'verification' && t('dashboard.verification')}
+            {activeTab === 'analytics' && t('dashboard.analytics')}
+            {activeTab === 'subscription' && t('dashboard.subscription')}
+            {activeTab === 'team' && t('dashboard.team')}
+            {activeTab === 'purchaseRequests' && t('dashboard.purchase_requests')}
           </h1>
         </div>
 
@@ -1455,8 +1455,8 @@ function DashboardHeader({
           <button
             onClick={onStartTour}
             className="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-            aria-label="Start tour"
-            title="Start tour"
+            aria-label={t('dashboard.start_tour')}
+            title={t('dashboard.start_tour')}
           >
             <i className="ri-information-line text-xl" />
           </button>
@@ -1480,7 +1480,7 @@ function DashboardHeader({
           <button
             onClick={onLogout}
             className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-            aria-label="Déconnexion"
+            aria-label={t('nav.logout')}
           >
             <i className="ri-logout-box-line text-xl" />
           </button>
@@ -1504,24 +1504,24 @@ function OverviewSection({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">
-            Bienvenue, {data?.profile?.business_name || 'Mon entreprise'}
+            {t('dashboard.welcome')}, {data?.profile?.business_name || t('dashboard.my_business')}
           </h2>
           <p className="mt-1 text-gray-600">
-            Gérez votre entreprise et suivez vos performances en temps réel.
+            {t('dashboard.manage_business')}
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Commandes"
+          label={t('dashboard.orders')}
           value={data?.stats?.totalOrders?.toLocaleString('fr-FR') || '0'}
           icon="ri-shopping-cart-line"
           iconColor="text-blue-600"
           iconBg="bg-blue-100"
         />
         <StatCard
-          label="Produits"
+          label={t('dashboard.products')}
           value={
             planConfig.maxProducts === -1
               ? `${totalProducts.toLocaleString('fr-FR')} / Illimité`
@@ -1534,14 +1534,14 @@ function OverviewSection({
           iconBg="bg-green-100"
         />
         <StatCard
-          label="Avis"
+          label={t('dashboard.reviews')}
           value={data?.stats?.totalReviews?.toLocaleString('fr-FR') || '0'}
           icon="ri-star-line"
           iconColor="text-yellow-600"
           iconBg="bg-yellow-100"
         />
         <StatCard
-          label="Revenus mensuels"
+          label={t('dashboard.monthly_revenue')}
           value={`₦${(data?.stats?.monthlyRevenue || 0).toLocaleString('fr-FR')}`}
           icon="ri-money-dollar-circle-line"
           iconColor="text-purple-600"
@@ -1591,10 +1591,10 @@ function ProfileSection({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">
-            Profil de votre entreprise
+            {t('dashboard.business_profile_title')}
           </h2>
           <p className="text-sm text-gray-600">
-            Complétez les informations pour inspirer confiance aux acheteurs.
+            {t('dashboard.complete_profile_desc')}
           </p>
         </div>
         {!editMode ? (
@@ -1603,7 +1603,7 @@ function ProfileSection({
             className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
           >
             <i className="ri-edit-line mr-2" />
-            Modifier
+            {t('btn.edit')}
           </button>
         ) : (
           <div className="flex items-center gap-2">
@@ -1611,7 +1611,7 @@ function ProfileSection({
               onClick={() => setEditMode(false)}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
-              Annuler
+              {t('btn.cancel')}
             </button>
             <button
               onClick={onSave}
@@ -1621,12 +1621,12 @@ function ProfileSection({
               {saving ? (
                 <span className="flex items-center space-x-2">
                   <i className="ri-loader-4-line animate-spin" />
-                  <span>Sauvegarde...</span>
+                <span>{t('dashboard.saving')}</span>
                 </span>
               ) : (
                 <span>
                   <i className="ri-save-line mr-2" />
-                  Sauvegarder
+                  {t('btn.save')}
                 </span>
               )}
             </button>
@@ -1635,82 +1635,82 @@ function ProfileSection({
       </div>
 
       {saveStatus === 'success' && (
-        <Alert tone="success" message="Profil mis à jour avec succès." />
+        <Alert tone="success" message={t('dashboard.profile_updated')} />
       )}
       {saveStatus === 'error' && (
-        <Alert tone="error" message="Erreur lors de la sauvegarde du profil." />
+        <Alert tone="error" message={t('dashboard.profile_save_error')} />
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card title="Informations générales">
+        <Card title={t('dashboard.general_info')}>
           <div className="space-y-4">
             <Field
-              label="Nom de l'entreprise"
+              label={t('dashboard.business_name')}
               value={profileData.business_name}
               readOnly={!editMode}
               onChange={(value) => onChangeField('business_name', value)}
             />
             <Textarea
-              label="Description"
+              label={t('dashboard.description')}
               value={profileData.description}
               readOnly={!editMode}
               onChange={(value) => onChangeField('description', value)}
             />
             <Select
-              label="Catégorie principale"
+              label={t('dashboard.main_category')}
               value={profileData.category}
               readOnly={!editMode}
               options={categories}
-              placeholder="Sélectionnez une catégorie"
+              placeholder={t('dashboard.select_category')}
               onChange={(value) => onChangeField('category', value)}
             />
           </div>
         </Card>
 
-        <Card title="Coordonnées">
+        <Card title={t('dashboard.contact_info')}>
           <div className="space-y-4">
             <Field
-              label="Téléphone"
+              label={t('dashboard.phone')}
               value={profileData.phone}
               readOnly={!editMode}
               onChange={(value) => onChangeField('phone', value)}
             />
             <Field
-              label="Email"
+              label={t('dashboard.email')}
               value={profileData.email}
               readOnly={!editMode}
               onChange={(value) => onChangeField('email', value)}
             />
             <Field
-              label="Site web"
+              label={t('dashboard.website')}
               value={profileData.website}
               readOnly={!editMode}
-              placeholder="https://..."
+              placeholder={t('dashboard.website_placeholder')}
               onChange={(value) => onChangeField('website', value)}
             />
           </div>
         </Card>
 
-        <Card title="Localisation" className="lg:col-span-2">
+        <Card title={t('dashboard.location')} className="lg:col-span-2">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field
-              label="Adresse"
+              label={t('dashboard.address')}
               value={profileData.address}
               readOnly={!editMode}
               onChange={(value) => onChangeField('address', value)}
             />
             <Field
-              label="Ville"
+              label={t('dashboard.city')}
               value={profileData.city}
               readOnly={!editMode}
               onChange={(value) => onChangeField('city', value)}
             />
             <Select
-              label="État"
+              label={t('dashboard.state')}
               value={profileData.state}
               readOnly={!editMode}
               options={states}
-              placeholder="Sélectionnez un état"
+              placeholder={t('dashboard.select_state')}
               onChange={(value) => onChangeField('state', value)}
             />
           </div>
@@ -1747,16 +1747,16 @@ function ProductsSection({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">Produits</h2>
+          <h2 className="text-xl font-semibold text-gray-900">{t('dashboard.products_title')}</h2>
           <p className="text-sm text-gray-600">
-            Gérez vos produits en vente sur la marketplace.
+            {t('dashboard.manage_products_desc')}
           </p>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500">
             {planConfig.maxProducts === -1
-              ? `${totalProducts} produits`
-              : `${totalProducts} / ${planConfig.maxProducts} produits`}
+              ? `${totalProducts} ${t('dashboard.products')}`
+              : `${totalProducts} / ${planConfig.maxProducts} ${t('dashboard.products')}`}
           </span>
           {canManage ? (
             <button
@@ -1764,7 +1764,7 @@ function ProductsSection({
               className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
             >
               <i className="ri-add-line mr-2" />
-              Ajouter
+              {t('btn.add')}
             </button>
           ) : (
             <button
@@ -1806,7 +1806,7 @@ function ProductsSection({
                     : 'bg-gray-100 text-gray-800'
                 }`}
               >
-                {product.status === 'active' ? 'Actif' : 'Inactif'}
+                {product.status === 'active' ? t('status.active') : t('status.inactive')}
               </span>
             </div>
             <div className="mt-4 flex items-center justify-end gap-2">
@@ -1844,16 +1844,16 @@ function ReviewsSection({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-gray-900">Avis clients</h2>
+        <h2 className="text-xl font-semibold text-gray-900">{t('dashboard.customer_reviews')}</h2>
         <p className="text-sm text-gray-600">
-          Gérez les avis et retours de vos clients.
+          {t('dashboard.manage_reviews_desc')}
         </p>
       </div>
 
       <div className="space-y-4">
         {reviews.length === 0 ? (
           <Card>
-            <p className="text-center text-gray-500">Aucun avis pour le moment</p>
+            <p className="text-center text-gray-500">{t('dashboard.no_reviews')}</p>
           </Card>
         ) : (
           reviews.map((review) => (
@@ -1865,7 +1865,7 @@ function ReviewsSection({
                   </div>
                   <div>
                     <p className="font-medium text-gray-900">
-                      {review.customer_name || 'Client anonyme'}
+                      {review.customer_name || t('dashboard.anonymous_customer')}
                     </p>
                     <div className="flex items-center">
                       {Array.from({ length: 5 }).map((_, i) => (
@@ -1886,7 +1886,7 @@ function ReviewsSection({
               <p className="mt-3 text-sm text-gray-600">{review.comment}</p>
               {review.response && (
                 <div className="mt-3 rounded-lg bg-green-50 p-3">
-                  <p className="text-xs font-medium text-green-800">Votre réponse :</p>
+                  <p className="text-xs font-medium text-green-800">{t('dashboard.your_response')}</p>
                   <p className="text-sm text-green-700">{review.response}</p>
                 </div>
               )}
@@ -1895,7 +1895,7 @@ function ReviewsSection({
                   onClick={() => onRespond(review)}
                   className="rounded-lg px-3 py-1 text-sm font-medium text-green-600 hover:bg-green-50"
                 >
-                  {review.response ? 'Modifier la réponse' : 'Répondre'}
+                  {review.response ? t('dashboard.edit_response') : t('dashboard.reply')}
                 </button>
                 <button
                   onClick={() => onDelete(review)}
@@ -1948,9 +1948,9 @@ function PurchaseRequestsSection({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-gray-900">Mes demandes d'achat</h2>
+        <h2 className="text-xl font-semibold text-gray-900">{t('dashboard.my_purchase_requests')}</h2>
         <p className="text-sm text-gray-600">
-          Gérez vos demandes d'achat et suivez leur statut.
+          {t('dashboard.manage_purchase_requests_desc')}
         </p>
       </div>
 
@@ -1959,9 +1959,9 @@ function PurchaseRequestsSection({
           <Card>
             <div className="text-center py-8">
               <i className="ri-shopping-cart-line text-4xl text-gray-300 mb-3" />
-              <p className="text-gray-500">Aucune demande d'achat pour le moment</p>
+              <p className="text-gray-500">{t('dashboard.no_purchase_requests')}</p>
               <p className="text-sm text-gray-400 mt-1">
-                Créez une demande depuis la page d'accueil
+                {t('dashboard.create_request_from_home')}
               </p>
             </div>
           </Card>
@@ -1978,7 +1978,7 @@ function PurchaseRequestsSection({
                   </div>
                   <p className="font-medium text-gray-900 mb-1">{request.description}</p>
                   <p className="text-sm text-gray-600">
-                    Quantité: {request.quantity} {request.unit}
+                    {t('purchaseRequest.quantity')}: {request.quantity} {request.unit}
                   </p>
                   {request.whatsapp && (
                     <p className="text-sm text-gray-500 mt-1">
@@ -2000,7 +2000,7 @@ function PurchaseRequestsSection({
               <div className="mt-4 flex items-center gap-2">
                 {deleteConfirmId === request._id ? (
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-red-600">Confirmer suppression?</span>
+                    <span className="text-sm text-red-600">{t('dashboard.confirm_delete')}</span>
                     <button
                       onClick={() => {
                         onDelete(request);
@@ -2008,13 +2008,13 @@ function PurchaseRequestsSection({
                       }}
                       className="rounded-lg px-3 py-1 text-sm font-medium text-white bg-red-600 hover:bg-red-700"
                     >
-                      Oui
+                      {t('btn.yes')}
                     </button>
                     <button
                       onClick={() => setDeleteConfirmId(null)}
                       className="rounded-lg px-3 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
                     >
-                      Non
+                      {t('btn.no')}
                     </button>
                   </div>
                 ) : (
@@ -2023,7 +2023,7 @@ function PurchaseRequestsSection({
                     className="rounded-lg px-3 py-1 text-sm font-medium text-red-600 hover:bg-red-50"
                   >
                     <i className="ri-delete-bin-line mr-1" />
-                    Supprimer
+                    {t('btn.delete')}
                   </button>
                 )}
               </div>

@@ -171,7 +171,7 @@ export default function Header() {
             {/* Primary Navigation */}
             <div className="mb-3 pb-3 border-b border-gray-100">
               <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Navigation
+                {t('nav.navigation')}
               </p>
               {primaryNavItems.map((item) => (
                 <Link
@@ -203,7 +203,7 @@ export default function Header() {
             {/* Secondary Navigation */}
             <div className="mb-3 pb-3 border-b border-gray-100">
               <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Plus
+                {t('nav.more')}
               </p>
               {secondaryNavItems.map((item: any) => (
                 <Link
@@ -229,7 +229,7 @@ export default function Header() {
             <SignedIn>
               <div className="mb-3 pb-3 border-b border-gray-100">
                 <p className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Compte
+                  {t('nav.account')}
                 </p>
                 {meData?.user?.user_type === 'supplier' && (
                   <Link

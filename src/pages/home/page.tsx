@@ -233,7 +233,7 @@ function SearchInputWithSuggestions({
           <button
             onClick={handleClear}
             className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-            aria-label="Clear input"
+            aria-label={t('common.clear_input')}
           >
             <i className="ri-close-line text-gray-400 text-sm"></i>
           </button>
@@ -269,7 +269,7 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
             }`}
           >
             <i className="ri-shopping-bag-line"></i>
-            {t('search.tabs.products', 'Produits')}
+                      {t('search.tabs.products')}
           </button>
           <button
             onClick={() => setActiveTab('suppliers')}
@@ -280,7 +280,7 @@ function SearchHero({ t, searchQuery, searchLocation, category, categories, setS
             }`}
           >
             <i className="ri-store-2-line"></i>
-            {t('search.tabs.suppliers', 'Fournisseurs')}
+                      {t('search.tabs.suppliers')}
           </button>
         </div>
 
@@ -459,9 +459,6 @@ export default function Home() {
     message: '',
     icon: 'success' as 'success' | 'info' | 'warning'
   });
-
-  // Purchase request popup state - DISABLED: no longer shows automatically
-  const [purchaseRequestModalOpen, setPurchaseRequestModalOpen] = useState(false);
 
   // Handle location state message
   useEffect(() => {
@@ -998,86 +995,6 @@ export default function Home() {
                 </p>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Purchase Request Modal - Shows every time on site open */}
-      {purchaseRequestModalOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={() => setPurchaseRequestModalOpen(false)}
-        >
-          <div 
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="bg-gradient-to-r from-green-600 to-emerald-600 p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-                    <i className="ri-shopping-cart-2-line text-2xl"></i>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold">Demande d'achat</h3>
-                    <p className="text-green-100 text-sm">Trouvez les meilleurs fournisseurs</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setPurchaseRequestModalOpen(false)}
-                  className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
-                >
-                  <i className="ri-close-line text-lg"></i>
-                </button>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-6">
-              <p className="text-gray-600 mb-6">
-                Vous avez besoin de produits ou de services ? Faites une demande d'achat et recevez des propositions de nos fournisseurs vérifiés au Nigeria.
-              </p>
-
-              <div className="space-y-3">
-                <button
-                  onClick={() => {
-                    setPurchaseRequestModalOpen(false);
-                    navigate('/purchase-request');
-                  }}
-                  className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-green-500 bg-green-50 hover:bg-green-100 transition-all group"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <i className="ri-file-list-3-line text-2xl"></i>
-                  </div>
-                  <div className="flex-1 text-left">
-                    <h4 className="font-semibold text-gray-900">Faire une demande</h4>
-                    <p className="text-sm text-gray-500">Décrivez vos besoins et recevez des devis</p>
-                  </div>
-                  <i className="ri-arrow-right-line text-green-600"></i>
-                </button>
-
-                <button
-                  onClick={() => setPurchaseRequestModalOpen(false)}
-                  className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-gray-100 hover:border-gray-300 hover:bg-gray-50 transition-all group"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-gray-100 text-gray-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <i className="ri-search-line text-2xl"></i>
-                  </div>
-                  <div className="flex-1 text-left">
-                    <h4 className="font-semibold text-gray-900">Continuer la recherche</h4>
-                    <p className="text-sm text-gray-500">Explorer les fournisseurs disponibles</p>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="px-6 py-4 bg-gray-50 text-center">
-              <p className="text-xs text-gray-500">
-                Plus de {supplierCount?.toLocaleString() || '...'} entreprises nigérianes disponibles
-              </p>
-            </div>
           </div>
         </div>
       )}

@@ -71,6 +71,10 @@ export const search = {
   "results.contact": "Contacter",
   "results.no_match": "Aucun fournisseur ne correspond aux filtres sélectionnés.",
   
+  // Search suggestions
+  "search.including": "Incluant",
+  "search.suggested_category": "Catégorie suggérée",
+
   // Search translation (Alibaba-style)
   "search.translating": "Traduction...",
   "search.translated_from": "Traduit depuis",

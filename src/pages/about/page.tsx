@@ -95,7 +95,7 @@ export default function About() {
       <Section background="gradient">
         <Container>
           <SectionTitle
-            badge={{ icon: 'ri-heart-line', text: 'Our Core Values' }}
+            badge={{ icon: 'ri-heart-line', text: t('about.core_values_badge') }}
             title={t('about.values_title')}
             subtitle={t('about.values_subtitle')}
           />

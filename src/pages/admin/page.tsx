@@ -217,7 +217,7 @@ function IconAutocomplete({
           onChange={handleInputChange}
           onFocus={() => setIsOpen(true)}
           className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-          placeholder={placeholder || "Search icons..."}
+          placeholder={placeholder || t('admin.search_icons')}
         />
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
           {value && <i className={`${value} text-lg`}></i>}
@@ -333,7 +333,7 @@ function CategoryImageInput({
           value={value || ''}
           onChange={handleUrlChange}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-          placeholder="https://example.com/image.jpg"
+          placeholder={t('admin.image_url_placeholder')}
         />
       ) : (
         <div className="space-y-2">
@@ -1276,7 +1276,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                       value={categoryForm.order}
                       onChange={(e) => setCategoryForm({...categoryForm, order: parseInt(e.target.value) || 0})}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                      placeholder="0"
+              placeholder="0"
                     />
                   </div>
                   <div className="flex items-center">
@@ -1771,63 +1771,63 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
         return (
           <div className="space-y-6">
             <div className="bg-white rounded-lg border p-6">
-              <h3 className="text-lg font-semibold mb-4">Envoyer une notification</h3>
+              <h3 className="text-lg font-semibold mb-4">{t('admin.send_notification')}</h3>
               
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Titre *
+                    {t('admin.notification_title')} *
                   </label>
                   <input
                     type="text"
                     value={notificationForm.title}
                     onChange={(e) => setNotificationForm({...notificationForm, title: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Titre de la notification"
+                    placeholder={t('admin.notification_title_placeholder')}
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Message *
+                    {t('admin.notification_message')} *
                   </label>
                   <textarea
                     value={notificationForm.message}
                     onChange={(e) => setNotificationForm({...notificationForm, message: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     rows={4}
-                    placeholder="Message de la notification"
+                    placeholder={t('admin.notification_message_placeholder')}
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Type
+                    {t('admin.notification_type')}
                   </label>
                   <select
                     value={notificationForm.type}
                     onChange={(e) => setNotificationForm({...notificationForm, type: e.target.value as any})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   >
-                    <option value="system">Système</option>
-                    <option value="order">Commande</option>
-                    <option value="review">Avis</option>
-                    <option value="message">Message</option>
-                    <option value="verification">Vérification</option>
-                    <option value="approval">Approbation</option>
+                    <option value="system">{t('admin.type_system')}</option>
+                    <option value="order">{t('admin.type_order')}</option>
+                    <option value="review">{t('admin.type_review')}</option>
+                    <option value="message">{t('admin.type_message')}</option>
+                    <option value="verification">{t('admin.type_verification')}</option>
+                    <option value="approval">{t('admin.type_approval')}</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Lien d'action (optionnel)
+                    {t('admin.action_link')}
                   </label>
                   <input
                     type="text"
                     value={notificationForm.actionUrl}
                     onChange={(e) => setNotificationForm({...notificationForm, actionUrl: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="/dashboard ou https://..."
+                    placeholder={t('admin.notification_url_placeholder')}
                   />
                 </div>
 
@@ -1840,24 +1840,24 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                     className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                   />
                   <label htmlFor="sendToAll" className="text-sm text-gray-700">
-                    Envoyer à tous les utilisateurs
+                    {t('admin.send_to_all_users')}
                   </label>
                 </div>
 
                 {!notificationForm.sendToAll && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      ID Utilisateur *
+                      {t('admin.user_id')} *
                     </label>
                     <input
                       type="text"
                       value={notificationForm.userId}
                       onChange={(e) => setNotificationForm({...notificationForm, userId: e.target.value})}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      placeholder="ID de l'utilisateur"
+                      placeholder={t('admin.user_id_placeholder')}
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Trouvez l'ID dans la liste des fournisseurs ou utilisateurs
+                      {t('admin.user_id_help')}
                     </p>
                   </div>
                 )}

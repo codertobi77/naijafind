@@ -62,6 +62,15 @@ export const common = {
   "label.type": "Type",
   "label.language": "Langue",
 
+  "nav.purchase_request": "Demande d'achat",
+  "nav.navigation": "Navigation",
+  "nav.more": "Plus",
+  "nav.account": "Compte",
+  "common.clear_input": "Effacer le champ",
+  "common.return_home": "Retour à l'accueil",
+  "common.ok": "OK",
+  "common.error": "Erreur",
+
   // Language selector accessibility
   "common.select_language": "Sélectionner la langue",
   "common.available_languages": "Langues disponibles",
