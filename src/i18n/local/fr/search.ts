@@ -118,7 +118,15 @@ export const search = {
   "search.location_timeout": "Demande de position expirée",
   "search.location_error": "Erreur lors de la récupération de la position",
   "search.timeout_error": "La recherche a pris trop de temps. Veuillez réessayer.",
-  "search.map_timeout_error": "La recherche sur la carte a pris trop de temps."
+  "search.map_timeout_error": "La recherche sur la carte a pris trop de temps.",
+
+  // Home page search placeholders
+  "search.product_placeholder": "Rechercher un produit...",
+  "search.supplier_placeholder": "Nom du fournisseur",
+  "search.location_placeholder": "Localisation",
+  "search.category_placeholder": "Catégorie",
+  "search.find_products": "Rechercher",
+  "search.find_suppliers": "Rechercher"
 };
 
 export default search;

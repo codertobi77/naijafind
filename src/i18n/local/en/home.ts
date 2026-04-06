@@ -98,10 +98,14 @@ export const home = {
 
   // Featured/Premium section - additional
   "featured.title": "Featured Suppliers",
-  "featured.subtitle": "Discover the best rated suppliers near you",
+  "featured.subtitle": "Discover top-rated suppliers near you",
   "featured.verified": "Verified",
   "featured.contact": "Contact",
-  "featured.view_details": "View details"
+  "featured.view_details": "View details",
+
+  // Search tabs (home page)
+  "search.tabs.products": "Products",
+  "search.tabs.suppliers": "Suppliers"
 };
 
 export default home;

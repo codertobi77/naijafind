@@ -101,7 +101,11 @@ export const home = {
   "featured.subtitle": "Découvrez les fournisseurs les mieux notés près de chez vous",
   "featured.verified": "Vérifié",
   "featured.contact": "Contact",
-  "featured.view_details": "Voir détails"
+  "featured.view_details": "Voir détails",
+
+  // Search tabs (home page)
+  "search.tabs.products": "Produits",
+  "search.tabs.suppliers": "Fournisseurs"
 };
 
 export default home;
