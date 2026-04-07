@@ -196,6 +196,7 @@ function SearchInputWithSuggestions({
   onClearRecentSearches?: () => void;
   suggestionPriority?: 'product' | 'supplier' | 'category';
 }) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleClear = () => {
