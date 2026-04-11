@@ -309,9 +309,10 @@ function inferCategoryFromKeywords(keywords: string[]): string | null {
  */
 function calculateRelevanceScore(
   supplier: any,
-  keywords: string[],
-  targetCategories: Set<string>,
-  matchingProducts: any[]
+  safeKeywords: string[],
+  safeTargetCategories: string[],
+  safeMatchingProducts: any[],
+  bigrams: string[]
 ): { score: number; matchDetails: string[] } {
   if (!supplier || typeof supplier !== "object") {
     return { score: 0, matchDetails: [] };
@@ -323,12 +324,6 @@ function calculateRelevanceScore(
   const supplierCategory = String(supplier.category || "").toLowerCase();
   const supplierName = String(supplier.business_name || "").toLowerCase();
   const supplierDesc = String(supplier.description || "").toLowerCase();
-
-  const safeKeywords = Array.isArray(keywords) ? keywords : [];
-  const safeMatchingProducts = Array.isArray(matchingProducts) ? matchingProducts : [];
-  const safeTargetCategories = Array.from(targetCategories).filter(
-    (cat): cat is string => typeof cat === "string" && cat.trim().length > 0
-  );
 
   if (safeTargetCategories.length > 0) {
     const categoryMatch = safeTargetCategories.some((targetCat) => {
@@ -345,8 +340,6 @@ function calculateRelevanceScore(
       matchDetails.push("category");
     }
   }
-
-  const bigrams = extractNGrams(safeKeywords, 2);
 
   for (const product of safeMatchingProducts) {
     if (!product || typeof product !== "object") continue;
@@ -975,6 +968,11 @@ export const searchSuppliers = action({
           }
         }
 
+        // Optimization: Hoist constant computations outside the loop
+        const safeKeywords = Array.isArray(keywords) ? keywords : [];
+        const bigrams = extractNGrams(safeKeywords, 2);
+        const safeMatchingProducts = Array.isArray(matchingProducts) ? matchingProducts : [];
+
         // Calculate relevance scores safely
         scoredSuppliers = Array.from(uniqueSuppliers.values())
           .filter((supplier: any) => supplier && typeof supplier === "object")
@@ -982,9 +980,10 @@ export const searchSuppliers = action({
             const relevance =
               calculateRelevanceScore(
                 supplier,
-                keywords,
-                new Set(safeTargetCategories),
-                Array.isArray(matchingProducts) ? matchingProducts : []
+                safeKeywords,
+                safeTargetCategories,
+                safeMatchingProducts,
+                bigrams
               ) ?? { score: 0, matchDetails: [] };
 
             return {
