@@ -210,14 +210,12 @@ export const searchSuggestionsWithQuery = action({
       }
     }
 
-    // Get all approved suppliers using internal query
-    const suppliers = await ctx.runQuery(internal.searchSuggestions.getApprovedSuppliers, {});
-
-    // Get all products using internal query
-    const products = await ctx.runQuery(internal.searchSuggestions.getAllProducts, {});
-
-    // Get all active categories using internal query
-    const categories = await ctx.runQuery(internal.searchSuggestions.getActiveCategories, {});
+    // Parallelize the initial fetching of suppliers, products, and categories
+    const [suppliers, products, categories] = await Promise.all([
+      ctx.runQuery(internal.searchSuggestions.getApprovedSuppliers, {}),
+      ctx.runQuery(internal.searchSuggestions.getAllProducts, {}),
+      ctx.runQuery(internal.searchSuggestions.getActiveCategories, {}),
+    ]);
 
     // Track product categories for supplier suggestions
     const matchedProductCategories = new Set<string>();
@@ -272,12 +270,14 @@ export const searchSuggestionsWithQuery = action({
       }
     });
 
-    // Add suppliers from matched product categories
-    for (const category of matchedProductCategories) {
-      const categorySuppliers = await ctx.runQuery(
-        internal.searchSuggestions.getSuppliersByCategory, 
-        { category }
-      );
+    // Add suppliers from matched product categories - PARALLELIZED
+    const categorySuppliersResults = await Promise.all(
+      Array.from(matchedProductCategories).map(category =>
+        ctx.runQuery(internal.searchSuggestions.getSuppliersByCategory, { category })
+      )
+    );
+
+    for (const categorySuppliers of categorySuppliersResults) {
       categorySuppliers.forEach((s: any) => {
         if (!s.business_name) return;
         // Avoid duplicates
