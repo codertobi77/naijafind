@@ -1141,17 +1141,27 @@ export const searchProducts = action({
     // Suppliers per CATEGORY
     const categoryToSuppliers = new Map<string, any[]>();
     
-    // Combine product categories with inferred categories for coverage
-    const productCategories = scored
-      .map((p) => (p.category || "").toString())
-      .filter((c) => c && c.trim().length > 0);
-    
-    const categoriesForMapping = Array.from(
-      new Set([...productCategories, ...inferredCategories])
-    );
+    // Combine product categories with inferred categories for coverage efficiently
+    const categoriesSet = new Set(inferredCategories);
+    // Create a mapping of category to the first product found in that category
+    // This avoids O(N) find() calls inside the supplier scoring loop
+    const categoryToProduct = new Map<string, any>();
+
+    for (const p of scored) {
+      if (p.category) {
+        const catStr = p.category.toString();
+        categoriesSet.add(catStr);
+        if (!categoryToProduct.has(catStr)) {
+          categoryToProduct.set(catStr, p);
+        }
+      }
+    }
+
+    const categoriesForMapping = Array.from(categoriesSet);
     console.log(`Categories for mapping: ${categoriesForMapping.join(',')}`);
 
-    for (const cat of categoriesForMapping as string[]) {
+    // Suppliers per CATEGORY - Parallelized database queries to reduce total RTT
+    await Promise.all(categoriesForMapping.map(async (cat) => {
       try {
         const candidates = await ctx.runQuery(
           internal.suppliers._getSuppliersByCategory,
@@ -1166,28 +1176,27 @@ export const searchProducts = action({
           });
           
           if (productSuppliers.length > 0) {
+            const matchingProduct = categoryToProduct.get(cat);
             // Score and sort suppliers using the new relevance scoring
             const scoredSuppliers = productSuppliers.map((s: any) => {
-              // Get the product that triggered this category search
-              const matchingProduct = scored.find(p => p.category === cat);
-            let score = 0;
-            let matchDetails: string[] = [];
-            try {
-              const result = calculateSupplierRelevanceScore(
-                s,
-                cat,
-                keywords,
-                matchingProduct?.name || '',
-                matchingProduct?.description
-              );
-              score = result.score;
-              matchDetails = result.matchDetails;
-            } catch (err) {
-              console.error(`Error calculating relevance score for supplier ${s._id}:`, err);
-              // Fallback score if calculation fails
-              score = 1;
-              matchDetails = ['error_fallback'];
-            }
+              let score = 0;
+              let matchDetails: string[] = [];
+              try {
+                const result = calculateSupplierRelevanceScore(
+                  s,
+                  cat,
+                  keywords,
+                  matchingProduct?.name || '',
+                  matchingProduct?.description
+                );
+                score = result.score;
+                matchDetails = result.matchDetails;
+              } catch (err) {
+                console.error(`Error calculating relevance score for supplier ${s._id}:`, err);
+                // Fallback score if calculation fails
+                score = 1;
+                matchDetails = ['error_fallback'];
+              }
               return {
                 ...s,
                 _supplierScore: score,
@@ -1196,7 +1205,7 @@ export const searchProducts = action({
             });
             
             // Sort by the new relevance score
-            const sorted = scoredSuppliers.sort((a: any, b: any) => {
+            scoredSuppliers.sort((a: any, b: any) => {
               const scoreDiff = (b._supplierScore || 0) - (a._supplierScore || 0);
               if (scoreDiff !== 0) return scoreDiff;
               
@@ -1212,14 +1221,14 @@ export const searchProducts = action({
               return Number(b.reviews_count ?? 0) - Number(a.reviews_count ?? 0);
             });
             
-            categoryToSuppliers.set(cat, sorted);
+            categoryToSuppliers.set(cat, scoredSuppliers);
           }
         }
       } catch (err) {
         // Log error for debugging but continue with other categories
         console.error(`Error fetching suppliers for category "${cat}":`, err);
       }
-    }
+    }));
 
     // Attach suppliers snapshots (all potential suppliers for the product's category)
     console.log(`Attaching suppliers to ${scored.length} products. Category map has ${categoryToSuppliers.size} categories`);

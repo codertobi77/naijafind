@@ -943,7 +943,8 @@ export const searchSuppliers = action({
           .map(cat => cat.trim())
           .filter(cat => cat.length > 0);
 
-        for (const targetCat of safeTargetCategories) {
+        // Parallelized database queries to reduce total RTT
+        await Promise.all(safeTargetCategories.map(async (targetCat) => {
           try {
             const catSuppliers = await ctx.runQuery(
               internal.suppliers._getSuppliersByCategory,
@@ -963,7 +964,7 @@ export const searchSuppliers = action({
           } catch (error) {
             console.error(`Error fetching suppliers for category "${targetCat}":`, error);
           }
-        }
+        }));
 
         // Remove duplicates safely
         const uniqueSuppliers = new Map<string, any>();
@@ -976,6 +977,10 @@ export const searchSuppliers = action({
         }
 
         // Calculate relevance scores safely
+        // Hoist Set creation out of mapping loop to avoid redundant allocations
+        const categoriesSet = new Set(safeTargetCategories);
+        const productsArray = Array.isArray(matchingProducts) ? matchingProducts : [];
+
         scoredSuppliers = Array.from(uniqueSuppliers.values())
           .filter((supplier: any) => supplier && typeof supplier === "object")
           .map((supplier: any) => {
@@ -983,8 +988,8 @@ export const searchSuppliers = action({
               calculateRelevanceScore(
                 supplier,
                 keywords,
-                new Set(safeTargetCategories),
-                Array.isArray(matchingProducts) ? matchingProducts : []
+                categoriesSet,
+                productsArray
               ) ?? { score: 0, matchDetails: [] };
 
             return {
