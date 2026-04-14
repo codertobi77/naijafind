@@ -163,7 +163,7 @@ export const initializePayment = action({
 
     // Rate limiting: max 5 payment initializations per hour per user
     await ctx.runAction(internal.rateLimit.enforceRateLimit, {
-      identifier: identity.subject,
+      identifier: identity.tokenIdentifier,
       action: "payment_initialization",
       limit: 5,
       windowMinutes: 60,
@@ -191,7 +191,7 @@ export const initializePayment = action({
       customer: customer,
       metadata: {
         ...args.metadata,
-        userId: identity.subject,
+        userId: identity.tokenIdentifier,
         type: args.type,
         createdAt: now,
       },
@@ -226,7 +226,7 @@ export const initializePayment = action({
 
     // Create payment record in database
     const paymentId = await ctx.runMutation(internal.payments._createPayment, {
-      userId: identity.subject,
+      userId: identity.tokenIdentifier,
       supplierId: args.supplierId,
       type: args.type,
       amount: args.amount,
@@ -292,7 +292,7 @@ export const verifyPayment = action({
     }
 
     // Verify ownership
-    if (payment.userId !== identity.subject) {
+    if (payment.userId !== identity.tokenIdentifier) {
       // Check if admin
       const user = await ctx.runQuery(internal.payments._getUserByToken, {
         email: identity.email,
@@ -499,14 +499,14 @@ export const getMyPayments = query({
 
     let query = ctx.db
       .query("payments")
-      .withIndex("userId", (q) => q.eq("userId", identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier))
       .order("desc");
 
     if (args.status) {
       query = ctx.db
         .query("payments")
         .withIndex("userId_status", (q) =>
-          q.eq("userId", identity.subject).eq("status", args.status)
+          q.eq("userId", identity.tokenIdentifier).eq("status", args.status)
         )
         .order("desc");
     }

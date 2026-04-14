@@ -196,7 +196,7 @@ function SearchInputWithSuggestions({
   onClearRecentSearches?: () => void;
   suggestionPriority?: 'product' | 'supplier' | 'category';
 }) {
-  const { t } = useTranslation();
+  const { t: translate } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleClear = () => {
@@ -234,7 +234,7 @@ function SearchInputWithSuggestions({
           <button
             onClick={handleClear}
             className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-            aria-label={t('common.clear_input')}
+            aria-label={translate('common.clear_input')}
           >
             <i className="ri-close-line text-gray-400 text-sm"></i>
           </button>

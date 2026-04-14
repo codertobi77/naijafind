@@ -68,9 +68,10 @@ export const getUnreadCount = query({
     const notifications = await ctx.db
       .query('notifications')
       .withIndex('userId_read', (q) => q.eq('userId', convexUserId).eq('read', false))
-      .collect();
+      .take(1000);
 
-    return notifications.length;
+    // Return capped count - for accurate counts at scale, use a denormalized counter
+    return notifications.length < 1000 ? notifications.length : 1000;
   },
 });
 
@@ -90,9 +91,14 @@ export const createNotification = mutation({
       throw new Error('Not authenticated');
     }
 
-    // Check if user is admin or creating for themselves
-    const currentUser = await ctx.db.get(currentUserId);
-    if (currentUser?.userId !== args.userId && !currentUser?.is_admin) {
+    // Look up current user by tokenIdentifier
+    const currentUser = await ctx.db
+      .query('users')
+      .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', currentUserId))
+      .first();
+
+    // Check if user is admin or creating for themselves (compare _id with args.userId)
+    if (currentUser?._id !== args.userId && !currentUser?.is_admin) {
       throw new Error('Unauthorized to create notification for this user');
     }
 

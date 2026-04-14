@@ -10,14 +10,14 @@ export const listReviews = query({
 
     const supplier = await ctx.db
       .query("suppliers")
-      .withIndex("userId", (q) => q.eq("userId", identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier))
       .first();
     if (!supplier) throw new Error("Profil fournisseur non trouvé");
 
     const reviews = await ctx.db
       .query("reviews")
       .withIndex("supplierId", (q) => q.eq("supplierId", supplier._id as unknown as string))
-      .collect();
+      .take(1000);
 
     return reviews;
   }
@@ -41,8 +41,9 @@ export const createReview = mutation({
     // Check if user already reviewed this supplier
     const existingReview = await ctx.db
       .query("reviews")
-      .withIndex("userId", (q) => q.eq("userId", identity.subject))
-      .filter(q => q.eq(q.field("supplierId"), args.supplierId))
+      .withIndex("userId_supplierId", (q) =>
+        q.eq("userId", identity.tokenIdentifier).eq("supplierId", args.supplierId)
+      )
       .first();
     
     if (existingReview) {
@@ -72,7 +73,7 @@ export const createReview = mutation({
     // Create review with detected language
     const reviewId = await ctx.db.insert("reviews", {
       supplierId: args.supplierId,
-      userId: identity.subject,
+      userId: identity.tokenIdentifier,
       rating: args.rating,
       comment: args.comment,
       status: "published",
@@ -113,7 +114,7 @@ export const updateReview = mutation({
     const review = await ctx.db.get(args.id);
     if (!review) throw new Error("Avis introuvable");
 
-    const supplier = await ctx.db.query("suppliers").filter(q => q.eq(q.field("userId"), identity.subject)).first();
+    const supplier = await ctx.db.query("suppliers").withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier)).first();
     if (!supplier || review.supplierId !== (supplier._id as unknown as string)) throw new Error("Accès refusé");
 
     await ctx.db.patch(args.id, {
@@ -125,8 +126,8 @@ export const updateReview = mutation({
     if (args.status) {
       const supplierReviews = await ctx.db
         .query("reviews")
-        .filter(q => q.eq(q.field("supplierId"), supplier._id as unknown as string))
-        .collect();
+        .withIndex("supplierId", (q) => q.eq("supplierId", supplier._id as unknown as string))
+        .take(1000);
       
       const publishedReviews = supplierReviews.filter(r => r.status !== "deleted");
       const totalReviews = publishedReviews.length;
@@ -153,7 +154,7 @@ export const deleteReview = mutation({
     const review = await ctx.db.get(id);
     if (!review) throw new Error("Avis introuvable");
 
-    const supplier = await ctx.db.query("suppliers").filter(q => q.eq(q.field("userId"), identity.subject)).first();
+    const supplier = await ctx.db.query("suppliers").withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier)).first();
     if (!supplier || review.supplierId !== (supplier._id as unknown as string)) throw new Error("Accès refusé");
 
     await ctx.db.delete(id);
@@ -161,8 +162,8 @@ export const deleteReview = mutation({
     // Update supplier rating and review count
     const supplierReviews = await ctx.db
       .query("reviews")
-      .filter(q => q.eq(q.field("supplierId"), supplier._id as unknown as string))
-      .collect();
+      .withIndex("supplierId", (q) => q.eq("supplierId", supplier._id as unknown as string))
+      .take(1000);
     
     const publishedReviews = supplierReviews.filter(r => r.status !== "deleted");
     const totalReviews = publishedReviews.length;
@@ -209,8 +210,7 @@ export const getReviewByUserAndSupplierInternal = internalQuery({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("reviews")
-      .withIndex("userId", (q) => q.eq("userId", args.userId))
-      .filter((q) => q.eq(q.field("supplierId"), args.supplierId))
+      .withIndex("userId_supplierId", (q) => q.eq("userId", args.userId).eq("supplierId", args.supplierId))
       .first();
   },
 });

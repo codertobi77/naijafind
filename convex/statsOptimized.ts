@@ -19,13 +19,14 @@ import { api } from "./_generated/api";
 export const getSupplierCount = query({
   args: {},
   handler: async (ctx) => {
-    // Count only approved suppliers for public display
+    // Count only approved suppliers for public display (capped at 10000)
     const approvedSuppliers = await ctx.db
       .query("suppliers")
       .withIndex("approved", (q) => q.eq("approved", true))
-      .collect();
+      .take(10000);
     
-    return approvedSuppliers.length;
+    // Return capped count - for accurate counts at scale, use a denormalized counter
+    return approvedSuppliers.length < 10000 ? approvedSuppliers.length : 10000;
   },
 });
 
@@ -49,8 +50,8 @@ export const getCategoryStats = action({
 export const _getCategoryStatsInternal = query({
   args: {},
   handler: async (ctx) => {
-    // Get all categories (usually small number)
-    const categories = await ctx.db.query("categories").collect();
+    // Get all categories (usually small number, but bounded for safety)
+    const categories = await ctx.db.query("categories").take(1000);
     
     // Get all suppliers - but only category field to minimize data transfer
     const suppliers = await ctx.db.query("suppliers").take(10000); // Limit to prevent timeout
@@ -88,11 +89,11 @@ export const _getCategoryStatsInternal = query({
 export const getDetailedCategoryStats = query({
   args: {},
   handler: async (ctx) => {
-    // Get all categories
-    const categories = await ctx.db.query("categories").collect();
+    // Get all categories (bounded for safety)
+    const categories = await ctx.db.query("categories").take(1000);
     
-    // Get all suppliers
-    const suppliers = await ctx.db.query("suppliers").collect();
+    // Get all suppliers (bounded to prevent memory issues)
+    const suppliers = await ctx.db.query("suppliers").take(10000);
     
     // Build detailed stats as array
     const stats = categories.map((cat) => {

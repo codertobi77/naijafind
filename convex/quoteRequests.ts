@@ -139,7 +139,7 @@ export const createQuoteRequest = mutation({
       status: "pending",
       createdAt: now,
       updatedAt: now,
-      userId: identity?.subject,
+      userId: identity?.tokenIdentifier,
     });
 
     // Create supplier entries

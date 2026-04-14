@@ -64,7 +64,7 @@ async function ensureUserHelper(ctx: any, args: any) {
     const updatedUser = await ctx.db.get(existing._id);
     const supplier = await ctx.db
       .query("suppliers")
-      .withIndex("userId", (q) => q.eq("userId", identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier))
       .first();
     
     return { user: updatedUser, supplier };
@@ -78,7 +78,7 @@ async function ensureUserHelper(ctx: any, args: any) {
     firstName: args.firstName,
     lastName: args.lastName,
     created_at: now,
-    tokenIdentifier: identity.subject, // Store auth provider ID for notification lookups
+    tokenIdentifier: identity.tokenIdentifier, // Store auth provider ID for notification lookups
   });
   
   // Send welcome notification for new users
@@ -156,7 +156,7 @@ export const signUpSupplier = mutation({
     // Application-level enforcement: Check for existing supplier profile for this user
     const existingSupplier = await ctx.db
       .query("suppliers")
-      .withIndex("userId", (q) => q.eq("userId", identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier))
       .first();
     
     // If supplier already exists, throw an error to prevent duplicate creation
@@ -177,7 +177,7 @@ export const signUpSupplier = mutation({
 
     const now = new Date().toISOString();
     const id = await ctx.db.insert("suppliers", {
-      userId: identity.subject,
+      userId: identity.tokenIdentifier,
       business_name: args.business_name,
       email: args.email,
       phone: args.phone,

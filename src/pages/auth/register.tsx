@@ -89,7 +89,7 @@ export default function Register() {
               },
             }}
             routing="hash"
-            afterSignUpUrl="/auth/check-role"
+            fallbackRedirectUrl="/auth/check-role"
             signInUrl="/auth/login"
           />
         </div>

@@ -21,7 +21,7 @@ export const uploadVerificationDocument = mutation({
       throw new Error("Fournisseur non trouvé");
     }
 
-    if (supplier.userId !== identity.subject) {
+    if (supplier.userId !== identity.tokenIdentifier) {
       throw new Error("Vous n'êtes pas autorisé à télécharger des documents pour ce fournisseur");
     }
 
@@ -86,7 +86,7 @@ export const getVerificationDocuments = query({
       .first();
 
     const isAdmin = user?.is_admin === true;
-    const isOwner = supplier.userId === identity.subject;
+    const isOwner = supplier.userId === identity.tokenIdentifier;
 
     if (!isAdmin && !isOwner) {
       throw new Error("Accès non autorisé");
@@ -133,7 +133,7 @@ export const reviewVerificationDocument = mutation({
       status: args.status,
       rejectionReason: args.rejectionReason,
       reviewedAt: new Date().toISOString(),
-      reviewedBy: identity.subject,
+      reviewedBy: identity.tokenIdentifier,
     });
 
     // Check if all required documents are approved

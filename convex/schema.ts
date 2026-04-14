@@ -91,6 +91,7 @@ export default defineSchema({
   })
     .index("supplierId", ["supplierId"])
     .index("userId", ["userId"])
+    .index("userId_supplierId", ["userId", "supplierId"])
     .index("created_at", ["created_at"]),
   categories: defineTable({
     name: v.string(),
@@ -435,4 +436,26 @@ export default defineSchema({
     .index("requestId", ["requestId"])
     .index("supplierId", ["supplierId"])
     .index("status", ["status"]),
+
+  // Payments: Payment records for subscriptions and purchases
+  payments: defineTable({
+    userId: v.string(),
+    supplierId: v.optional(v.id("suppliers")),
+    type: v.string(), // 'featured_upgrade', 'subscription', 'purchase'
+    amount: v.number(),
+    currency: v.string(),
+    status: v.string(), // 'pending', 'completed', 'failed', 'refunded'
+    monerooPaymentId: v.string(),
+    monerooCheckoutUrl: v.optional(v.string()),
+    description: v.optional(v.string()),
+    metadata: v.optional(v.record(v.string(), v.string())),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+    paidAt: v.optional(v.string()),
+    failedAt: v.optional(v.string()),
+    refundReason: v.optional(v.string()),
+  })
+    .index("userId", ["userId"])
+    .index("monerooPaymentId", ["monerooPaymentId"])
+    .index("userId_status", ["userId", "status"]),
 });

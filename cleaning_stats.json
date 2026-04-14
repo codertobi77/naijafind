@@ -1,0 +1,24 @@
+{
+  "total": 7753,
+  "kept": 5923,
+  "removed": {
+    "duplicate": 1404,
+    "invalidName": 0,
+    "invalidPrice": 426,
+    "invalidCategory": 0,
+    "noImage": 0,
+    "nonUsable": 0
+  },
+  "categories": {
+    "BTP": 542,
+    "Auto": 615,
+    "Beauté & Cosmétique": 728,
+    "Packaging": 528,
+    "Acier & Métal": 666,
+    "IT": 656,
+    "Électronique": 626,
+    "Agroalimentaire": 652,
+    "Hôtellerie": 326,
+    "Mode": 584
+  }
+}

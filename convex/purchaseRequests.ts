@@ -84,7 +84,7 @@ export const createPurchaseRequest = action({
     let userId = 'anonymous';
     
     if (identity) {
-      userId = identity.subject;
+      userId = identity.tokenIdentifier;
     }
     
     // Create purchase request via internal mutation

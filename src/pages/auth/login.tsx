@@ -73,7 +73,7 @@ export default function Login() {
               },
             }}
             routing="hash"
-            afterSignInUrl="/auth/check-role"
+            fallbackRedirectUrl="/auth/check-role"
             signUpUrl="/auth/register"
           />
         </div>

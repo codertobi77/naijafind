@@ -3,6 +3,9 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 
+// Type for product import job ID
+ type ProductImportJobId = Id<"productImportJobs">;
+
 // Helper function to require admin authentication
 async function requireAdmin(ctx: any) {
   const identity = await ctx.auth.getUserIdentity();
@@ -252,13 +255,13 @@ export const startBulkProductImport = action({
       supplier_business_name: v.optional(v.string()),
     })),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ success: boolean; jobId: ProductImportJobId; message: string }> => {
     // Verify admin via internal mutation
-    const user = await ctx.runMutation(internal.adminProductImport.verifyAdminAction, {});
+    const user: { _id: string } = await ctx.runMutation(internal.adminProductImport.verifyAdminAction, {});
     const now = new Date().toISOString();
 
     // Create import job record
-    const jobId = await ctx.runMutation(internal.adminProductImport.createProductImportJob, {
+    const jobId: ProductImportJobId = await ctx.runMutation(internal.adminProductImport.createProductImportJob, {
       totalProducts: args.products.length,
       scheduledBy: user._id,
       now,
@@ -492,13 +495,13 @@ export const importSingleProduct = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    
+
     const now = new Date().toISOString();
     const allCategories = await ctx.db
       .query("categories")
       .withIndex("is_active", (q) => q.eq("is_active", true))
       .take(100);
-    
+
     const result = await importSingleProductInternal(
       ctx,
       {
@@ -515,11 +518,234 @@ export const importSingleProduct = mutation({
       allCategories,
       now
     );
-    
+
     if (!result.success) {
       throw new Error(result.error || 'Import failed');
     }
-    
+
     return { success: true, productId: result.productId };
+  },
+});
+
+// ============================================================================
+// CLI-FRIENDLY IMPORT (No browser auth required - for initial data import)
+// ============================================================================
+
+/**
+ * Internal mutation: Import products from CLI without auth
+ * WARNING: Only for local development and initial data seeding
+ */
+export const bulkImportFromCLI = internalMutation({
+  args: {
+    products: v.array(v.object({
+      name: v.string(),
+      price: v.float64(),
+      stock: v.number(), // Accept int or float
+      status: v.string(),
+      category: v.optional(v.string()),
+      description: v.optional(v.string()),
+      images: v.optional(v.array(v.string())),
+    })),
+    now: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const allCategories = await ctx.db
+      .query("categories")
+      .withIndex("is_active", (q) => q.eq("is_active", true))
+      .take(100);
+
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: [] as { name: string; error: string }[],
+    };
+
+    for (const product of args.products) {
+      try {
+        const result = await importSingleProductInternal(
+          ctx,
+          {
+            name: product.name,
+            price: product.price,
+            stock: Number(product.stock),
+            status: product.status as any,
+            category: product.category,
+            description: product.description,
+            images: product.images,
+          },
+          allCategories,
+          args.now
+        );
+
+        if (result.success) {
+          results.success++;
+        } else {
+          results.failed++;
+          results.errors.push({ name: product.name, error: result.error || 'Unknown' });
+        }
+      } catch (error: any) {
+        results.failed++;
+        results.errors.push({ name: product.name, error: error.message });
+      }
+    }
+
+    return results;
+  },
+});
+
+/**
+ * Action: Wrapper for CLI bulk import (calls internal mutation)
+ */
+export const importFromCLI = action({
+  args: {
+    products: v.array(v.object({
+      name: v.string(),
+      price: v.float64(),
+      stock: v.number(), // Accept int or float
+      status: v.string(),
+      category: v.optional(v.string()),
+      description: v.optional(v.string()),
+      images: v.optional(v.array(v.string())),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const now = new Date().toISOString();
+
+    const result = await ctx.runMutation(internal.adminProductImport.bulkImportFromCLI, {
+      products: args.products,
+      now,
+    });
+
+    return {
+      success: true,
+      imported: result.success,
+      failed: result.failed,
+      total: args.products.length,
+      errors: result.errors.slice(0, 10), // Limit errors in response
+    };
+  },
+});
+
+// ============================================================================
+// CLEAR PRODUCTS (for fresh import)
+// ============================================================================
+
+/**
+ * Internal: Get batch of product IDs for deletion
+ */
+export const _getProductIdsBatch = internalQuery({
+  args: {
+    limit: v.number(),
+    cursor: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.min(args.limit, 256); // Convex delete limit
+    
+    let query = ctx.db.query("products").order("asc");
+    
+    if (args.cursor) {
+      query = query.filter((q) => q.gt(q.field("_id"), args.cursor as string));
+    }
+    
+    const products = await query.take(limit);
+    
+    return {
+      ids: products.map((p) => p._id),
+      nextCursor: products.length > 0 ? products[products.length - 1]._id : null,
+      hasMore: products.length === limit,
+      count: products.length,
+    };
+  },
+});
+
+/**
+ * Internal: Delete products by IDs
+ */
+export const _deleteProductsBatch = internalMutation({
+  args: {
+    ids: v.array(v.id("products")),
+  },
+  handler: async (ctx, args) => {
+    let deleted = 0;
+    for (const id of args.ids) {
+      try {
+        await ctx.db.delete(id);
+        deleted++;
+      } catch (e) {
+        // Product may not exist, skip
+      }
+    }
+    return { deleted };
+  },
+});
+
+/**
+ * Action: Clear all products - CLI VERSION
+ * WARNING: Destructive operation - use with caution!
+ * Also clears related productSupplierCandidates
+ */
+export const clearAllProductsCLI = action({
+  args: {
+    confirm: v.optional(v.string()), // Must be "DELETE_ALL" to confirm
+  },
+  handler: async (ctx, args) => {
+    // Safety check
+    if (args.confirm !== "DELETE_ALL") {
+      return {
+        success: false,
+        error: "Confirmation required. Pass confirm: 'DELETE_ALL' to proceed.",
+        productsDeleted: 0,
+        candidatesDeleted: 0,
+      };
+    }
+
+    let productsDeleted = 0;
+    let candidatesDeleted = 0;
+    let cursor: string | null = null;
+    let hasMore = true;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 100;
+
+    // Phase 1: Clear products
+    while (hasMore && attempts < MAX_ATTEMPTS) {
+      attempts++;
+      
+      const batch = await ctx.runQuery(
+        internal.adminProductImport._getProductIdsBatch,
+        { limit: 256, cursor: cursor || undefined }
+      );
+
+      if (batch.ids.length > 0) {
+        const result = await ctx.runMutation(
+          internal.adminProductImport._deleteProductsBatch,
+          { ids: batch.ids }
+        );
+        productsDeleted += result.deleted;
+      }
+
+      cursor = batch.nextCursor;
+      hasMore = batch.hasMore;
+
+      console.log(`Batch ${attempts}: Deleted ${batch.count} products (total: ${productsDeleted})`);
+    }
+
+    // Phase 2: Clear productSupplierCandidates (optional cleanup)
+    try {
+      const candidates = await ctx.db.query("productSupplierCandidates").take(10000);
+      for (const c of candidates) {
+        await ctx.db.delete(c._id);
+        candidatesDeleted++;
+      }
+    } catch (e) {
+      // Table may not exist or be empty
+    }
+
+    return {
+      success: true,
+      productsDeleted,
+      candidatesDeleted,
+      batches: attempts,
+      message: `Deleted ${productsDeleted} products and ${candidatesDeleted} supplier candidates`,
+    };
   },
 });

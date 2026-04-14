@@ -51,12 +51,12 @@ const crons = cronJobs();
 // );
 
 /**
- * Cron job: Daily cleanup and full recalculation at midnight
+ * Cron job: Daily cleanup and full recalculation every 24 hours
  * Ensures all stats are fully accurate once per day
  */
-// crons.daily(
+// crons.interval(
 //   "dailyStatsCleanup",
-//   { hourUTC: 0, minuteUTC: 0 },
+//   { hours: 24 },
 //   internal.statsCron.recalculateGlobalStats,
 //   {}
 // );
