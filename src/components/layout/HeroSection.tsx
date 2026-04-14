@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { OptimizedImage } from '../OptimizedImage';
 
 interface HeroSectionProps {
   title: string;
@@ -41,21 +42,22 @@ export function HeroSection({
   return (
     <section
       className={`relative ${sizeClasses[size]} px-4 sm:px-6 lg:px-8 overflow-hidden ${className}`}
-      style={
-        backgroundImage
-          ? {
-              backgroundImage: `url('${backgroundImage}')`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }
-          : undefined
-      }
     >
+      {backgroundImage && (
+        <div className="absolute inset-0 z-0">
+          <OptimizedImage
+            src={backgroundImage}
+            alt={title}
+            className="w-full h-full"
+            priority={true}
+          />
+        </div>
+      )}
       <div
-        className={`absolute inset-0 bg-gradient-to-br ${backgroundGradient}`}
+        className={`absolute inset-0 z-10 bg-gradient-to-br ${backgroundGradient}`}
         style={{ opacity: overlayOpacity }}
       ></div>
-      <div className={`relative max-w-7xl mx-auto ${containerClasses}`}>
+      <div className={`relative z-20 max-w-7xl mx-auto ${containerClasses}`}>
         <div className={`${centered ? 'max-w-3xl mx-auto' : ''}`}>
           {showBadge && badgeText && (
             <div className="inline-flex items-center px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20 mb-6">
