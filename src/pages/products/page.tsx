@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAction } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { Header } from '../../components/base';
+import { EntityImage } from '../../components/EntityImage';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { useMutation } from 'convex/react';
 
@@ -349,12 +350,6 @@ export default function ProductSearchPage() {
                   {results.products.map((product) => {
                     const potentialSuppliers: SupplierSnapshot[] =
                       (product as any).suppliers || (product as any).potentialSuppliers || [];
-                    const image =
-                      product.images && product.images.length > 0
-                        ? product.images[0]
-                        : `https://readdy.ai/api/search-image?query=${encodeURIComponent(
-                            `${product.name} ${product.category || ''} product`
-                          )}&width=320&height=240&seq=product-${product._id}&orientation=landscape`;
 
                     return (
                       <article
@@ -362,13 +357,14 @@ export default function ProductSearchPage() {
                         className="bg-white rounded-2xl shadow-soft hover:shadow-medium border border-gray-100 transition-all duration-300 hover:-translate-y-1"
                       >
                         <div className="p-4 sm:p-5 flex gap-4 sm:gap-6">
-                          <div className="w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100">
-                            <img
-                              src={image}
-                              alt={product.name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
+                          <EntityImage
+                            type="product"
+                            src={product.images?.[0]}
+                            name={product.name}
+                            category={product.category}
+                            size="md"
+                            className="flex-shrink-0 rounded-xl"
+                          />
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
                               <div className="min-w-0">
@@ -556,12 +552,6 @@ function ProductDetailsModal({
 
   const potentialSuppliers: SupplierSnapshot[] =
     (product as any).suppliers || (product as any).potentialSuppliers || [];
-  const image =
-    product.images && product.images.length > 0
-      ? product.images[0]
-      : `https://readdy.ai/api/search-image?query=${encodeURIComponent(
-          `${product.name} ${product.category || ''} product`
-        )}&width=640&height=480&seq=product-${product._id}&orientation=landscape`;
 
   if (!isOpen) return null;
 
@@ -582,10 +572,13 @@ function ProductDetailsModal({
 
           {/* Product Image */}
           <div className="mb-6">
-            <img
-              src={image}
-              alt={product.name}
-              className="w-full h-64 object-cover rounded-xl"
+            <EntityImage
+              type="product"
+              src={product.images?.[0]}
+              name={product.name}
+              category={product.category}
+              size="xl"
+              className="rounded-xl"
             />
           </div>
 

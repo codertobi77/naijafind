@@ -29,6 +29,7 @@ import { useToast, type Toast } from '../../hooks/useToast';
 import { useNotifications } from '../../hooks/useNotifications';
 import { ToastContainer, NotificationDropdown } from '../../components/base';
 import { LogoLink } from '../../components/base/Logo';
+import { EntityImage } from '../../components/EntityImage';
 
 type DashboardTab =
   | 'overview'
@@ -1783,17 +1784,14 @@ function ProductsSection({
           <Card key={product._id}>
             <div className="flex items-start justify-between">
               <div className="flex items-center space-x-3">
-                <div className="h-12 w-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                  {product.images?.[0] ? (
-                    <img
-                      src={product.images[0]}
-                      alt={product.name}
-                      className="h-full w-full rounded-lg object-cover"
-                    />
-                  ) : (
-                    <i className="ri-image-line text-gray-400" />
-                  )}
-                </div>
+                <EntityImage
+                  type="product"
+                  src={product.images?.[0]}
+                  name={product.name}
+                  category={product.category}
+                  size="sm"
+                  className="rounded-lg"
+                />
                 <div>
                   <p className="font-medium text-gray-900">{product.name}</p>
                   <p className="text-sm text-gray-500">₦{product.price?.toLocaleString()}</p>

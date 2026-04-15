@@ -6,6 +6,7 @@ import { useConvexQuerySkippable, useConvexQuery } from '../../hooks/useConvexQu
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
 import { SupplierAvatar } from '../../components/SupplierImage';
+import { EntityImage } from '../../components/EntityImage';
 import { SignedIn, SignedOut, useUser } from '@clerk/clerk-react';
 import { useDeepLTranslation } from '../../hooks/useDeepLTranslation';
 import { useToast } from '../../hooks/useToast';
@@ -626,16 +627,13 @@ export default function SupplierDetail() {
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 lg:p-8 mb-4 sm:mb-8">
           <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-8">
             <div className="w-full lg:w-1/3">
-              <img
+              <EntityImage
+                type="supplier"
                 src={transformedSupplier.image_url}
-                alt={transformedSupplier.name}
-                className="w-full h-48 sm:h-56 lg:h-64 object-cover object-top rounded-lg"
-                onError={(e) => {
-                  // Fallback to generated image if the actual image fails to load
-                  const target = e.target as HTMLImageElement;
-                  target.src = `https://readdy.ai/api/search-image?query=${encodeURIComponent(transformedSupplier.image_url)}&width=400&height=300&seq=detail-${transformedSupplier.id}&orientation=landscape`;
-                  target.onerror = null; // Prevent infinite loop
-                }}
+                name={transformedSupplier.name}
+                category={transformedSupplier.category}
+                size="xl"
+                className="rounded-lg"
               />
             </div>
 
@@ -1268,22 +1266,14 @@ export default function SupplierDetail() {
                         className="border border-gray-200 rounded-2xl p-4 sm:p-5 bg-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
                       >
                         <div className="flex items-start gap-3 sm:gap-4">
-                          {product.images && product.images.length > 0 ? (
-                            <img 
-                              src={product.images[0]}
-                              alt={product.name}
-                              className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-xl flex-shrink-0 bg-gray-100"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = `https://readdy.ai/api/search-image?query=${encodeURIComponent(product.name)}&width=80&height=80&seq=product-${product._id}&orientation=squarish`;
-                                target.onerror = null;
-                              }}
-                            />
-                          ) : (
-                            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                              <i className="ri-image-line text-gray-500"></i>
-                            </div>
-                          )}
+                          <EntityImage
+                            type="product"
+                            src={product.images?.[0]}
+                            name={product.name}
+                            category={product.category}
+                            size="sm"
+                            className="flex-shrink-0 rounded-xl"
+                          />
                           <div className="flex-1 min-w-0">
                             <h4 className="font-semibold text-gray-900 truncate text-sm sm:text-base">
                               {product.name}

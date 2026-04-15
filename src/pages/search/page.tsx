@@ -3,6 +3,7 @@ import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '@convex/_generated/api';
 import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
+import { EntityImage } from '../../components/EntityImage';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { useDictionarySearch } from '../../hooks/useDictionarySearch';
 import { useAction } from 'convex/react';
@@ -1475,19 +1476,14 @@ export default function Search() {
                     <div key={supplierId} className="bg-white rounded-2xl shadow-soft hover:shadow-medium transition-all duration-300 border border-gray-100 hover:-translate-y-1">
                       <div className="p-6">
                         <div className="flex gap-6">
-                          <div className="w-20 sm:w-28 h-20 sm:h-28 flex-shrink-0 bg-gray-100 rounded-xl overflow-hidden">
-                            {supplier.image_url ? (
-                              <img 
-                                src={supplier.image_url} 
-                                alt={supplier.name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-                                <i className="ri-store-2-line text-3xl text-gray-400"></i>
-                              </div>
-                            )}
-                          </div>
+                          <EntityImage
+                            type="supplier"
+                            src={supplier.image_url}
+                            name={supplier.name}
+                            category={supplier.category}
+                            size="md"
+                            className="flex-shrink-0 rounded-xl"
+                          />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex-1 min-w-0">

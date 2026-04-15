@@ -21,7 +21,7 @@ createRoot(document.getElementById('root')!).render(
     <ClerkProvider
       publishableKey={PUBLISHABLE_KEY}
       afterSignOutUrl="/"
-      fallbackRedirectUrl="/auth/check-role"
+      signInFallbackRedirectUrl="/auth/check-role"
     >
       <ConvexProviderWithClerk client={convex} useAuth={useClerkAuth}>
         <QueryClientProvider client={queryClient}>
