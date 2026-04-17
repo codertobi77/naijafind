@@ -119,10 +119,12 @@ export const getSearchSuggestions = action({
   handler: async (ctx, args) => {
     const limit = Number(args.limit ?? 100);
 
-    // Use internal queries to fetch data server-side
-    const suppliers = await ctx.runQuery(internal.searchSuggestions._getApprovedSuppliersLight, {});
-    const products = await ctx.runQuery(internal.searchSuggestions._getProductsLight, { limit: 1000 });
-    const categories = await ctx.runQuery(internal.searchSuggestions._getActiveCategoriesLight, {});
+    // Use internal queries to fetch data server-side - PARALLELIZED for performance
+    const [suppliers, products, categories] = await Promise.all([
+      ctx.runQuery(internal.searchSuggestions._getApprovedSuppliersLight, {}),
+      ctx.runQuery(internal.searchSuggestions._getProductsLight, { limit: 1000 }),
+      ctx.runQuery(internal.searchSuggestions._getActiveCategoriesLight, {})
+    ]);
 
     // Extract unique supplier business names
     const supplierNames = suppliers
@@ -210,14 +212,12 @@ export const searchSuggestionsWithQuery = action({
       }
     }
 
-    // Get all approved suppliers using internal query
-    const suppliers = await ctx.runQuery(internal.searchSuggestions.getApprovedSuppliers, {});
-
-    // Get all products using internal query
-    const products = await ctx.runQuery(internal.searchSuggestions.getAllProducts, {});
-
-    // Get all active categories using internal query
-    const categories = await ctx.runQuery(internal.searchSuggestions.getActiveCategories, {});
+    // Get initial data server-side - PARALLELIZED to reduce total RTT
+    const [suppliers, products, categories] = await Promise.all([
+      ctx.runQuery(internal.searchSuggestions.getApprovedSuppliers, {}),
+      ctx.runQuery(internal.searchSuggestions.getAllProducts, {}),
+      ctx.runQuery(internal.searchSuggestions.getActiveCategories, {})
+    ]);
 
     // Track product categories for supplier suggestions
     const matchedProductCategories = new Set<string>();
@@ -230,6 +230,7 @@ export const searchSuggestionsWithQuery = action({
     }
     
     const suggestions: Suggestion[] = [];
+    const seenTexts = new Set<string>(); // For O(1) deduplication
 
     // Add matching supplier names
     suppliers.forEach((s: any) => {
@@ -245,6 +246,7 @@ export const searchSuggestionsWithQuery = action({
             score,
             type: 'supplier',
           });
+          seenTexts.add(nameLower);
           break; // Only add once per supplier
         }
       }
@@ -263,6 +265,7 @@ export const searchSuggestionsWithQuery = action({
             score,
             type: 'product',
           });
+          seenTexts.add(nameLower);
           // Track category for supplier suggestions
           if (p.category) {
             matchedProductCategories.add(p.category);
@@ -272,27 +275,28 @@ export const searchSuggestionsWithQuery = action({
       }
     });
 
-    // Add suppliers from matched product categories
-    for (const category of matchedProductCategories) {
-      const categorySuppliers = await ctx.runQuery(
-        internal.searchSuggestions.getSuppliersByCategory, 
-        { category }
-      );
+    // Add suppliers from matched product categories - PARALLELIZED to avoid N+1 problem
+    const categorySuppliersResults = await Promise.all(
+      Array.from(matchedProductCategories).map(category =>
+        ctx.runQuery(internal.searchSuggestions.getSuppliersByCategory, { category })
+      )
+    );
+
+    categorySuppliersResults.forEach(categorySuppliers => {
       categorySuppliers.forEach((s: any) => {
         if (!s.business_name) return;
-        // Avoid duplicates
-        const alreadyAdded = suggestions.some(
-          sug => sug.text.toLowerCase() === s.business_name.toLowerCase() && sug.type === 'supplier'
-        );
-        if (!alreadyAdded) {
+        const nameLower = s.business_name.toLowerCase();
+        // Avoid duplicates using Set for O(1) lookup
+        if (!seenTexts.has(nameLower)) {
           suggestions.push({
             text: s.business_name,
             score: 45, // Slightly lower score than direct matches
             type: 'supplier',
           });
+          seenTexts.add(nameLower);
         }
       });
-    }
+    });
 
     // Add matching category names
     categories.forEach((c: any) => {
@@ -328,12 +332,17 @@ export const searchSuggestionsWithQuery = action({
       }
     });
 
-    // Sort suggestions by score (descending) and remove duplicates
+    // Sort suggestions by score (descending) and ensure final deduplication
+    // Already mostly deduplicated via seenTexts, but final pass for safety and sorting
+    const finalSeen = new Set<string>();
     const sortedSuggestions = suggestions
       .sort((a, b) => b.score - a.score)
-      .filter((item, index, self) => 
-        index === self.findIndex(t => t.text.toLowerCase() === item.text.toLowerCase())
-      )
+      .filter((item) => {
+        const lower = item.text.toLowerCase();
+        if (finalSeen.has(lower)) return false;
+        finalSeen.add(lower);
+        return true;
+      })
       .slice(0, limit);
 
     // Remove duplicate locations and limit results
