@@ -181,16 +181,16 @@ export const useMultilingualSearch = () => {
       try {
         // Collect all texts to translate
         const textsToTranslate: string[] = [];
-        const textMapping: { resultIndex: number; field: keyof T; textIndex: number }[] = [];
+        const textMapping = new Map<number, { resultIndex: number; field: keyof T }>();
 
         results.forEach((result, resultIndex) => {
           fieldsToTranslate.forEach((field) => {
             const value = result[field];
             if (typeof value === "string" && value.trim()) {
-              textMapping.push({
+              const textIndex = textsToTranslate.length;
+              textMapping.set(textIndex, {
                 resultIndex,
                 field,
-                textIndex: textsToTranslate.length,
               });
               textsToTranslate.push(value);
             }
@@ -214,7 +214,8 @@ export const useMultilingualSearch = () => {
           if (batchResult.success && batchResult.translations) {
             batchResult.translations.forEach((translation, idx) => {
               const globalIndex = i + idx;
-              const mapping = textMapping.find((m) => m.textIndex === globalIndex);
+              // Use $O(1)$ Map lookup instead of $O(N)$ .find()
+              const mapping = textMapping.get(globalIndex);
               if (mapping && translation.translatedText) {
                 translatedResults[mapping.resultIndex] = {
                   ...translatedResults[mapping.resultIndex],
