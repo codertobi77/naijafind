@@ -210,14 +210,12 @@ export const searchSuggestionsWithQuery = action({
       }
     }
 
-    // Get all approved suppliers using internal query
-    const suppliers = await ctx.runQuery(internal.searchSuggestions.getApprovedSuppliers, {});
-
-    // Get all products using internal query
-    const products = await ctx.runQuery(internal.searchSuggestions.getAllProducts, {});
-
-    // Get all active categories using internal query
-    const categories = await ctx.runQuery(internal.searchSuggestions.getActiveCategories, {});
+    // PERFORMANCE: Parallelize initial data fetching to reduce total RTT
+    const [suppliers, products, categories] = await Promise.all([
+      ctx.runQuery(internal.searchSuggestions.getApprovedSuppliers, {}),
+      ctx.runQuery(internal.searchSuggestions.getAllProducts, {}),
+      ctx.runQuery(internal.searchSuggestions.getActiveCategories, {}),
+    ]);
 
     // Track product categories for supplier suggestions
     const matchedProductCategories = new Set<string>();
