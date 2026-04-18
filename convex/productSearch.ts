@@ -2,7 +2,6 @@ import { query, action, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { expandQueryWithDictionary, calculateSemanticScore } from "./productDictionary";
 
 // ==========================================
 // PRODUCT-FIRST SEARCH
@@ -323,8 +322,8 @@ export const searchProductsMultilingual = action({
       internal.productSearch._getProductsForSearch,
       {
         category: args.category,
-        status: "active",
-        limit: 1000,
+        limit: 200,
+        // Do NOT filter by status - show all products like admin panel does
         // isSearchable is intentionally omitted to show ALL products by default
       }
     );
@@ -351,9 +350,7 @@ export const searchProductsMultilingual = action({
     }));
 
     if (hasQuery) {
-      // Expand query using dictionary for better matching
-      const expandedTerms = expandQueryWithDictionary(queryLower);
-      
+      // Simplified scoring for better performance
       scored = scored
         .map((p) => {
           let score = 0;
@@ -364,10 +361,6 @@ export const searchProductsMultilingual = action({
           const keywords = (p.keywords || []).map((k: string) => k.toLowerCase());
           const category = (p.category || "").toLowerCase();
 
-          // Calculate semantic scores using dictionary
-          const nameSemanticScore = calculateSemanticScore(queryLower, name);
-          const descSemanticScore = calculateSemanticScore(queryLower, desc);
-          
           // Exact match in name gets highest score
           if (name === queryLower) {
             score += 100;
@@ -377,30 +370,7 @@ export const searchProductsMultilingual = action({
             matchType = "name";
           }
 
-          // Dictionary-enhanced word matching
-          for (const term of expandedTerms) {
-            // Name matches with expanded terms
-            if (name.includes(term)) {
-              score += 15;
-              if (matchType === "none") matchType = "name";
-            }
-            
-            // Description matches with expanded terms (dictionary synonyms)
-            if (desc.includes(term)) {
-              score += 8;
-              if (matchType === "none") matchType = "description";
-            }
-            
-            // Keywords matches with expanded terms
-            for (const kw of keywords) {
-              if (kw.includes(term) || term.includes(kw)) {
-                score += 12;
-                if (matchType === "none") matchType = "keywords";
-              }
-            }
-          }
-
-          // Original word matches (fallback)
+          // Word matches (simple and fast)
           for (const word of queryWords) {
             if (name.includes(word)) {
               score += 10;
@@ -411,7 +381,7 @@ export const searchProductsMultilingual = action({
             }
           }
 
-          // Keyword direct matches
+          // Keyword matches
           for (const kw of keywords) {
             if (kw.includes(queryLower) || queryLower.includes(kw)) {
               score += 20;
@@ -429,17 +399,10 @@ export const searchProductsMultilingual = action({
           if (category === queryLower || category.includes(queryLower)) {
             score += 20;
           }
-          
-          // Category match with expanded terms
-          for (const term of expandedTerms) {
-            if (category.includes(term)) {
-              score += 10;
-            }
-          }
 
           return { ...p, _score: score, _matchType: matchType };
         })
-        .filter((p): p is ScoredProduct => p._score > 0); // Remove non-matching products when searching
+        .filter((p): p is ScoredProduct => p._score > 0);
     } else {
       // No query - give all products a base score
       scored = scored.map((p) => ({ ...p, _score: 1, _matchType: "none" }));
