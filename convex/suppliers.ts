@@ -943,25 +943,29 @@ export const searchSuppliers = action({
           .map(cat => cat.trim())
           .filter(cat => cat.length > 0);
 
-        for (const targetCat of safeTargetCategories) {
+        // Parallelize category-based supplier queries using Promise.all
+        const results = await Promise.all(safeTargetCategories.map(async (targetCat) => {
           try {
-            const catSuppliers = await ctx.runQuery(
+            return await ctx.runQuery(
               internal.suppliers._getSuppliersByCategory,
               {
                 category: targetCat,
-                limit: 5000, // Increased from 500 to fetch more suppliers
+                limit: 5000,
               }
             );
-
-            if (Array.isArray(catSuppliers) && catSuppliers.length > 0) {
-              categoryResults.push(
-                ...catSuppliers.filter(
-                  (s: any) => s && s._id && typeof s.business_name !== "undefined"
-                )
-              );
-            }
           } catch (error) {
             console.error(`Error fetching suppliers for category "${targetCat}":`, error);
+            return [];
+          }
+        }));
+
+        for (const catSuppliers of results) {
+          if (Array.isArray(catSuppliers) && catSuppliers.length > 0) {
+            categoryResults.push(
+              ...catSuppliers.filter(
+                (s: any) => s && s._id && typeof s.business_name !== "undefined"
+              )
+            );
           }
         }
 
