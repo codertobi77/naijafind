@@ -35,13 +35,25 @@ export function OptimizedImage({
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Generate WebP URL (assumes images are served with .webp variant)
-  const webpSrc = src.replace(/\.(jpe?g|png)$/i, '.webp');
+  // Only attempt replacement if the URL has a standard image extension
+  const [baseUrl, queryParams] = src.split('?');
+  const hasStandardExtension = /\.(jpe?g|png)$/i.test(baseUrl);
+  const webpSrc = hasStandardExtension
+    ? baseUrl.replace(/\.(jpe?g|png)$/i, '.webp') + (queryParams ? `?${queryParams}` : '')
+    : src;
   
   // Generate responsive srcSet for common widths
   const generateSrcSet = (baseSrc: string) => {
+    const [path, query] = baseSrc.split('?');
+    // Only generate srcSet for images with standard extensions
+    // This avoids broken URLs for dynamic image APIs (e.g. readdy.ai)
+    if (!/\.(webp|jpe?g|png)$/i.test(path)) {
+      return undefined;
+    }
+
     const widths = [320, 640, 960, 1280, 1920];
     return widths
-      .map(w => `${baseSrc.replace(/\.(webp|jpe?g|png)$/i, `-${w}w.$1`)} ${w}w`)
+      .map(w => `${path.replace(/\.(webp|jpe?g|png)$/i, `-${w}w.$1`)}${query ? `?${query}` : ''} ${w}w`)
       .join(', ');
   };
 
@@ -93,8 +105,16 @@ export function OptimizedImage({
 
   const displaySrc = hasError && fallbackSrc ? fallbackSrc : src;
   const displayWebpSrc = hasError && fallbackSrc 
-    ? fallbackSrc.replace(/\.(jpe?g|png)$/i, '.webp')
+    ? (() => {
+        const [path, query] = fallbackSrc.split('?');
+        return /\.(jpe?g|png)$/i.test(path)
+          ? path.replace(/\.(jpe?g|png)$/i, '.webp') + (query ? `?${query}` : '')
+          : fallbackSrc;
+      })()
     : webpSrc;
+
+  const srcSetWebp = generateSrcSet(displayWebpSrc);
+  const srcSetOriginal = generateSrcSet(displaySrc);
 
   return (
     <div
@@ -108,17 +128,21 @@ export function OptimizedImage({
     >
       <picture>
         {/* WebP source for modern browsers */}
-        <source
-          srcSet={generateSrcSet(displayWebpSrc)}
-          sizes={sizes}
-          type="image/webp"
-        />
+        {srcSetWebp && (
+          <source
+            srcSet={srcSetWebp}
+            sizes={sizes}
+            type="image/webp"
+          />
+        )}
         {/* Fallback for older browsers */}
-        <source
-          srcSet={generateSrcSet(displaySrc)}
-          sizes={sizes}
-          type={`image/${displaySrc.endsWith('.png') ? 'png' : 'jpeg'}`}
-        />
+        {srcSetOriginal && (
+          <source
+            srcSet={srcSetOriginal}
+            sizes={sizes}
+            type={`image/${displaySrc.endsWith('.png') ? 'png' : 'jpeg'}`}
+          />
+        )}
         <img
           ref={imgRef}
           src={displaySrc}
