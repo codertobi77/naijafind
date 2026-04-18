@@ -1396,3 +1396,96 @@ export const updateProductSupplierInternal = internalMutation({
     });
   },
 });
+
+/**
+ * Action: Migrate all inactive products to active status
+ * Non-admin action callable from Convex dashboard
+ */
+export const migrateProductsToActive = action({
+  args: {
+    dryRun: v.optional(v.boolean()), // If true, only returns count without updating
+    limit: v.optional(v.number()), // Max products to update (default: 1000)
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+    const limit = Math.min(args.limit ?? 1000, 5000);
+
+    // Fetch all products with status "inactive"
+    const inactiveProducts = await ctx.runQuery(
+      internal.products._getInactiveProducts,
+      { limit }
+    );
+
+    const totalFound = inactiveProducts.length;
+    let updatedCount = 0;
+    const errors: Array<{ id: string; error: string }> = [];
+
+    if (!dryRun && totalFound > 0) {
+      for (const product of inactiveProducts) {
+        try {
+          await ctx.runMutation(
+            internal.products._updateProductStatus,
+            {
+              productId: product._id,
+              status: "active",
+            }
+          );
+          updatedCount++;
+        } catch (err) {
+          errors.push({
+            id: product._id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+    }
+
+    return {
+      success: true,
+      dryRun,
+      totalFound,
+      updatedCount,
+      errors,
+      message: dryRun
+        ? `${totalFound} products would be updated (dry run)`
+        : `${updatedCount}/${totalFound} products migrated to active`,
+    };
+  },
+});
+
+/**
+ * Internal: Get inactive products for migration
+ */
+export const _getInactiveProducts = internalQuery({
+  args: {
+    limit: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const products = await ctx.db
+      .query("products")
+      .withIndex("status", (q) => q.eq("status", "pending"))
+      .take(args.limit);
+
+    return products.map((p) => ({
+      _id: p._id,
+      name: p.name,
+      status: p.status,
+    }));
+  },
+});
+
+/**
+ * Internal: Update product status
+ */
+export const _updateProductStatus = internalMutation({
+  args: {
+    productId: v.id("products"),
+    status: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.productId, {
+      status: args.status,
+      updated_at: new Date().toISOString(),
+    });
+  },
+});

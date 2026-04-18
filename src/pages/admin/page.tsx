@@ -456,7 +456,7 @@ export default function AdminPage(){
   const { t } = useTranslation();
   const { formatCurrency } = useCurrency();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications' | 'import' | 'productImport' | 'adBanners' | 'claims' | 'purchaseRequests'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'purchaseRequests' | 'notifications' | 'import' | 'productImport' | 'adBanners' | 'claims'>('overview');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -2898,6 +2898,30 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                 {!sidebarCollapsed && <span className="font-medium">Notifications</span>}
               </button>
               <button
+                onClick={() => { setActiveTab('claims'); setSidebarOpen(false); }}
+                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                  activeTab === 'claims'
+                    ? 'bg-green-600 text-white shadow'
+                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
+                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
+                title={sidebarCollapsed ? t('claims.sidebar.menu') : undefined}
+              >
+                <i className="ri-shield-user-line text-lg" />
+                {!sidebarCollapsed && <span className="font-medium">{t('claims.sidebar.menu')}</span>}
+              </button>
+              <button
+                onClick={() => { setActiveTab('purchaseRequests'); setSidebarOpen(false); }}
+                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                  activeTab === 'purchaseRequests'
+                    ? 'bg-green-600 text-white shadow'
+                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
+                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
+                title={sidebarCollapsed ? 'Demandes d\'achat' : undefined}
+              >
+                <i className="ri-shopping-cart-line text-lg" />
+                {!sidebarCollapsed && <span className="font-medium">Demandes d'achat</span>}
+              </button>
+              <button
                 onClick={() => { setActiveTab('import'); setSidebarOpen(false); }}
                 className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                   activeTab === 'import'
@@ -2944,30 +2968,6 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
               >
                 <i className="ri-image-line text-lg" />
                 {!sidebarCollapsed && <span className="font-medium">Ad Banners</span>}
-              </button>
-              <button
-                onClick={() => { setActiveTab('claims'); setSidebarOpen(false); }}
-                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
-                  activeTab === 'claims'
-                    ? 'bg-green-600 text-white shadow'
-                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
-                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
-                title={sidebarCollapsed ? t('claims.sidebar.menu') : undefined}
-              >
-                <i className="ri-shield-user-line text-lg" />
-                {!sidebarCollapsed && <span className="font-medium">{t('claims.sidebar.menu')}</span>}
-              </button>
-              <button
-                onClick={() => { setActiveTab('purchaseRequests'); setSidebarOpen(false); }}
-                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
-                  activeTab === 'purchaseRequests'
-                    ? 'bg-green-600 text-white shadow'
-                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
-                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
-                title={sidebarCollapsed ? 'Demandes d\'achat' : undefined}
-              >
-                <i className="ri-shopping-cart-line text-lg" />
-                {!sidebarCollapsed && <span className="font-medium">Demandes d'achat</span>}
               </button>
             </div>
           </nav>
