@@ -119,10 +119,12 @@ export const getSearchSuggestions = action({
   handler: async (ctx, args) => {
     const limit = Number(args.limit ?? 100);
 
-    // Use internal queries to fetch data server-side
-    const suppliers = await ctx.runQuery(internal.searchSuggestions._getApprovedSuppliersLight, {});
-    const products = await ctx.runQuery(internal.searchSuggestions._getProductsLight, { limit: 1000 });
-    const categories = await ctx.runQuery(internal.searchSuggestions._getActiveCategoriesLight, {});
+    // OPTIMIZATION: Parallelize independent database queries to reduce total RTT
+    const [suppliers, products, categories] = await Promise.all([
+      ctx.runQuery(internal.searchSuggestions._getApprovedSuppliersLight, {}),
+      ctx.runQuery(internal.searchSuggestions._getProductsLight, { limit: 1000 }),
+      ctx.runQuery(internal.searchSuggestions._getActiveCategoriesLight, {}),
+    ]);
 
     // Extract unique supplier business names
     const supplierNames = suppliers
