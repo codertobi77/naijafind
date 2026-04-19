@@ -935,15 +935,15 @@ export const searchSuppliers = action({
       // ==========================================
 
       if (targetCategories.size > 0) {
-        const categoryResults: any[] = [];
-
         // Normaliser + filtrer les catégories invalides
         const safeTargetCategories = Array.from(targetCategories)
           .filter((cat): cat is string => typeof cat === "string")
           .map(cat => cat.trim())
           .filter(cat => cat.length > 0);
 
-        for (const targetCat of safeTargetCategories) {
+        // OPTIMIZATION: Parallelize category-based supplier queries
+        const categoryResults: any[] = [];
+        await Promise.all(safeTargetCategories.map(async (targetCat) => {
           try {
             const catSuppliers = await ctx.runQuery(
               internal.suppliers._getSuppliersByCategory,
@@ -963,7 +963,7 @@ export const searchSuppliers = action({
           } catch (error) {
             console.error(`Error fetching suppliers for category "${targetCat}":`, error);
           }
-        }
+        }));
 
         // Remove duplicates safely
         const uniqueSuppliers = new Map<string, any>();
@@ -975,6 +975,10 @@ export const searchSuppliers = action({
           }
         }
 
+        // OPTIMIZATION: Hoist Set creation out of the loop
+        const safeTargetCategoriesSet = new Set(safeTargetCategories);
+        const safeMatchingProducts = Array.isArray(matchingProducts) ? matchingProducts : [];
+
         // Calculate relevance scores safely
         scoredSuppliers = Array.from(uniqueSuppliers.values())
           .filter((supplier: any) => supplier && typeof supplier === "object")
@@ -983,8 +987,8 @@ export const searchSuppliers = action({
               calculateRelevanceScore(
                 supplier,
                 keywords,
-                new Set(safeTargetCategories),
-                Array.isArray(matchingProducts) ? matchingProducts : []
+                safeTargetCategoriesSet,
+                safeMatchingProducts
               ) ?? { score: 0, matchDetails: [] };
 
             return {
