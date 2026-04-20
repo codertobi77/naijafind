@@ -696,6 +696,137 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
               />
             </div>
 
+            {/* Purchase Requests Section */}
+            <div className="mt-8">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Demandes d'achat
+                  </h2>
+                  <p className="mt-1 text-gray-600">
+                    Gérez les demandes d'achat des clients
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('purchaseRequests')}
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                  Voir tout →
+                </button>
+              </div>
+
+              {/* Purchase Requests Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+                <StatCard
+                  label="Total"
+                  value={purchaseRequestStats?.total || 0}
+                  icon="ri-shopping-cart-line"
+                  iconColor="text-blue-600"
+                  iconBg="bg-blue-100"
+                />
+                <StatCard
+                  label="En attente"
+                  value={purchaseRequestStats?.pending || 0}
+                  icon="ri-time-line"
+                  iconColor="text-yellow-600"
+                  iconBg="bg-yellow-100"
+                />
+                <StatCard
+                  label="Contactés"
+                  value={purchaseRequestStats?.contacted || 0}
+                  icon="ri-phone-line"
+                  iconColor="text-purple-600"
+                  iconBg="bg-purple-100"
+                />
+                <StatCard
+                  label="Devis reçus"
+                  value={purchaseRequestStats?.quoted || 0}
+                  icon="ri-file-list-line"
+                  iconColor="text-indigo-600"
+                  iconBg="bg-indigo-100"
+                />
+                <StatCard
+                  label="Terminés"
+                  value={purchaseRequestStats?.completed || 0}
+                  icon="ri-check-line"
+                  iconColor="text-green-600"
+                  iconBg="bg-green-100"
+                />
+                <StatCard
+                  label="Aujourd'hui"
+                  value={purchaseRequestStats?.todayRequests || 0}
+                  icon="ri-calendar-line"
+                  iconColor="text-orange-600"
+                  iconBg="bg-orange-100"
+                />
+              </div>
+
+              {/* Recent Purchase Requests Table */}
+              <div className="bg-white rounded-lg border overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr className="border-b">
+                        <th className="text-left px-3 py-3 font-semibold text-gray-600">Date</th>
+                        <th className="text-left px-3 py-3 font-semibold text-gray-600">Description</th>
+                        <th className="text-left px-3 py-3 font-semibold text-gray-600">Quantité</th>
+                        <th className="text-left px-3 py-3 font-semibold text-gray-600">WhatsApp</th>
+                        <th className="text-left px-3 py-3 font-semibold text-gray-600">Statut</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {purchaseRequests && purchaseRequests.length > 0 ? (
+                        purchaseRequests.slice(0, 5).map((request: any) => (
+                          <tr key={request._id} className="border-b hover:bg-gray-50">
+                            <td className="px-3 py-3 text-gray-600">
+                              {new Date(request.createdAt).toLocaleDateString('fr-FR')}
+                            </td>
+                            <td className="px-3 py-3 font-medium max-w-xs truncate">
+                              {request.description}
+                            </td>
+                            <td className="px-3 py-3">
+                              {request.quantity} {request.unit}
+                            </td>
+                            <td className="px-3 py-3">
+                              <a
+                                href={`https://wa.me/${request.whatsapp.replace(/\D/g, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-green-600 hover:underline"
+                              >
+                                {request.whatsapp}
+                              </a>
+                            </td>
+                            <td className="px-3 py-3">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                request.status === 'contacted' ? 'bg-blue-100 text-blue-800' :
+                                request.status === 'quoted' ? 'bg-purple-100 text-purple-800' :
+                                request.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {request.status === 'pending' ? 'En attente' :
+                                 request.status === 'contacted' ? 'Contacté' :
+                                 request.status === 'quoted' ? 'Devis reçu' :
+                                 request.status === 'completed' ? 'Terminé' :
+                                 request.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} className="px-3 py-4 text-center text-gray-500">
+                            Aucune demande d'achat pour le moment
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
             {/* Recent Pending Suppliers Card */}
             <div className="mt-6">
               <RecentSuppliersCard

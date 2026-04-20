@@ -8,7 +8,7 @@ const fs = require('fs');
 const readline = require('readline');
 const { execSync } = require('child_process');
 
-const INPUT_FILE = '/home/tobi/naijafind/documents_cleaned.jsonl';
+const INPUT_FILE = '/home/tobi/naijafind/products_documents_shortened.jsonl';
 
 // Batch size for import (max 100 per batch for bulk import)
 const BATCH_SIZE = 100;
