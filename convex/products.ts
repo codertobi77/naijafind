@@ -856,7 +856,8 @@ function calculateSupplierRelevanceScore(
   productCategory: string | undefined,
   searchKeywords: string[],
   productName: string,
-  productDescription?: string
+  productDescription?: string,
+  precalculatedKeyTerms?: string[]
 ): { score: number; matchDetails: string[] } {
   let score = 0;
   const matchDetails: string[] = [];
@@ -881,7 +882,7 @@ function calculateSupplierRelevanceScore(
   
   // 2. PRODUCT NAME MATCH IN SUPPLIER NAME/DESCRIPTION (20-25 points)
   // Extract key terms from product name (excluding common words)
-  const productKeyTerms = prodName
+  const productKeyTerms = precalculatedKeyTerms || prodName
     .split(/[\s,;:\-|\/\(\)\[\]\{\}_\*\.]+/)
     .filter(term => term.length > 2 && !['the', 'and', 'for', 'with', 'de', 'et', 'pour', 'avec'].includes(term));
   
@@ -924,6 +925,16 @@ function calculateSupplierRelevanceScore(
   return { score, matchDetails };
 }
 
+// Module-level constants for search optimization
+const SEARCH_STOP_WORDS = new Set([
+  "a","an","the","and","or","of","for","to","in","on","avec","pour","de","des","du","la","le","les","un","une","et","ou","dans","sur","je","tu","il","elle","nous","vous","ils","elles"
+]);
+
+// Sort compound terms by length (longest first) to match "dispositif médical" before "médical"
+const SORTED_COMPOUND_TERMS = Object.keys(CATEGORY_KEYWORDS)
+  .filter(kw => kw.includes(' '))
+  .sort((a, b) => b.length - a.length);
+
 /**
  * Enhanced keyword extraction with multi-word term support
  * Extracts both individual words and compound terms
@@ -931,23 +942,14 @@ function calculateSupplierRelevanceScore(
 function extractSearchKeywords(query: string): string[] {
   if (!query) return [];
   
-  const STOP_WORDS = new Set([
-    "a","an","the","and","or","of","for","to","in","on","avec","pour","de","des","du","la","le","les","un","une","et","ou","dans","sur","je","tu","il","elle","nous","vous","ils","elles"
-  ]);
-  
   const normalized = query.toLowerCase().trim().replace(/\s+/g, " ");
   
   // Extract compound terms first (multi-word keywords from knowledge base)
   const compoundKeywords: string[] = [];
   const remainingText = normalized;
   
-  // Sort compound terms by length (longest first) to match "dispositif médical" before "médical"
-  const compoundTerms = Object.keys(CATEGORY_KEYWORDS)
-    .filter(kw => kw.includes(' '))
-    .sort((a, b) => b.length - a.length);
-  
   let workingText = remainingText;
-  for (const term of compoundTerms) {
+  for (const term of SORTED_COMPOUND_TERMS) {
     if (workingText.includes(term)) {
       compoundKeywords.push(term);
       workingText = workingText.replace(term, ' ');
@@ -957,7 +959,7 @@ function extractSearchKeywords(query: string): string[] {
   // Extract individual tokens from remaining text
   const tokens = workingText.split(/[\s,;:\-|\/\(\)\[\]\{\}_\*\.]+/);
   const singleKeywords = tokens.filter(
-    (t) => t.length > 1 && !STOP_WORDS.has(t) && !/^\d+$/.test(t)
+    (t) => t.length > 1 && !SEARCH_STOP_WORDS.has(t) && !/^\d+$/.test(t)
   );
   
   return [...new Set([...compoundKeywords, ...singleKeywords])];
@@ -1092,47 +1094,26 @@ export const searchProducts = action({
       _suppliers: null,
     }));
 
-    // FILTER OUT SERVICE CATEGORIES (hotels, restaurants, etc.)
+    // Combined filter pass for efficiency: Service Categories + Name Match + Price + Relevance
+    const queryLower = hasQuery ? args.q!.toLowerCase().trim() : "";
     scored = scored.filter((p) => {
-      if (isServiceCategory(p.category)) {
-        return false;
-      }
-      return true;
-    });
+      // 1. Service Categories
+      if (isServiceCategory(p.category)) return false;
 
-    // FILTER BY NAME MATCH: Only show products whose name contains the search query
-    // This is applied AFTER the category pre-filter as an additional layer
-    if (hasQuery && args.q) {
-      const queryLower = args.q.toLowerCase().trim();
-      scored = scored.filter((p) => {
-        const name = (p.name || "").toLowerCase();
-        // Keep only products whose name contains the search query
-        return name.includes(queryLower);
-      });
-    }
+      // 2. Name Match (if query exists)
+      const name = (p.name || "").toLowerCase();
+      if (hasQuery && !name.includes(queryLower)) return false;
 
-    // Text & price filters + relevance score using enhanced category inference
-    scored = scored.filter((p) => {
-      // Calculate enhanced relevance score with category inference
+      // 3. Price Filters
+      if (args.minPrice !== undefined && p.price < (args.minPrice as number)) return false;
+      if (args.maxPrice !== undefined && p.price > (args.maxPrice as number)) return false;
+
+      // 4. Relevance Score
       const score = hasQuery 
         ? calculateProductRelevanceScore(p, args.q!, keywords, inferredCategories, inferredCategoriesLower)
         : 0;
-
-      // Price filters
-      if (args.minPrice !== undefined && p.price < (args.minPrice as number)) {
-        return false;
-      }
-      if (args.maxPrice !== undefined && p.price > (args.maxPrice as number)) {
-        return false;
-      }
       
-      // For queries, require a minimum relevance score to filter out unrelated products
-      if (hasQuery) {
-        // Must have a meaningful match (name, description, category, or keywords)
-        if (score < 10) {
-          return false;
-        }
-      }
+      if (hasQuery && score < 10) return false;
 
       (p as ScoredProduct)._score = score;
       return true;
@@ -1151,7 +1132,16 @@ export const searchProducts = action({
     );
     console.log(`Categories for mapping: ${categoriesForMapping.join(',')}`);
 
-    for (const cat of categoriesForMapping as string[]) {
+    // Pre-calculate mapping for faster lookups in loops
+    const categoryToProductMap = new Map<string, any>();
+    scored.forEach(p => {
+      if (p.category && !categoryToProductMap.has(p.category)) {
+        categoryToProductMap.set(p.category, p);
+      }
+    });
+
+    // Fetch suppliers in parallel to reduce RTT overhead
+    await Promise.all((categoriesForMapping as string[]).map(async (cat) => {
       try {
         const candidates = await ctx.runQuery(
           internal.suppliers._getSuppliersByCategory,
@@ -1166,10 +1156,15 @@ export const searchProducts = action({
           });
           
           if (productSuppliers.length > 0) {
+            // Get the product that triggered this category search once outside the map
+            const matchingProduct = categoryToProductMap.get(cat);
+            const prodName = (matchingProduct?.name || '').toLowerCase();
+            const precalculatedKeyTerms = prodName
+              .split(/[\s,;:\-|\/\(\)\[\]\{\}_\*\.]+/)
+              .filter(term => term.length > 2 && !['the', 'and', 'for', 'with', 'de', 'et', 'pour', 'avec'].includes(term));
+
             // Score and sort suppliers using the new relevance scoring
             const scoredSuppliers = productSuppliers.map((s: any) => {
-              // Get the product that triggered this category search
-              const matchingProduct = scored.find(p => p.category === cat);
             let score = 0;
             let matchDetails: string[] = [];
             try {
@@ -1178,7 +1173,8 @@ export const searchProducts = action({
                 cat,
                 keywords,
                 matchingProduct?.name || '',
-                matchingProduct?.description
+                matchingProduct?.description,
+                precalculatedKeyTerms
               );
               score = result.score;
               matchDetails = result.matchDetails;
@@ -1219,7 +1215,7 @@ export const searchProducts = action({
         // Log error for debugging but continue with other categories
         console.error(`Error fetching suppliers for category "${cat}":`, err);
       }
-    }
+    }));
 
     // Attach suppliers snapshots (all potential suppliers for the product's category)
     console.log(`Attaching suppliers to ${scored.length} products. Category map has ${categoryToSuppliers.size} categories`);
