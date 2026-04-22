@@ -1141,6 +1141,14 @@ export const searchProducts = action({
     // Suppliers per CATEGORY
     const categoryToSuppliers = new Map<string, any[]>();
     
+    // Optimization: Create a category-to-product map to avoid O(N) .find() in the loop
+    const categoryToProduct = new Map<string, any>();
+    for (const p of scored) {
+      if (p.category && !categoryToProduct.has(p.category)) {
+        categoryToProduct.set(p.category, p);
+      }
+    }
+
     // Combine product categories with inferred categories for coverage
     const productCategories = scored
       .map((p) => (p.category || "").toString())
@@ -1151,7 +1159,8 @@ export const searchProducts = action({
     );
     console.log(`Categories for mapping: ${categoriesForMapping.join(',')}`);
 
-    for (const cat of categoriesForMapping as string[]) {
+    // Optimization: Parallelize supplier queries using Promise.all
+    await Promise.all((categoriesForMapping as string[]).map(async (cat) => {
       try {
         const candidates = await ctx.runQuery(
           internal.suppliers._getSuppliersByCategory,
@@ -1168,26 +1177,26 @@ export const searchProducts = action({
           if (productSuppliers.length > 0) {
             // Score and sort suppliers using the new relevance scoring
             const scoredSuppliers = productSuppliers.map((s: any) => {
-              // Get the product that triggered this category search
-              const matchingProduct = scored.find(p => p.category === cat);
-            let score = 0;
-            let matchDetails: string[] = [];
-            try {
-              const result = calculateSupplierRelevanceScore(
-                s,
-                cat,
-                keywords,
-                matchingProduct?.name || '',
-                matchingProduct?.description
-              );
-              score = result.score;
-              matchDetails = result.matchDetails;
-            } catch (err) {
-              console.error(`Error calculating relevance score for supplier ${s._id}:`, err);
-              // Fallback score if calculation fails
-              score = 1;
-              matchDetails = ['error_fallback'];
-            }
+              // Optimization: Use Map lookup instead of O(N) scored.find()
+              const matchingProduct = categoryToProduct.get(cat);
+              let score = 0;
+              let matchDetails: string[] = [];
+              try {
+                const result = calculateSupplierRelevanceScore(
+                  s,
+                  cat,
+                  keywords,
+                  matchingProduct?.name || '',
+                  matchingProduct?.description
+                );
+                score = result.score;
+                matchDetails = result.matchDetails;
+              } catch (err) {
+                console.error(`Error calculating relevance score for supplier ${s._id}:`, err);
+                // Fallback score if calculation fails
+                score = 1;
+                matchDetails = ['error_fallback'];
+              }
               return {
                 ...s,
                 _supplierScore: score,
@@ -1219,10 +1228,16 @@ export const searchProducts = action({
         // Log error for debugging but continue with other categories
         console.error(`Error fetching suppliers for category "${cat}":`, err);
       }
-    }
+    }));
 
     // Attach suppliers snapshots (all potential suppliers for the product's category)
     console.log(`Attaching suppliers to ${scored.length} products. Category map has ${categoryToSuppliers.size} categories`);
+
+    // Optimization: Pre-calculate a lowercase category map to avoid O(N) iterations inside the loop
+    const lowercaseCategoryToSuppliers = new Map<string, any[]>();
+    for (const [cat, suppliers] of categoryToSuppliers.entries()) {
+      lowercaseCategoryToSuppliers.set(cat.toLowerCase().trim(), suppliers);
+    }
 
     // Cache for fallback suppliers to avoid redundant database queries
     let fallbackSuppliers: any[] | null = null;
@@ -1246,6 +1261,19 @@ export const searchProducts = action({
       }
     };
 
+    // Optimization: If any products need fallback suppliers, fetch them once up-front
+    const needsFallback = scored.some(p => {
+      if (!p.category || typeof p.category !== "string") return true;
+      const list = categoryToSuppliers.get(p.category);
+      if (list && list.length > 0) return false;
+      const prodCatLower = p.category.toLowerCase().trim();
+      return !lowercaseCategoryToSuppliers.has(prodCatLower);
+    });
+
+    if (needsFallback) {
+      await getFallbackSuppliers();
+    }
+
     const finalScoredProducts: ScoredProduct[] = [];
     for (const p of scored) {
       let list: any[] = [];
@@ -1257,29 +1285,21 @@ export const searchProducts = action({
         // If no exact match, try case-insensitive match
         if (list.length === 0) {
           const prodCatLower = p.category.toLowerCase().trim();
-          for (const [mapCat, suppliers] of categoryToSuppliers.entries()) {
-            if (mapCat.toLowerCase().trim() === prodCatLower) {
-              list = suppliers;
-              console.log(
-                `Case-insensitive match: "${p.category}" -> "${mapCat}" (${suppliers.length} suppliers)`
-              );
-              break;
-            }
+          // Optimization: Use Map lookup instead of O(N) iteration
+          list = lowercaseCategoryToSuppliers.get(prodCatLower) || [];
+          if (list.length > 0) {
+            console.log(
+              `Case-insensitive match: "${p.category}" (${list.length} suppliers)`
+            );
           }
         }
       }
 
       // Fallback: if no suppliers for this category, fetch some approved ones
       if (list.length === 0) {
+        // Optimization: already fetched above
         list = await getFallbackSuppliers();
-        console.log(
-          `No suppliers for category "${p.category}", using ${list.length} fallback suppliers`
-        );
       }
-
-      console.log(
-        `Product "${p.name}" (category: ${p.category}): ${list.length} suppliers attached`
-      );
 
       finalScoredProducts.push({ ...p, _suppliers: list } as ScoredProduct);
     }
