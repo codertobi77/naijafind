@@ -943,7 +943,8 @@ export const searchSuppliers = action({
           .map(cat => cat.trim())
           .filter(cat => cat.length > 0);
 
-        for (const targetCat of safeTargetCategories) {
+        // BOLT OPTIMIZATION: Parallelize category-based supplier queries
+        await Promise.all(safeTargetCategories.map(async (targetCat) => {
           try {
             const catSuppliers = await ctx.runQuery(
               internal.suppliers._getSuppliersByCategory,
@@ -963,7 +964,7 @@ export const searchSuppliers = action({
           } catch (error) {
             console.error(`Error fetching suppliers for category "${targetCat}":`, error);
           }
-        }
+        }));
 
         // Remove duplicates safely
         const uniqueSuppliers = new Map<string, any>();
