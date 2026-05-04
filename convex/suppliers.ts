@@ -310,8 +310,10 @@ function inferCategoryFromKeywords(keywords: string[]): string | null {
 function calculateRelevanceScore(
   supplier: any,
   keywords: string[],
-  targetCategories: Set<string>,
-  matchingProducts: any[]
+  targetCategoriesLower: string[],
+  supplierProducts: any[],
+  bigrams: string[],
+  searchPhrase: string
 ): { score: number; matchDetails: string[] } {
   if (!supplier || typeof supplier !== "object") {
     return { score: 0, matchDetails: [] };
@@ -324,19 +326,13 @@ function calculateRelevanceScore(
   const supplierName = String(supplier.business_name || "").toLowerCase();
   const supplierDesc = String(supplier.description || "").toLowerCase();
 
-  const safeKeywords = Array.isArray(keywords) ? keywords : [];
-  const safeMatchingProducts = Array.isArray(matchingProducts) ? matchingProducts : [];
-  const safeTargetCategories = Array.from(targetCategories).filter(
-    (cat): cat is string => typeof cat === "string" && cat.trim().length > 0
-  );
-
-  if (safeTargetCategories.length > 0) {
-    const categoryMatch = safeTargetCategories.some((targetCat) => {
-      const normalized = targetCat.toLowerCase();
+  // 1. Category Matching (O(C))
+  if (targetCategoriesLower.length > 0) {
+    const categoryMatch = targetCategoriesLower.some((targetCat) => {
       return (
-        supplierCategory === normalized ||
-        supplierCategory.includes(normalized) ||
-        normalized.includes(supplierCategory)
+        supplierCategory === targetCat ||
+        supplierCategory.includes(targetCat) ||
+        targetCat.includes(supplierCategory)
       );
     });
 
@@ -346,37 +342,39 @@ function calculateRelevanceScore(
     }
   }
 
-  const bigrams = extractNGrams(safeKeywords, 2);
+  // 2. Product Matching (O(P * K)) - significantly faster because we only process the supplier's products
+  if (Array.isArray(supplierProducts)) {
+    for (const product of supplierProducts) {
+      if (!product || typeof product !== "object") continue;
 
-  for (const product of safeMatchingProducts) {
-    if (!product || typeof product !== "object") continue;
+      const productName = String(product.name || "").toLowerCase();
+      const productDesc = String(product.description || "").toLowerCase();
 
-    const productName = String(product.name || "").toLowerCase();
-    const productDesc = String(product.description || "").toLowerCase();
-
-    for (const bigram of bigrams) {
-      if (productName.includes(bigram)) {
-        score += 30;
-        matchDetails.push(`product_bigram:${bigram}`);
+      for (const bigram of bigrams) {
+        if (productName.includes(bigram)) {
+          score += 30;
+          matchDetails.push(`product_bigram:${bigram}`);
+        }
       }
-    }
 
-    for (const keyword of safeKeywords) {
-      if (!keyword || keyword.length < 3) continue;
+      for (const keyword of keywords) {
+        if (keyword.length < 3) continue;
 
-      if (productName.includes(keyword)) {
-        score += 20;
-        matchDetails.push(`product_keyword:${keyword}`);
-      }
-      if (productDesc.includes(keyword)) {
-        score += 10;
-        matchDetails.push(`product_desc:${keyword}`);
+        if (productName.includes(keyword)) {
+          score += 20;
+          matchDetails.push(`product_keyword:${keyword}`);
+        }
+        if (productDesc.includes(keyword)) {
+          score += 10;
+          matchDetails.push(`product_desc:${keyword}`);
+        }
       }
     }
   }
 
-  for (const keyword of safeKeywords) {
-    if (!keyword || keyword.length < 3) continue;
+  // 3. Supplier Text Matching (O(K))
+  for (const keyword of keywords) {
+    if (keyword.length < 3) continue;
 
     if (supplierName.includes(keyword)) {
       score += 20;
@@ -389,7 +387,7 @@ function calculateRelevanceScore(
     }
   }
 
-  const searchPhrase = safeKeywords.join(" ").trim();
+  // 4. Exact Phrase Match
   if (searchPhrase && supplierName.includes(searchPhrase)) {
     score += 40;
     matchDetails.push("exact_name_match");
@@ -872,6 +870,20 @@ export const searchSuppliers = action({
             limit: 200 
           })
         : [];
+
+      // Group matching products by supplierId for O(1) lookup during scoring
+      const productsBySupplier = new Map<string, any[]>();
+      if (Array.isArray(matchingProducts)) {
+        for (const product of matchingProducts) {
+          if (product.supplierId) {
+            const sid = String(product.supplierId);
+            if (!productsBySupplier.has(sid)) {
+              productsBySupplier.set(sid, []);
+            }
+            productsBySupplier.get(sid)!.push(product);
+          }
+        }
+      }
       
       // Determine target categories
       
@@ -975,16 +987,26 @@ export const searchSuppliers = action({
           }
         }
 
+        // Pre-calculate search-wide invariants to optimize the scoring loop
+        const bigrams = extractNGrams(keywords, 2);
+        const searchPhrase = keywords.join(" ").trim();
+        const targetCategoriesLower = safeTargetCategories.map(cat => cat.toLowerCase());
+
         // Calculate relevance scores safely
         scoredSuppliers = Array.from(uniqueSuppliers.values())
           .filter((supplier: any) => supplier && typeof supplier === "object")
           .map((supplier: any) => {
+            const supplierId = String(supplier._id);
+            const supplierProducts = productsBySupplier.get(supplierId) || [];
+
             const relevance =
               calculateRelevanceScore(
                 supplier,
                 keywords,
-                new Set(safeTargetCategories),
-                Array.isArray(matchingProducts) ? matchingProducts : []
+                targetCategoriesLower,
+                supplierProducts,
+                bigrams,
+                searchPhrase
               ) ?? { score: 0, matchDetails: [] };
 
             return {
