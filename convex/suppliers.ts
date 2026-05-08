@@ -943,7 +943,9 @@ export const searchSuppliers = action({
           .map(cat => cat.trim())
           .filter(cat => cat.length > 0);
 
-        for (const targetCat of safeTargetCategories) {
+        // Optimization: Parallelize supplier fetching across categories using Promise.all
+        // Reduces total RTT from O(Categories * RTT) to O(RTT)
+        await Promise.all(safeTargetCategories.map(async (targetCat) => {
           try {
             const catSuppliers = await ctx.runQuery(
               internal.suppliers._getSuppliersByCategory,
@@ -963,7 +965,7 @@ export const searchSuppliers = action({
           } catch (error) {
             console.error(`Error fetching suppliers for category "${targetCat}":`, error);
           }
-        }
+        }));
 
         // Remove duplicates safely
         const uniqueSuppliers = new Map<string, any>();
