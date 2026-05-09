@@ -1141,17 +1141,26 @@ export const searchProducts = action({
     // Suppliers per CATEGORY
     const categoryToSuppliers = new Map<string, any[]>();
     
-    // Combine product categories with inferred categories for coverage
-    const productCategories = scored
-      .map((p) => (p.category || "").toString())
-      .filter((c) => c && c.trim().length > 0);
+    // BOLT OPTIMIZATION: Use a single Set to collect unique categories in one pass
+    // Also build a map of category -> first matching product for O(1) lookup during scoring
+    const categoryToProduct = new Map<string, any>();
+    const categoriesSet = new Set<string>(inferredCategories);
     
-    const categoriesForMapping = Array.from(
-      new Set([...productCategories, ...inferredCategories])
-    );
+    for (const p of scored) {
+      if (p.category && p.category.trim().length > 0) {
+        const cat = p.category.toString();
+        categoriesSet.add(cat);
+        if (!categoryToProduct.has(cat)) {
+          categoryToProduct.set(cat, p);
+        }
+      }
+    }
+
+    const categoriesForMapping = Array.from(categoriesSet);
     console.log(`Categories for mapping: ${categoriesForMapping.join(',')}`);
 
-    for (const cat of categoriesForMapping as string[]) {
+    // BOLT OPTIMIZATION: Parallelize supplier queries with Promise.all to avoid N+1 bottlenecks
+    await Promise.all(categoriesForMapping.map(async (cat) => {
       try {
         const candidates = await ctx.runQuery(
           internal.suppliers._getSuppliersByCategory,
@@ -1166,28 +1175,29 @@ export const searchProducts = action({
           });
           
           if (productSuppliers.length > 0) {
+            // BOLT OPTIMIZATION: Use O(1) Map lookup instead of O(N) .find()
+            const matchingProduct = categoryToProduct.get(cat);
+
             // Score and sort suppliers using the new relevance scoring
             const scoredSuppliers = productSuppliers.map((s: any) => {
-              // Get the product that triggered this category search
-              const matchingProduct = scored.find(p => p.category === cat);
-            let score = 0;
-            let matchDetails: string[] = [];
-            try {
-              const result = calculateSupplierRelevanceScore(
-                s,
-                cat,
-                keywords,
-                matchingProduct?.name || '',
-                matchingProduct?.description
-              );
-              score = result.score;
-              matchDetails = result.matchDetails;
-            } catch (err) {
-              console.error(`Error calculating relevance score for supplier ${s._id}:`, err);
-              // Fallback score if calculation fails
-              score = 1;
-              matchDetails = ['error_fallback'];
-            }
+              let score = 0;
+              let matchDetails: string[] = [];
+              try {
+                const result = calculateSupplierRelevanceScore(
+                  s,
+                  cat,
+                  keywords,
+                  matchingProduct?.name || '',
+                  matchingProduct?.description
+                );
+                score = result.score;
+                matchDetails = result.matchDetails;
+              } catch (err) {
+                console.error(`Error calculating relevance score for supplier ${s._id}:`, err);
+                // Fallback score if calculation fails
+                score = 1;
+                matchDetails = ['error_fallback'];
+              }
               return {
                 ...s,
                 _supplierScore: score,
@@ -1219,7 +1229,7 @@ export const searchProducts = action({
         // Log error for debugging but continue with other categories
         console.error(`Error fetching suppliers for category "${cat}":`, err);
       }
-    }
+    }));
 
     // Attach suppliers snapshots (all potential suppliers for the product's category)
     console.log(`Attaching suppliers to ${scored.length} products. Category map has ${categoryToSuppliers.size} categories`);
