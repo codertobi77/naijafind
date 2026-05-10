@@ -307,11 +307,17 @@ function inferCategoryFromKeywords(keywords: string[]): string | null {
  * Calculate relevance score for a supplier based on search keywords
  * Returns score and match details
  */
+/**
+ * Calculate relevance score for a supplier based on search keywords
+ * OPTIMIZED: Hoists invariant calculations (bigrams, search phrase) and processes only relevant products
+ */
 function calculateRelevanceScore(
   supplier: any,
   keywords: string[],
-  targetCategories: Set<string>,
-  matchingProducts: any[]
+  bigrams: string[],
+  searchPhrase: string,
+  targetCategoriesLower: string[],
+  supplierProducts: any[]
 ): { score: number; matchDetails: string[] } {
   if (!supplier || typeof supplier !== "object") {
     return { score: 0, matchDetails: [] };
@@ -324,21 +330,13 @@ function calculateRelevanceScore(
   const supplierName = String(supplier.business_name || "").toLowerCase();
   const supplierDesc = String(supplier.description || "").toLowerCase();
 
-  const safeKeywords = Array.isArray(keywords) ? keywords : [];
-  const safeMatchingProducts = Array.isArray(matchingProducts) ? matchingProducts : [];
-  const safeTargetCategories = Array.from(targetCategories).filter(
-    (cat): cat is string => typeof cat === "string" && cat.trim().length > 0
-  );
-
-  if (safeTargetCategories.length > 0) {
-    const categoryMatch = safeTargetCategories.some((targetCat) => {
-      const normalized = targetCat.toLowerCase();
-      return (
-        supplierCategory === normalized ||
-        supplierCategory.includes(normalized) ||
-        normalized.includes(supplierCategory)
-      );
-    });
+  // 1. Category Match (50 points)
+  if (targetCategoriesLower.length > 0) {
+    const categoryMatch = targetCategoriesLower.some((targetCat) =>
+      supplierCategory === targetCat ||
+      supplierCategory.includes(targetCat) ||
+      targetCat.includes(supplierCategory)
+    );
 
     if (categoryMatch) {
       score += 50;
@@ -346,13 +344,11 @@ function calculateRelevanceScore(
     }
   }
 
-  const bigrams = extractNGrams(safeKeywords, 2);
-
-  for (const product of safeMatchingProducts) {
-    if (!product || typeof product !== "object") continue;
-
-    const productName = String(product.name || "").toLowerCase();
-    const productDesc = String(product.description || "").toLowerCase();
+  // 2. Product Matches (Iteration O(Products per Supplier))
+  for (const product of supplierProducts) {
+    // We expect product.nameLower and product.descLower to be pre-calculated
+    const productName = product.nameLower;
+    const productDesc = product.descLower;
 
     for (const bigram of bigrams) {
       if (productName.includes(bigram)) {
@@ -361,8 +357,8 @@ function calculateRelevanceScore(
       }
     }
 
-    for (const keyword of safeKeywords) {
-      if (!keyword || keyword.length < 3) continue;
+    for (const keyword of keywords) {
+      if (keyword.length < 3) continue;
 
       if (productName.includes(keyword)) {
         score += 20;
@@ -375,8 +371,9 @@ function calculateRelevanceScore(
     }
   }
 
-  for (const keyword of safeKeywords) {
-    if (!keyword || keyword.length < 3) continue;
+  // 3. Supplier Name/Description Matches
+  for (const keyword of keywords) {
+    if (keyword.length < 3) continue;
 
     if (supplierName.includes(keyword)) {
       score += 20;
@@ -389,7 +386,7 @@ function calculateRelevanceScore(
     }
   }
 
-  const searchPhrase = safeKeywords.join(" ").trim();
+  // 4. Exact Phrase Match
   if (searchPhrase && supplierName.includes(searchPhrase)) {
     score += 40;
     matchDetails.push("exact_name_match");
@@ -975,16 +972,42 @@ export const searchSuppliers = action({
           }
         }
 
+        // OPTIMIZATION: Hoist invariant scoring calculations
+        const bigrams = extractNGrams(keywords, 2);
+        const searchPhrase = keywords.join(" ").trim();
+        const safeTargetCategoriesLower = safeTargetCategories.map(cat => cat.toLowerCase());
+
+        // Group matching products by supplier for O(1) lookup in scoring loop
+        const productsBySupplier = new Map<string, any[]>();
+        if (Array.isArray(matchingProducts)) {
+          for (const p of matchingProducts) {
+            if (!p.supplierId) continue;
+            const sId = String(p.supplierId);
+            if (!productsBySupplier.has(sId)) {
+              productsBySupplier.set(sId, []);
+            }
+            // Pre-lowercase to avoid redundant work in the scoring loop
+            productsBySupplier.get(sId)!.push({
+              ...p,
+              nameLower: String(p.name || "").toLowerCase(),
+              descLower: String(p.description || "").toLowerCase()
+            });
+          }
+        }
+
         // Calculate relevance scores safely
         scoredSuppliers = Array.from(uniqueSuppliers.values())
           .filter((supplier: any) => supplier && typeof supplier === "object")
           .map((supplier: any) => {
+            const sId = String(supplier._id);
             const relevance =
               calculateRelevanceScore(
                 supplier,
                 keywords,
-                new Set(safeTargetCategories),
-                Array.isArray(matchingProducts) ? matchingProducts : []
+                bigrams,
+                searchPhrase,
+                safeTargetCategoriesLower,
+                productsBySupplier.get(sId) || []
               ) ?? { score: 0, matchDetails: [] };
 
             return {
