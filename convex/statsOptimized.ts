@@ -95,19 +95,44 @@ export const getDetailedCategoryStats = query({
     // Get all suppliers (bounded to prevent memory issues)
     const suppliers = await ctx.db.query("suppliers").take(10000);
     
-    // Build detailed stats as array
-    const stats = categories.map((cat) => {
-      const catSuppliers = suppliers.filter(s => s.category === cat.name);
+    // Aggregate supplier stats by category in a single pass O(S)
+    const statsMap = new Map<string, {
+      total: number;
+      approved: number;
+      featured: number;
+      verified: number;
+    }>();
+
+    // Initialize map with categories O(C)
+    for (const cat of categories) {
+      statsMap.set(cat.name, {
+        total: 0,
+        approved: 0,
+        featured: 0,
+        verified: 0,
+      });
+    }
+
+    // Single pass over suppliers to populate aggregation map
+    for (const supplier of suppliers) {
+      if (supplier.category && statsMap.has(supplier.category)) {
+        const current = statsMap.get(supplier.category)!;
+        current.total++;
+        if (supplier.approved) current.approved++;
+        if (supplier.featured) current.featured++;
+        if (supplier.verified) current.verified++;
+      }
+    }
+
+    // Return stats in the order of categories array O(C)
+    // Total complexity: O(C + S) instead of O(C * S)
+    return categories.map((cat) => {
+      const stats = statsMap.get(cat.name)!;
       return {
         name: cat.name,
-        total: catSuppliers.length,
-        approved: catSuppliers.filter(s => s.approved).length,
-        featured: catSuppliers.filter(s => s.featured).length,
-        verified: catSuppliers.filter(s => s.verified).length,
+        ...stats,
       };
     });
-    
-    return stats;
   },
 });
 
