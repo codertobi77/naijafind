@@ -89,23 +89,34 @@ export const _getCategoryStatsInternal = query({
 export const getDetailedCategoryStats = query({
   args: {},
   handler: async (ctx) => {
-    // Get all categories (bounded for safety)
-    const categories = await ctx.db.query("categories").take(1000);
+    // Fetch categories and suppliers in parallel to reduce latency
+    const [categories, suppliers] = await Promise.all([
+      ctx.db.query("categories").take(1000),
+      ctx.db.query("suppliers").take(10000)
+    ]);
     
-    // Get all suppliers (bounded to prevent memory issues)
-    const suppliers = await ctx.db.query("suppliers").take(10000);
+    // Initialize stats map for O(1) lookups during aggregation
+    const statsMap = new Map<string, { total: number, approved: number, featured: number, verified: number }>();
+    for (const cat of categories) {
+      statsMap.set(cat.name, { total: 0, approved: 0, featured: 0, verified: 0 });
+    }
+
+    // Single pass over suppliers to aggregate all counts (O(S) complexity)
+    for (const s of suppliers) {
+      const entry = statsMap.get(s.category);
+      if (entry) {
+        entry.total++;
+        if (s.approved) entry.approved++;
+        if (s.featured) entry.featured++;
+        if (s.verified) entry.verified++;
+      }
+    }
     
-    // Build detailed stats as array
-    const stats = categories.map((cat) => {
-      const catSuppliers = suppliers.filter(s => s.category === cat.name);
-      return {
-        name: cat.name,
-        total: catSuppliers.length,
-        approved: catSuppliers.filter(s => s.approved).length,
-        featured: catSuppliers.filter(s => s.featured).length,
-        verified: catSuppliers.filter(s => s.verified).length,
-      };
-    });
+    // Build detailed stats array from map
+    const stats = categories.map((cat) => ({
+      name: cat.name,
+      ...statsMap.get(cat.name)!,
+    }));
     
     return stats;
   },
@@ -204,35 +215,49 @@ export const getAdminStats = query({
 export const getHomepageStats = query({
   args: {},
   handler: async (ctx) => {
-    // Count approved suppliers only for public display
-    const approvedSuppliers = await ctx.db
-      .query("suppliers")
-      .withIndex("approved", (q) => q.eq("approved", true))
-      .collect();
+    // Fetch approved suppliers and active categories in parallel
+    const [approvedSuppliers, categories] = await Promise.all([
+      ctx.db
+        .query("suppliers")
+        .withIndex("approved", (q) => q.eq("approved", true))
+        .collect(),
+      ctx.db
+        .query("categories")
+        .withIndex("is_active", (q) => q.eq("is_active", true))
+        .collect()
+    ]);
     
     const totalSuppliers = approvedSuppliers.length;
-    const featuredSuppliers = approvedSuppliers.filter(s => s.featured).length;
-    const verifiedSuppliers = approvedSuppliers.filter(s => s.verified).length;
-    
-    // Calculate average rating from approved suppliers
-    const ratedSuppliers = approvedSuppliers.filter(s => s.rating && s.rating > 0);
-    const averageRating = ratedSuppliers.length > 0
-      ? ratedSuppliers.reduce((sum, s) => sum + (s.rating || 0), 0) / ratedSuppliers.length
-      : 0;
-    
-    // Count active categories
-    const categories = await ctx.db
-      .query("categories")
-      .withIndex("is_active", (q) => q.eq("is_active", true))
-      .collect();
     const totalCategories = categories.length;
     
-    // Category breakdown with counts
+    // Initialize category counts map
     const categoryCounts: Record<string, number> = {};
     for (const cat of categories) {
-      categoryCounts[cat.name] = approvedSuppliers.filter(s => s.category === cat.name).length;
+      categoryCounts[cat.name] = 0;
+    }
+
+    // Single pass aggregation for performance (O(S) complexity)
+    let featuredSuppliers = 0;
+    let verifiedSuppliers = 0;
+    let ratedSuppliersCount = 0;
+    let totalRating = 0;
+
+    for (const s of approvedSuppliers) {
+      if (s.featured) featuredSuppliers++;
+      if (s.verified) verifiedSuppliers++;
+
+      if (s.rating && s.rating > 0) {
+        ratedSuppliersCount++;
+        totalRating += s.rating;
+      }
+
+      if (s.category in categoryCounts) {
+        categoryCounts[s.category]++;
+      }
     }
     
+    const averageRating = ratedSuppliersCount > 0 ? totalRating / ratedSuppliersCount : 0;
+
     return {
       totalSuppliers,
       featuredSuppliers,
