@@ -214,7 +214,9 @@ export const useMultilingualSearch = () => {
           if (batchResult.success && batchResult.translations) {
             batchResult.translations.forEach((translation, idx) => {
               const globalIndex = i + idx;
-              const mapping = textMapping.find((m) => m.textIndex === globalIndex);
+              // Optimization: Use direct array indexing O(1) instead of .find() O(N)
+              // since textMapping is built sequentially and globalIndex corresponds to the index
+              const mapping = textMapping[globalIndex];
               if (mapping && translation.translatedText) {
                 translatedResults[mapping.resultIndex] = {
                   ...translatedResults[mapping.resultIndex],
