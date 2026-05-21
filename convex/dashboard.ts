@@ -16,22 +16,24 @@ export const supplierDashboard = query({
       .first();
     if (!supplier) throw new Error("Profil fournisseur non trouvé");
 
-    const ordersResult = await ctx.db
-      .query("orders")
-      .filter(q => q.eq(q.field("supplierId"), supplier._id as unknown as string))
-      .paginate({ cursor: null, numItems: MAX_PAGE_SIZE });
+    // Parallelize data fetching and use indexes where available
+    const [ordersResult, productsResult, reviewsResult] = await Promise.all([
+      ctx.db
+        .query("orders")
+        .filter(q => q.eq(q.field("supplierId"), supplier._id as unknown as string))
+        .paginate({ cursor: null, numItems: MAX_PAGE_SIZE }),
+      ctx.db
+        .query("products")
+        .withIndex("supplierId", (q) => q.eq("supplierId", supplier._id as unknown as string))
+        .paginate({ cursor: null, numItems: MAX_PAGE_SIZE }),
+      ctx.db
+        .query("reviews")
+        .withIndex("supplierId", (q) => q.eq("supplierId", supplier._id as unknown as string))
+        .paginate({ cursor: null, numItems: MAX_PAGE_SIZE })
+    ]);
+
     const orders = ordersResult.page;
-    
-    const productsResult = await ctx.db
-      .query("products")
-      .filter(q => q.eq(q.field("supplierId"), supplier._id as unknown as string))
-      .paginate({ cursor: null, numItems: MAX_PAGE_SIZE });
     const products = productsResult.page;
-    
-    const reviewsResult = await ctx.db
-      .query("reviews")
-      .withIndex("supplierId", (q) => q.eq("supplierId", supplier._id as unknown as string))
-      .paginate({ cursor: null, numItems: MAX_PAGE_SIZE });
     const reviews = reviewsResult.page;
 
     const totalOrders = orders.length;
