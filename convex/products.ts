@@ -928,12 +928,18 @@ function calculateSupplierRelevanceScore(
  * Enhanced keyword extraction with multi-word term support
  * Extracts both individual words and compound terms
  */
+
+const STOP_WORDS = new Set([
+  "a","an","the","and","or","of","for","to","in","on","avec","pour","de","des","du","la","le","les","un","une","et","ou","dans","sur","je","tu","il","elle","nous","vous","ils","elles"
+]);
+
+// Pre-calculated and sorted compound terms for greedy matching
+const COMPOUND_TERMS = Object.keys(CATEGORY_KEYWORDS)
+  .filter(kw => kw.includes(' '))
+  .sort((a, b) => b.length - a.length);
+
 function extractSearchKeywords(query: string): string[] {
   if (!query) return [];
-  
-  const STOP_WORDS = new Set([
-    "a","an","the","and","or","of","for","to","in","on","avec","pour","de","des","du","la","le","les","un","une","et","ou","dans","sur","je","tu","il","elle","nous","vous","ils","elles"
-  ]);
   
   const normalized = query.toLowerCase().trim().replace(/\s+/g, " ");
   
@@ -941,13 +947,8 @@ function extractSearchKeywords(query: string): string[] {
   const compoundKeywords: string[] = [];
   const remainingText = normalized;
   
-  // Sort compound terms by length (longest first) to match "dispositif médical" before "médical"
-  const compoundTerms = Object.keys(CATEGORY_KEYWORDS)
-    .filter(kw => kw.includes(' '))
-    .sort((a, b) => b.length - a.length);
-  
   let workingText = remainingText;
-  for (const term of compoundTerms) {
+  for (const term of COMPOUND_TERMS) {
     if (workingText.includes(term)) {
       compoundKeywords.push(term);
       workingText = workingText.replace(term, ' ');
@@ -1151,7 +1152,8 @@ export const searchProducts = action({
     );
     console.log(`Categories for mapping: ${categoriesForMapping.join(',')}`);
 
-    for (const cat of categoriesForMapping as string[]) {
+    // Parallelize fetching and scoring for all categories
+    await Promise.all(categoriesForMapping.map(async (cat) => {
       try {
         const candidates = await ctx.runQuery(
           internal.suppliers._getSuppliersByCategory,
@@ -1166,28 +1168,32 @@ export const searchProducts = action({
           });
           
           if (productSuppliers.length > 0) {
+            // OPTIMIZATION: Find the matching product once per category instead of once per supplier
+            // This reduces complexity from O(C * S * P) to O(C * (S + P))
+            const matchingProduct = scored.find(p => p.category === cat);
+            const prodName = matchingProduct?.name || '';
+            const prodDesc = matchingProduct?.description;
+
             // Score and sort suppliers using the new relevance scoring
             const scoredSuppliers = productSuppliers.map((s: any) => {
-              // Get the product that triggered this category search
-              const matchingProduct = scored.find(p => p.category === cat);
-            let score = 0;
-            let matchDetails: string[] = [];
-            try {
-              const result = calculateSupplierRelevanceScore(
-                s,
-                cat,
-                keywords,
-                matchingProduct?.name || '',
-                matchingProduct?.description
-              );
-              score = result.score;
-              matchDetails = result.matchDetails;
-            } catch (err) {
-              console.error(`Error calculating relevance score for supplier ${s._id}:`, err);
-              // Fallback score if calculation fails
-              score = 1;
-              matchDetails = ['error_fallback'];
-            }
+              let score = 0;
+              let matchDetails: string[] = [];
+              try {
+                const result = calculateSupplierRelevanceScore(
+                  s,
+                  cat,
+                  keywords,
+                  prodName,
+                  prodDesc
+                );
+                score = result.score;
+                matchDetails = result.matchDetails;
+              } catch (err) {
+                console.error(`Error calculating relevance score for supplier ${s._id}:`, err);
+                // Fallback score if calculation fails
+                score = 1;
+                matchDetails = ['error_fallback'];
+              }
               return {
                 ...s,
                 _supplierScore: score,
@@ -1219,10 +1225,16 @@ export const searchProducts = action({
         // Log error for debugging but continue with other categories
         console.error(`Error fetching suppliers for category "${cat}":`, err);
       }
-    }
+    }));
 
     // Attach suppliers snapshots (all potential suppliers for the product's category)
     console.log(`Attaching suppliers to ${scored.length} products. Category map has ${categoryToSuppliers.size} categories`);
+
+    // OPTIMIZATION: Pre-calculate a lowercased map for O(1) case-insensitive category lookups
+    const categoryLowerToSuppliers = new Map<string, any[]>();
+    for (const [cat, suppliers] of categoryToSuppliers.entries()) {
+      categoryLowerToSuppliers.set(cat.toLowerCase().trim(), suppliers);
+    }
 
     // Cache for fallback suppliers to avoid redundant database queries
     let fallbackSuppliers: any[] | null = null;
@@ -1250,21 +1262,16 @@ export const searchProducts = action({
     for (const p of scored) {
       let list: any[] = [];
 
-      // Try exact category match first
+      // Try exact or case-insensitive category match
       if (p.category && typeof p.category === "string") {
         list = categoryToSuppliers.get(p.category) || [];
 
-        // If no exact match, try case-insensitive match
+        // If no exact match, try the pre-calculated case-insensitive map
         if (list.length === 0) {
           const prodCatLower = p.category.toLowerCase().trim();
-          for (const [mapCat, suppliers] of categoryToSuppliers.entries()) {
-            if (mapCat.toLowerCase().trim() === prodCatLower) {
-              list = suppliers;
-              console.log(
-                `Case-insensitive match: "${p.category}" -> "${mapCat}" (${suppliers.length} suppliers)`
-              );
-              break;
-            }
+          list = categoryLowerToSuppliers.get(prodCatLower) || [];
+          if (list.length > 0) {
+             console.log(`Case-insensitive match found for: "${p.category}"`);
           }
         }
       }
@@ -1276,10 +1283,6 @@ export const searchProducts = action({
           `No suppliers for category "${p.category}", using ${list.length} fallback suppliers`
         );
       }
-
-      console.log(
-        `Product "${p.name}" (category: ${p.category}): ${list.length} suppliers attached`
-      );
 
       finalScoredProducts.push({ ...p, _suppliers: list } as ScoredProduct);
     }
