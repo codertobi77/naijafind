@@ -89,25 +89,37 @@ export const _getCategoryStatsInternal = query({
 export const getDetailedCategoryStats = query({
   args: {},
   handler: async (ctx) => {
-    // Get all categories (bounded for safety)
-    const categories = await ctx.db.query("categories").take(1000);
+    // Parallelize fetches (O(1) round-trip time)
+    const [categories, suppliers] = await Promise.all([
+      ctx.db.query("categories").take(1000),
+      ctx.db.query("suppliers").take(10000),
+    ]);
+
+    // Build detailed stats using single-pass aggregation (O(C + S) complexity)
+    // Map to store running counts for each category
+    const statsMap = new Map<string, { total: number, approved: number, featured: number, verified: number }>();
     
-    // Get all suppliers (bounded to prevent memory issues)
-    const suppliers = await ctx.db.query("suppliers").take(10000);
+    // Initialize Map with all active categories
+    for (const cat of categories) {
+      statsMap.set(cat.name, { total: 0, approved: 0, featured: 0, verified: 0 });
+    }
     
-    // Build detailed stats as array
-    const stats = categories.map((cat) => {
-      const catSuppliers = suppliers.filter(s => s.category === cat.name);
-      return {
-        name: cat.name,
-        total: catSuppliers.length,
-        approved: catSuppliers.filter(s => s.approved).length,
-        featured: catSuppliers.filter(s => s.featured).length,
-        verified: catSuppliers.filter(s => s.verified).length,
-      };
-    });
+    // Aggregate supplier stats in a single pass
+    for (const s of suppliers) {
+      const catStats = statsMap.get(s.category);
+      if (catStats) {
+        catStats.total++;
+        if (s.approved) catStats.approved++;
+        if (s.featured) catStats.featured++;
+        if (s.verified) catStats.verified++;
+      }
+    }
     
-    return stats;
+    // Convert Map back to expected array format
+    return categories.map(cat => ({
+      name: cat.name,
+      ...(statsMap.get(cat.name) || { total: 0, approved: 0, featured: 0, verified: 0 }),
+    }));
   },
 });
 
@@ -135,55 +147,75 @@ export const getAdminStats = query({
       throw new Error("Accès refusé. Admin uniquement.");
     }
     
-    // Count suppliers efficiently using indexes
-    const allSuppliers = await ctx.db.query("suppliers").collect();
-    const totalSuppliers = allSuppliers.length;
-    const pendingSuppliers = allSuppliers.filter(s => !s.approved).length;
-    const approvedSuppliers = allSuppliers.filter(s => s.approved).length;
-    const featuredSuppliers = allSuppliers.filter(s => s.featured).length;
-    const verifiedSuppliers = allSuppliers.filter(s => s.verified).length;
-    const claimedSuppliers = allSuppliers.filter(s => s.claimStatus === "approved").length;
+    // Parallelize all primary database fetches
+    const [allSuppliers, allUsers, allReviews, allProducts, allCategories, allClaims] = await Promise.all([
+      ctx.db.query("suppliers").collect(),
+      ctx.db.query("users").collect(),
+      ctx.db.query("reviews").collect(),
+      ctx.db.query("products").collect(),
+      ctx.db.query("categories").collect(),
+      ctx.db.query("supplierClaims").collect(),
+    ]);
+
+    // Single-pass supplier aggregation
+    let pendingSuppliers = 0;
+    let approvedSuppliers = 0;
+    let featuredSuppliers = 0;
+    let verifiedSuppliers = 0;
+    let claimedSuppliers = 0;
+    let totalRating = 0;
+    let ratedSuppliersCount = 0;
+
+    for (const s of allSuppliers) {
+      if (s.approved) approvedSuppliers++; else pendingSuppliers++;
+      if (s.featured) featuredSuppliers++;
+      if (s.verified) verifiedSuppliers++;
+      if (s.claimStatus === "approved") claimedSuppliers++;
+      if (s.rating && s.rating > 0) {
+        totalRating += s.rating;
+        ratedSuppliersCount++;
+      }
+    }
+
+    const averageRating = ratedSuppliersCount > 0 ? totalRating / ratedSuppliersCount : 0;
     
-    // Count users
-    const allUsers = await ctx.db.query("users").collect();
-    const totalUsers = allUsers.length;
-    const totalSuppliersAsUsers = allUsers.filter(u => u.user_type === 'supplier').length;
+    // Single-pass user aggregation
+    let totalSuppliersAsUsers = 0;
+    for (const u of allUsers) {
+      if (u.user_type === 'supplier') totalSuppliersAsUsers++;
+    }
     
-    // Count reviews
-    const allReviews = await ctx.db.query("reviews").collect();
-    const totalReviews = allReviews.length;
+    // Single-pass product aggregation
+    let activeProducts = 0;
+    for (const p of allProducts) {
+      if (p.status === 'active') activeProducts++;
+    }
     
-    // Count products
-    const allProducts = await ctx.db.query("products").collect();
-    const totalProducts = allProducts.length;
-    const activeProducts = allProducts.filter(p => p.status === 'active').length;
+    // Single-pass category aggregation
+    let activeCategories = 0;
+    for (const c of allCategories) {
+      if (c.is_active !== false) activeCategories++;
+    }
     
-    // Count categories
-    const allCategories = await ctx.db.query("categories").collect();
-    const activeCategories = allCategories.filter(c => c.is_active !== false).length;
-    
-    // Count claims
-    const allClaims = await ctx.db.query("supplierClaims").collect();
-    const pendingClaims = allClaims.filter(c => c.status === 'pending').length;
-    const approvedClaims = allClaims.filter(c => c.status === 'approved').length;
-    
-    // Calculate average rating
-    const ratedSuppliers = allSuppliers.filter(s => s.rating && s.rating > 0);
-    const averageRating = ratedSuppliers.length > 0
-      ? ratedSuppliers.reduce((sum, s) => sum + (s.rating || 0), 0) / ratedSuppliers.length
-      : 0;
+    // Single-pass claims aggregation
+    let pendingClaims = 0;
+    let approvedClaims = 0;
+    for (const c of allClaims) {
+      if (c.status === 'pending') pendingClaims++;
+      else if (c.status === 'approved') approvedClaims++;
+    }
     
     return {
-      totalSuppliers,
+      totalSuppliers: allSuppliers.length,
       pendingSuppliers,
       approvedSuppliers,
       featuredSuppliers,
       verifiedSuppliers,
       claimedSuppliers,
-      totalUsers,
+      totalUsers: allUsers.length,
       totalSuppliersAsUsers,
-      totalReviews,
-      totalProducts,
+      totalReviews: allReviews.length,
+      totalProducts: allProducts.length,
       activeProducts,
       activeCategories,
       pendingClaims,
@@ -204,42 +236,48 @@ export const getAdminStats = query({
 export const getHomepageStats = query({
   args: {},
   handler: async (ctx) => {
-    // Count approved suppliers only for public display
-    const approvedSuppliers = await ctx.db
-      .query("suppliers")
-      .withIndex("approved", (q) => q.eq("approved", true))
-      .collect();
+    // Parallelize fetches
+    const [approvedSuppliers, categories] = await Promise.all([
+      ctx.db.query("suppliers").withIndex("approved", (q) => q.eq("approved", true)).collect(),
+      ctx.db.query("categories").withIndex("is_active", (q) => q.eq("is_active", true)).collect(),
+    ]);
     
-    const totalSuppliers = approvedSuppliers.length;
-    const featuredSuppliers = approvedSuppliers.filter(s => s.featured).length;
-    const verifiedSuppliers = approvedSuppliers.filter(s => s.verified).length;
+    // Single-pass supplier aggregation
+    let featuredSuppliers = 0;
+    let verifiedSuppliers = 0;
+    let totalRating = 0;
+    let ratedSuppliersCount = 0;
     
-    // Calculate average rating from approved suppliers
-    const ratedSuppliers = approvedSuppliers.filter(s => s.rating && s.rating > 0);
-    const averageRating = ratedSuppliers.length > 0
-      ? ratedSuppliers.reduce((sum, s) => sum + (s.rating || 0), 0) / ratedSuppliers.length
-      : 0;
-    
-    // Count active categories
-    const categories = await ctx.db
-      .query("categories")
-      .withIndex("is_active", (q) => q.eq("is_active", true))
-      .collect();
-    const totalCategories = categories.length;
-    
-    // Category breakdown with counts
-    const categoryCounts: Record<string, number> = {};
+    // Category breakdown Map
+    const categoryCountsMap = new Map<string, number>();
     for (const cat of categories) {
-      categoryCounts[cat.name] = approvedSuppliers.filter(s => s.category === cat.name).length;
+      categoryCountsMap.set(cat.name, 0);
     }
     
+    for (const s of approvedSuppliers) {
+      if (s.featured) featuredSuppliers++;
+      if (s.verified) verifiedSuppliers++;
+      if (s.rating && s.rating > 0) {
+        totalRating += s.rating;
+        ratedSuppliersCount++;
+      }
+
+      // Update category counts
+      const currentCount = categoryCountsMap.get(s.category);
+      if (currentCount !== undefined) {
+        categoryCountsMap.set(s.category, currentCount + 1);
+      }
+    }
+
+    const averageRating = ratedSuppliersCount > 0 ? totalRating / ratedSuppliersCount : 0;
+
     return {
-      totalSuppliers,
+      totalSuppliers: approvedSuppliers.length,
       featuredSuppliers,
       verifiedSuppliers,
-      totalCategories,
+      totalCategories: categories.length,
       averageRating: Math.round(averageRating * 10) / 10,
-      categoryCounts,
+      categoryCounts: Object.fromEntries(categoryCountsMap),
     };
   },
 });
@@ -276,25 +314,24 @@ export const getSupplierStats = query({
       throw new Error("Accès refusé");
     }
     
-    // Count reviews
-    const reviews = await ctx.db
-      .query("reviews")
-      .withIndex("supplierId", (q) => q.eq("supplierId", args.supplierId))
-      .collect();
+    // Parallelize reviews and products fetches
+    const [reviews, products] = await Promise.all([
+      ctx.db.query("reviews").withIndex("supplierId", (q) => q.eq("supplierId", args.supplierId)).collect(),
+      ctx.db.query("products").withIndex("supplierId", (q) => q.eq("supplierId", args.supplierId)).collect(),
+    ]);
     
     const totalReviews = reviews.length;
     const averageRating = totalReviews > 0
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
       : 0;
     
-    // Count products
-    const products = await ctx.db
-      .query("products")
-      .withIndex("supplierId", (q) => q.eq("supplierId", args.supplierId))
-      .collect();
-    
     const totalProducts = products.length;
-    const activeProducts = products.filter(p => p.status === 'active').length;
+
+    // Single-pass product aggregation
+    let activeProducts = 0;
+    for (const p of products) {
+      if (p.status === 'active') activeProducts++;
+    }
     
     return {
       totalReviews,
@@ -344,33 +381,79 @@ export const _adminStatsInternal = query({
     // Same logic as getAdminStats but without auth check
     // (auth is handled by the calling action)
     
-    const allSuppliers = await ctx.db.query("suppliers").collect();
-    const allUsers = await ctx.db.query("users").collect();
-    const allReviews = await ctx.db.query("reviews").collect();
-    const allProducts = await ctx.db.query("products").collect();
-    const allCategories = await ctx.db.query("categories").collect();
-    const allClaims = await ctx.db.query("supplierClaims").collect();
+    // Parallelize all primary database fetches
+    const [allSuppliers, allUsers, allReviews, allProducts, allCategories, allClaims] = await Promise.all([
+      ctx.db.query("suppliers").collect(),
+      ctx.db.query("users").collect(),
+      ctx.db.query("reviews").collect(),
+      ctx.db.query("products").collect(),
+      ctx.db.query("categories").collect(),
+      ctx.db.query("supplierClaims").collect(),
+    ]);
+
+    // Single-pass supplier aggregation
+    let pendingSuppliers = 0;
+    let approvedSuppliers = 0;
+    let featuredSuppliers = 0;
+    let verifiedSuppliers = 0;
+    let claimedSuppliers = 0;
+    let totalRating = 0;
+    let ratedSuppliersCount = 0;
+
+    for (const s of allSuppliers) {
+      if (s.approved) approvedSuppliers++; else pendingSuppliers++;
+      if (s.featured) featuredSuppliers++;
+      if (s.verified) verifiedSuppliers++;
+      if (s.claimStatus === "approved") claimedSuppliers++;
+      if (s.rating && s.rating > 0) {
+        totalRating += s.rating;
+        ratedSuppliersCount++;
+      }
+    }
+
+    const averageRating = ratedSuppliersCount > 0 ? totalRating / ratedSuppliersCount : 0;
     
-    const ratedSuppliers = allSuppliers.filter(s => s.rating && s.rating > 0);
-    const averageRating = ratedSuppliers.length > 0
-      ? ratedSuppliers.reduce((sum, s) => sum + (s.rating || 0), 0) / ratedSuppliers.length
-      : 0;
+    // Single-pass user aggregation
+    let totalSuppliersAsUsers = 0;
+    for (const u of allUsers) {
+      if (u.user_type === 'supplier') totalSuppliersAsUsers++;
+    }
+
+    // Single-pass product aggregation
+    let activeProducts = 0;
+    for (const p of allProducts) {
+      if (p.status === 'active') activeProducts++;
+    }
+
+    // Single-pass category aggregation
+    let activeCategories = 0;
+    for (const c of allCategories) {
+      if (c.is_active !== false) activeCategories++;
+    }
+
+    // Single-pass claims aggregation
+    let pendingClaims = 0;
+    let approvedClaims = 0;
+    for (const c of allClaims) {
+      if (c.status === 'pending') pendingClaims++;
+      else if (c.status === 'approved') approvedClaims++;
+    }
     
     return {
       totalSuppliers: allSuppliers.length,
-      pendingSuppliers: allSuppliers.filter(s => !s.approved).length,
-      approvedSuppliers: allSuppliers.filter(s => s.approved).length,
-      featuredSuppliers: allSuppliers.filter(s => s.featured).length,
-      verifiedSuppliers: allSuppliers.filter(s => s.verified).length,
-      claimedSuppliers: allSuppliers.filter(s => s.claimStatus === "approved").length,
+      pendingSuppliers,
+      approvedSuppliers,
+      featuredSuppliers,
+      verifiedSuppliers,
+      claimedSuppliers,
       totalUsers: allUsers.length,
-      totalSuppliersAsUsers: allUsers.filter(u => u.user_type === 'supplier').length,
+      totalSuppliersAsUsers,
       totalReviews: allReviews.length,
       totalProducts: allProducts.length,
-      activeProducts: allProducts.filter(p => p.status === 'active').length,
-      activeCategories: allCategories.filter(c => c.is_active !== false).length,
-      pendingClaims: allClaims.filter(c => c.status === 'pending').length,
-      approvedClaims: allClaims.filter(c => c.status === 'approved').length,
+      activeProducts,
+      activeCategories,
+      pendingClaims,
+      approvedClaims,
       averageRating: Math.round(averageRating * 100) / 100,
     };
   },
