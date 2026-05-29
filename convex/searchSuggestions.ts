@@ -210,14 +210,26 @@ export const searchSuggestionsWithQuery = action({
       }
     }
 
-    // Get all approved suppliers using internal query
-    const suppliers = await ctx.runQuery(internal.searchSuggestions.getApprovedSuppliers, {});
+    // Parallelize data fetching for better performance
+    const [suppliers, products, categories] = await Promise.all([
+      ctx.runQuery(internal.searchSuggestions.getApprovedSuppliers, {}),
+      ctx.runQuery(internal.searchSuggestions.getAllProducts, {}),
+      ctx.runQuery(internal.searchSuggestions.getActiveCategories, {})
+    ]);
 
-    // Get all products using internal query
-    const products = await ctx.runQuery(internal.searchSuggestions.getAllProducts, {});
-
-    // Get all active categories using internal query
-    const categories = await ctx.runQuery(internal.searchSuggestions.getActiveCategories, {});
+    // Build lookup map for suppliers by category to avoid N+1 queries later
+    const suppliersByCategory = new Map<string, any[]>();
+    suppliers.forEach((s: any) => {
+      if (s.category) {
+        if (!suppliersByCategory.has(s.category)) {
+          suppliersByCategory.set(s.category, []);
+        }
+        const catSuppliers = suppliersByCategory.get(s.category)!;
+        if (catSuppliers.length < 10) { // Limit to match the original getSuppliersByCategory behavior
+          catSuppliers.push(s);
+        }
+      }
+    });
 
     // Track product categories for supplier suggestions
     const matchedProductCategories = new Set<string>();
@@ -230,6 +242,7 @@ export const searchSuggestionsWithQuery = action({
     }
     
     const suggestions: Suggestion[] = [];
+    const addedSupplierNames = new Set<string>();
 
     // Add matching supplier names
     suppliers.forEach((s: any) => {
@@ -245,6 +258,7 @@ export const searchSuggestionsWithQuery = action({
             score,
             type: 'supplier',
           });
+          addedSupplierNames.add(nameLower);
           break; // Only add once per supplier
         }
       }
@@ -272,24 +286,22 @@ export const searchSuggestionsWithQuery = action({
       }
     });
 
-    // Add suppliers from matched product categories
+    // Add suppliers from matched product categories using in-memory lookup (optimized from sequential DB queries)
     for (const category of matchedProductCategories) {
-      const categorySuppliers = await ctx.runQuery(
-        internal.searchSuggestions.getSuppliersByCategory, 
-        { category }
-      );
+      const categorySuppliers = suppliersByCategory.get(category) || [];
+
       categorySuppliers.forEach((s: any) => {
         if (!s.business_name) return;
-        // Avoid duplicates
-        const alreadyAdded = suggestions.some(
-          sug => sug.text.toLowerCase() === s.business_name.toLowerCase() && sug.type === 'supplier'
-        );
-        if (!alreadyAdded) {
+        const nameLower = s.business_name.toLowerCase();
+
+        // Avoid duplicates using O(1) Set lookup
+        if (!addedSupplierNames.has(nameLower)) {
           suggestions.push({
             text: s.business_name,
             score: 45, // Slightly lower score than direct matches
             type: 'supplier',
           });
+          addedSupplierNames.add(nameLower);
         }
       });
     }
