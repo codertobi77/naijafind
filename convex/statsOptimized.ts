@@ -85,29 +85,42 @@ export const _getCategoryStatsInternal = query({
 /**
  * Query: Get detailed category stats with breakdown
  * Returns total, approved, featured, verified counts per category as array
+ * Optimized with Map-based aggregation to reduce complexity from O(C * S) to O(C + S)
  */
 export const getDetailedCategoryStats = query({
   args: {},
   handler: async (ctx) => {
-    // Get all categories (bounded for safety)
-    const categories = await ctx.db.query("categories").take(1000);
+    // Parallelize fetches to reduce round-trip time
+    const [categories, suppliers] = await Promise.all([
+      ctx.db.query("categories").take(1000),
+      ctx.db.query("suppliers").take(10000)
+    ]);
+
+    // Initialize Map for O(1) lookups during aggregation
+    const statsMap = new Map<string, { total: number, approved: number, featured: number, verified: number }>();
     
-    // Get all suppliers (bounded to prevent memory issues)
-    const suppliers = await ctx.db.query("suppliers").take(10000);
+    // Single-pass aggregation over suppliers: O(S)
+    for (const s of suppliers) {
+      if (!s.category) continue;
+
+      const stats = statsMap.get(s.category) || { total: 0, approved: 0, featured: 0, verified: 0 };
+      stats.total++;
+      if (s.approved) stats.approved++;
+      if (s.featured) stats.featured++;
+      if (s.verified) stats.verified++;
+
+      statsMap.set(s.category, stats);
+    }
     
-    // Build detailed stats as array
-    const stats = categories.map((cat) => {
-      const catSuppliers = suppliers.filter(s => s.category === cat.name);
+    // Map categories to their aggregated stats: O(C)
+    // Total complexity: O(C + S)
+    return categories.map((cat) => {
+      const catStats = statsMap.get(cat.name) || { total: 0, approved: 0, featured: 0, verified: 0 };
       return {
         name: cat.name,
-        total: catSuppliers.length,
-        approved: catSuppliers.filter(s => s.approved).length,
-        featured: catSuppliers.filter(s => s.featured).length,
-        verified: catSuppliers.filter(s => s.verified).length,
+        ...catStats,
       };
     });
-    
-    return stats;
   },
 });
 
