@@ -20,12 +20,15 @@ const CACHE_KEY_PREFIX = "deepl_translation_cache_";
  * Generate a cache key for a translation
  */
 const getCacheKey = (text: string, targetLang: string): string => {
-  // Simple hash function for the text
-  const textHash = text
-    .split("")
-    .reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    .toString();
-  return `${textHash}_${targetLang}`;
+  // Use length and a simple hash to reduce collisions
+  // Character summation alone has many collisions (e.g., anagrams)
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    const char = text.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return `${text.length}_${Math.abs(hash)}_${targetLang}`;
 };
 
 /**

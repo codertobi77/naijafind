@@ -179,30 +179,26 @@ export const useMultilingualSearch = () => {
       setIsTranslating(true);
 
       try {
-        // Collect all texts to translate
-        const textsToTranslate: string[] = [];
-        const textMapping: { resultIndex: number; field: keyof T; textIndex: number }[] = [];
-
-        results.forEach((result, resultIndex) => {
+        // Collect all unique texts to translate to minimize API calls
+        const uniqueTexts = new Set<string>();
+        results.forEach((result) => {
           fieldsToTranslate.forEach((field) => {
             const value = result[field];
             if (typeof value === "string" && value.trim()) {
-              textMapping.push({
-                resultIndex,
-                field,
-                textIndex: textsToTranslate.length,
-              });
-              textsToTranslate.push(value);
+              uniqueTexts.add(value);
             }
           });
         });
 
+        const textsToTranslate = Array.from(uniqueTexts);
         if (textsToTranslate.length === 0) {
           return results;
         }
 
+        // Map for O(1) lookup of translations
+        const translationMap = new Map<string, string>();
+
         // Translate in batches
-        const translatedResults = [...results];
         for (let i = 0; i < textsToTranslate.length; i += batchSize) {
           const batch = textsToTranslate.slice(i, i + batchSize);
           const batchResult = await translateBatchAction({
@@ -213,19 +209,31 @@ export const useMultilingualSearch = () => {
 
           if (batchResult.success && batchResult.translations) {
             batchResult.translations.forEach((translation, idx) => {
-              const globalIndex = i + idx;
-              const mapping = textMapping.find((m) => m.textIndex === globalIndex);
-              if (mapping && translation.translatedText) {
-                translatedResults[mapping.resultIndex] = {
-                  ...translatedResults[mapping.resultIndex],
-                  [mapping.field]: translation.translatedText,
-                };
+              if (translation.translatedText) {
+                translationMap.set(batch[idx], translation.translatedText);
               }
             });
           }
         }
 
-        return translatedResults;
+        // Apply translations to results using the map for O(1) lookup
+        return results.map((result) => {
+          let hasChange = false;
+          const updatedResult = { ...result };
+
+          fieldsToTranslate.forEach((field) => {
+            const value = result[field];
+            if (typeof value === "string" && value.trim()) {
+              const translated = translationMap.get(value);
+              if (translated && translated !== value) {
+                updatedResult[field] = translated as T[keyof T];
+                hasChange = true;
+              }
+            }
+          });
+
+          return hasChange ? updatedResult : result;
+        });
       } catch (error) {
         console.error("Results translation error:", error);
         return results;
