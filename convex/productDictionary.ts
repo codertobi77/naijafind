@@ -144,8 +144,9 @@ function expandQueryWithDictionary(query: string): string[] {
 
 /**
  * Calculate semantic relevance score using dictionary
+ * Optimization: Added preExpandedTerms parameter to avoid redundant dictionary expansions in loops.
  */
-function calculateSemanticScore(query: string, text: string): number {
+function calculateSemanticScore(query: string, text: string, preExpandedTerms?: string[]): number {
   const queryLower = query.toLowerCase();
   const textLower = text.toLowerCase();
   let score = 0;
@@ -156,7 +157,8 @@ function calculateSemanticScore(query: string, text: string): number {
   }
   
   // Expanded terms match
-  const expandedTerms = expandQueryWithDictionary(query);
+  // Performance: Reuse pre-expanded terms if available to avoid O(N*M) complexity in search loops
+  const expandedTerms = preExpandedTerms || expandQueryWithDictionary(query);
   for (const term of expandedTerms) {
     if (textLower.includes(term)) {
       score += 5;
@@ -307,8 +309,8 @@ export const scoreTextRelevance = action({
     text: v.string(),
   },
   handler: async (_ctx, args) => {
-    const score = calculateSemanticScore(args.query, args.text);
     const expanded = expandQueryWithDictionary(args.query);
+    const score = calculateSemanticScore(args.query, args.text, expanded);
     
     // Find which terms matched
     const textLower = args.text.toLowerCase();

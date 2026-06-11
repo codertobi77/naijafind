@@ -365,8 +365,9 @@ export const searchProductsMultilingual = action({
           const category = (p.category || "").toLowerCase();
 
           // Calculate semantic scores using dictionary
-          const nameSemanticScore = calculateSemanticScore(queryLower, name);
-          const descSemanticScore = calculateSemanticScore(queryLower, desc);
+          // Optimization: Reuse pre-expanded dictionary terms to avoid redundant expansions in the product loop.
+          const nameSemanticScore = calculateSemanticScore(queryLower, name, expandedTerms);
+          const descSemanticScore = calculateSemanticScore(queryLower, desc, expandedTerms);
           
           // Exact match in name gets highest score
           if (name === queryLower) {
