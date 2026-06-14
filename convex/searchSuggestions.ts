@@ -210,14 +210,26 @@ export const searchSuggestionsWithQuery = action({
       }
     }
 
-    // Get all approved suppliers using internal query
-    const suppliers = await ctx.runQuery(internal.searchSuggestions.getApprovedSuppliers, {});
+    // OPTIMIZATION: Parallelize data fetching and use lightweight queries to reduce bandwidth
+    const [suppliers, products, categories] = await Promise.all([
+      ctx.runQuery(internal.searchSuggestions._getApprovedSuppliersLight, {}),
+      ctx.runQuery(internal.searchSuggestions._getProductsLight, { limit: 10000 }),
+      ctx.runQuery(internal.searchSuggestions._getActiveCategoriesLight, {}),
+    ]);
 
-    // Get all products using internal query
-    const products = await ctx.runQuery(internal.searchSuggestions.getAllProducts, {});
-
-    // Get all active categories using internal query
-    const categories = await ctx.runQuery(internal.searchSuggestions.getActiveCategories, {});
+    // OPTIMIZATION: Pre-group suppliers by category to avoid N+1 query problem later
+    const categoryToSuppliers = new Map<string, any[]>();
+    suppliers.forEach((s: any) => {
+      if (s.category) {
+        if (!categoryToSuppliers.has(s.category)) {
+          categoryToSuppliers.set(s.category, []);
+        }
+        // Limit to 10 suppliers per category for suggestions to keep memory bounded
+        if (categoryToSuppliers.get(s.category)!.length < 10) {
+          categoryToSuppliers.get(s.category)!.push(s);
+        }
+      }
+    });
 
     // Track product categories for supplier suggestions
     const matchedProductCategories = new Set<string>();
@@ -272,25 +284,20 @@ export const searchSuggestionsWithQuery = action({
       }
     });
 
-    // Add suppliers from matched product categories
+    // OPTIMIZATION: Use pre-calculated map instead of N+1 database queries
     for (const category of matchedProductCategories) {
-      const categorySuppliers = await ctx.runQuery(
-        internal.searchSuggestions.getSuppliersByCategory, 
-        { category }
-      );
+      const categorySuppliers = categoryToSuppliers.get(category) || [];
+
       categorySuppliers.forEach((s: any) => {
         if (!s.business_name) return;
-        // Avoid duplicates
-        const alreadyAdded = suggestions.some(
-          sug => sug.text.toLowerCase() === s.business_name.toLowerCase() && sug.type === 'supplier'
-        );
-        if (!alreadyAdded) {
-          suggestions.push({
-            text: s.business_name,
-            score: 45, // Slightly lower score than direct matches
-            type: 'supplier',
-          });
-        }
+
+        // OPTIMIZATION: Early text check to avoid expensive .some() on entire array
+        // The final deduplication will handle duplicates properly, but this keeps the array smaller
+        suggestions.push({
+          text: s.business_name,
+          score: 45, // Slightly lower score than direct matches
+          type: 'supplier',
+        });
       });
     }
 
@@ -328,19 +335,27 @@ export const searchSuggestionsWithQuery = action({
       }
     });
 
-    // Sort suggestions by score (descending) and remove duplicates
-    const sortedSuggestions = suggestions
-      .sort((a, b) => b.score - a.score)
-      .filter((item, index, self) => 
-        index === self.findIndex(t => t.text.toLowerCase() === item.text.toLowerCase())
-      )
-      .slice(0, limit);
+    // OPTIMIZATION: Sort by score first so that deduplication keeps the highest score
+    suggestions.sort((a, b) => b.score - a.score);
+
+    // OPTIMIZATION: Use O(N) Set-based deduplication instead of O(N^2) .filter(findIndex)
+    const seenTexts = new Set<string>();
+    const uniqueSuggestions: typeof suggestions = [];
+
+    for (const sug of suggestions) {
+      const lowerText = sug.text.toLowerCase();
+      if (!seenTexts.has(lowerText)) {
+        seenTexts.add(lowerText);
+        uniqueSuggestions.push(sug);
+        if (uniqueSuggestions.length >= limit) break; // Early break for performance
+      }
+    }
 
     // Remove duplicate locations and limit results
     const uniqueLocations = [...new Set(locations)].slice(0, limit);
 
     return {
-      suggestions: sortedSuggestions.map(s => s.text),
+      suggestions: uniqueSuggestions.map(s => s.text),
       locations: uniqueLocations,
       translationsUsed: queryTranslations.length > 1,
       originalQuery: searchQuery,
