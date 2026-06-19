@@ -65,13 +65,11 @@ export const getUnreadCount = query({
 
     const convexUserId = user._id;
 
-    const notifications = await ctx.db
+    // Use .count() for efficient unread notification counting
+    return await ctx.db
       .query('notifications')
       .withIndex('userId_read', (q) => q.eq('userId', convexUserId).eq('read', false))
-      .take(1000);
-
-    // Return capped count - for accurate counts at scale, use a denormalized counter
-    return notifications.length < 1000 ? notifications.length : 1000;
+      .count();
   },
 });
 
