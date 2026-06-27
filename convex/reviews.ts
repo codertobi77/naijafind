@@ -81,20 +81,15 @@ export const createReview = mutation({
       created_at: new Date().toISOString(),
     });
     
-    // Update supplier rating and review count
-    const supplierReviews = await ctx.db
-      .query("reviews")
-      .withIndex("supplierId", (q) => q.eq("supplierId", args.supplierId))
-      .collect();
-    
-    const totalReviews = supplierReviews.length;
-    const averageRating = totalReviews > 0 
-      ? supplierReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
-      : 0;
+    // Update supplier rating and review count incrementally (O(1))
+    const oldCount = Number(supplier.reviews_count ?? 0n);
+    const oldRating = supplier.rating ?? 0;
+    const newCount = oldCount + 1;
+    const newAverageRating = (oldRating * oldCount + args.rating) / newCount;
     
     await ctx.db.patch(args.supplierId as any, {
-      rating: averageRating,
-      reviews_count: BigInt(totalReviews),
+      rating: newAverageRating,
+      reviews_count: BigInt(newCount),
     });
     
     return { success: true, reviewId };
@@ -122,23 +117,38 @@ export const updateReview = mutation({
       response: args.response ?? review.response,
     });
 
-    // Update supplier rating if this is a status change that affects visibility
-    if (args.status) {
-      const supplierReviews = await ctx.db
-        .query("reviews")
-        .withIndex("supplierId", (q) => q.eq("supplierId", supplier._id as unknown as string))
-        .take(1000);
-      
-      const publishedReviews = supplierReviews.filter(r => r.status !== "deleted");
-      const totalReviews = publishedReviews.length;
-      const averageRating = totalReviews > 0 
-        ? publishedReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
-        : 0;
-      
-      await ctx.db.patch(supplier._id as any, {
-        rating: averageRating,
-        reviews_count: BigInt(totalReviews),
-      });
+    // Update supplier rating incrementally (O(1)) if this is a status change that affects visibility
+    // Visibility transition: deleted <-> published/other
+    const oldStatus = review.status;
+    const newStatus = args.status;
+
+    if (newStatus && oldStatus !== newStatus) {
+      const wasVisible = oldStatus !== "deleted";
+      const isVisible = newStatus !== "deleted";
+
+      if (wasVisible !== isVisible) {
+        const oldCount = Number(supplier.reviews_count ?? 0n);
+        const oldRating = supplier.rating ?? 0;
+        let newCount = oldCount;
+        let newAverageRating = oldRating;
+
+        if (wasVisible && !isVisible) {
+          // Transition: visible -> deleted (Removal logic)
+          newCount = Math.max(0, oldCount - 1);
+          newAverageRating = newCount > 0
+            ? (oldRating * oldCount - review.rating) / newCount
+            : 0;
+        } else if (!wasVisible && isVisible) {
+          // Transition: deleted -> visible (Addition logic)
+          newCount = oldCount + 1;
+          newAverageRating = (oldRating * oldCount + review.rating) / newCount;
+        }
+
+        await ctx.db.patch(supplier._id as any, {
+          rating: newAverageRating,
+          reviews_count: BigInt(newCount),
+        });
+      }
     }
 
     return { success: true };
@@ -157,24 +167,23 @@ export const deleteReview = mutation({
     const supplier = await ctx.db.query("suppliers").withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier)).first();
     if (!supplier || review.supplierId !== (supplier._id as unknown as string)) throw new Error("Accès refusé");
 
+    // Update supplier rating and review count incrementally (O(1)) before deletion
+    // Only update if the review was visible (not "deleted")
+    if (review.status !== "deleted") {
+      const oldCount = Number(supplier.reviews_count ?? 0n);
+      const oldRating = supplier.rating ?? 0;
+      const newCount = Math.max(0, oldCount - 1);
+      const newAverageRating = newCount > 0
+        ? (oldRating * oldCount - review.rating) / newCount
+        : 0;
+
+      await ctx.db.patch(supplier._id as any, {
+        rating: newAverageRating,
+        reviews_count: BigInt(newCount),
+      });
+    }
+
     await ctx.db.delete(id);
-    
-    // Update supplier rating and review count
-    const supplierReviews = await ctx.db
-      .query("reviews")
-      .withIndex("supplierId", (q) => q.eq("supplierId", supplier._id as unknown as string))
-      .take(1000);
-    
-    const publishedReviews = supplierReviews.filter(r => r.status !== "deleted");
-    const totalReviews = publishedReviews.length;
-    const averageRating = totalReviews > 0 
-      ? publishedReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
-      : 0;
-    
-    await ctx.db.patch(supplier._id as any, {
-      rating: averageRating,
-      reviews_count: BigInt(totalReviews),
-    });
     
     return { success: true };
   }
