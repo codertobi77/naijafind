@@ -7,12 +7,15 @@ import { internal } from "./_generated/api";
  * Only returns fields needed for search suggestions
  */
 export const _getApprovedSuppliersLight = internalQuery({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 5000;
     const suppliers = await ctx.db
       .query("suppliers")
       .withIndex("approved", (q) => q.eq("approved", true))
-      .take(5000); // Limit to prevent timeout
+      .take(limit); // Limit to prevent timeout
     
     // Return only necessary fields to minimize bandwidth
     return suppliers.map(s => ({
@@ -182,42 +185,47 @@ export const searchSuggestionsWithQuery = action({
       return { suggestions: [], locations: [], translationsUsed: false };
     }
 
+    // PERFORMANCE OPTIMIZATION: Parallelize translation and data fetching
+    const [translationResult, suppliers, products, categories] = await Promise.all([
+      searchQuery.length >= 2
+        ? ctx.runAction(internal.translation.translateText, {
+            text: searchQuery,
+            targetLang: userLanguage === 'fr' ? 'en' : 'fr',
+            sourceLang: userLanguage,
+          }).catch(err => {
+            console.log("Translation failed, using original query:", err);
+            return { success: false, translatedText: null };
+          })
+        : Promise.resolve({ success: false, translatedText: null }),
+      // Use LIGHT queries to reduce memory and bandwidth
+      ctx.runQuery(internal.searchSuggestions._getApprovedSuppliersLight, { limit: 5000 }),
+      ctx.runQuery(internal.searchSuggestions._getProductsLight, { limit: 1000 }),
+      ctx.runQuery(internal.searchSuggestions._getActiveCategoriesLight, {})
+    ]);
+
     // Build list of queries to search - original + translated
-    let queryTranslations: string[] = [searchQuery];
-    
-    // If query is long enough, try to translate for bilingual search
-    if (searchQuery.length >= 2) {
-      try {
-        // If user is searching in French, also search in English and vice versa
-        const otherLanguage = userLanguage === 'fr' ? 'en' : 'fr';
-        
-        const translationResult = await ctx.runAction(internal.translation.translateText, {
-          text: searchQuery,
-          targetLang: otherLanguage,
-          sourceLang: userLanguage,
-        });
-        
-        if (translationResult.success && translationResult.translatedText) {
-          // Add the translated query to our search terms
-          const translatedQuery = translationResult.translatedText.toLowerCase().trim();
-          if (translatedQuery !== searchQuery) {
-            queryTranslations.push(translatedQuery);
-          }
-        }
-      } catch (error) {
-        // If translation fails, continue with original query only
-        console.log("Translation failed, using original query:", error);
+    const queryTranslations: string[] = [searchQuery];
+    if (translationResult.success && translationResult.translatedText) {
+      const translatedQuery = translationResult.translatedText.toLowerCase().trim();
+      if (translatedQuery !== searchQuery) {
+        queryTranslations.push(translatedQuery);
       }
     }
 
-    // Get all approved suppliers using internal query
-    const suppliers = await ctx.runQuery(internal.searchSuggestions.getApprovedSuppliers, {});
-
-    // Get all products using internal query
-    const products = await ctx.runQuery(internal.searchSuggestions.getAllProducts, {});
-
-    // Get all active categories using internal query
-    const categories = await ctx.runQuery(internal.searchSuggestions.getActiveCategories, {});
+    // PERFORMANCE OPTIMIZATION: Pre-calculate category to suppliers mapping to avoid N+1 queries
+    const categoryToSuppliers = new Map<string, any[]>();
+    suppliers.forEach(s => {
+      if (s.category) {
+        if (!categoryToSuppliers.has(s.category)) {
+          categoryToSuppliers.set(s.category, []);
+        }
+        // Limit to 10 suppliers per category in the map to match previous behavior
+        const list = categoryToSuppliers.get(s.category)!;
+        if (list.length < 10) {
+          list.push(s);
+        }
+      }
+    });
 
     // Track product categories for supplier suggestions
     const matchedProductCategories = new Set<string>();
@@ -230,118 +238,108 @@ export const searchSuggestionsWithQuery = action({
     }
     
     const suggestions: Suggestion[] = [];
+    const seenTexts = new Set<string>();
+
+    // Helper to add unique suggestions
+    const addSuggestion = (text: string, score: number, type: 'supplier' | 'product' | 'category') => {
+      const textLower = text.toLowerCase();
+      if (!seenTexts.has(textLower)) {
+        suggestions.push({ text, score, type });
+        seenTexts.add(textLower);
+        return true;
+      }
+      return false;
+    };
 
     // Add matching supplier names
-    suppliers.forEach((s: any) => {
-      if (!s.business_name) return;
+    for (const s of suppliers) {
+      if (!s.business_name) continue;
       const nameLower = s.business_name.toLowerCase();
       
-      // Check against all query translations
       for (const query of queryTranslations) {
         if (nameLower.includes(query)) {
           const score = nameLower === query ? 100 : nameLower.startsWith(query) ? 80 : 50;
-          suggestions.push({
-            text: s.business_name,
-            score,
-            type: 'supplier',
-          });
-          break; // Only add once per supplier
+          addSuggestion(s.business_name, score, 'supplier');
+          break;
         }
       }
-    });
+    }
 
     // Add matching product names and track their categories
-    products.forEach((p: any) => {
-      if (!p.name) return;
+    for (const p of products) {
+      if (!p.name) continue;
       const nameLower = p.name.toLowerCase();
       
       for (const query of queryTranslations) {
         if (nameLower.includes(query)) {
           const score = nameLower === query ? 100 : nameLower.startsWith(query) ? 80 : 50;
-          suggestions.push({
-            text: p.name,
-            score,
-            type: 'product',
-          });
-          // Track category for supplier suggestions
+          addSuggestion(p.name, score, 'product');
           if (p.category) {
             matchedProductCategories.add(p.category);
           }
           break;
         }
       }
-    });
+    }
 
-    // Add suppliers from matched product categories
+    // PERFORMANCE OPTIMIZATION: Use the pre-calculated Map instead of N+1 database queries
     for (const category of matchedProductCategories) {
-      const categorySuppliers = await ctx.runQuery(
-        internal.searchSuggestions.getSuppliersByCategory, 
-        { category }
-      );
+      const categorySuppliers = categoryToSuppliers.get(category) || [];
       categorySuppliers.forEach((s: any) => {
-        if (!s.business_name) return;
-        // Avoid duplicates
-        const alreadyAdded = suggestions.some(
-          sug => sug.text.toLowerCase() === s.business_name.toLowerCase() && sug.type === 'supplier'
-        );
-        if (!alreadyAdded) {
-          suggestions.push({
-            text: s.business_name,
-            score: 45, // Slightly lower score than direct matches
-            type: 'supplier',
-          });
+        if (s.business_name) {
+          addSuggestion(s.business_name, 45, 'supplier');
         }
       });
     }
 
     // Add matching category names
-    categories.forEach((c: any) => {
-      if (!c.name) return;
+    for (const c of categories) {
+      if (!c.name) continue;
       const nameLower = c.name.toLowerCase();
       
       for (const query of queryTranslations) {
         if (nameLower.includes(query)) {
           const score = nameLower === query ? 100 : nameLower.startsWith(query) ? 90 : 60;
-          suggestions.push({
-            text: c.name,
-            score,
-            type: 'category',
-          });
+          addSuggestion(c.name, score, 'category');
           break;
         }
       }
-    });
+    }
 
     // Build location suggestions
     const locations: string[] = [];
+    const seenLocations = new Set<string>();
 
-    suppliers.forEach((s: any) => {
+    for (const s of suppliers) {
       for (const query of queryTranslations) {
         if (s.city?.toLowerCase().includes(query)) {
-          locations.push(s.city);
+          if (!seenLocations.has(s.city)) {
+            locations.push(s.city);
+            seenLocations.add(s.city);
+          }
           break;
         }
         if (s.state?.toLowerCase().includes(query)) {
-          locations.push(s.state);
+          if (!seenLocations.has(s.state)) {
+            locations.push(s.state);
+            seenLocations.add(s.state);
+          }
           break;
         }
       }
-    });
+      // Early break if we have enough locations
+      if (locations.length >= limit) break;
+    }
 
-    // Sort suggestions by score (descending) and remove duplicates
+    // Sort suggestions by score (descending)
+    // Deduplication was already handled by addSuggestion
     const sortedSuggestions = suggestions
       .sort((a, b) => b.score - a.score)
-      .filter((item, index, self) => 
-        index === self.findIndex(t => t.text.toLowerCase() === item.text.toLowerCase())
-      )
       .slice(0, limit);
-
-    // Remove duplicate locations and limit results
-    const uniqueLocations = [...new Set(locations)].slice(0, limit);
 
     return {
       suggestions: sortedSuggestions.map(s => s.text),
-      locations: uniqueLocations,
+      locations: locations.slice(0, limit),
       translationsUsed: queryTranslations.length > 1,
       originalQuery: searchQuery,
     };
