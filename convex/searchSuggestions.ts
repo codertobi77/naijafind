@@ -119,10 +119,12 @@ export const getSearchSuggestions = action({
   handler: async (ctx, args) => {
     const limit = Number(args.limit ?? 100);
 
-    // Use internal queries to fetch data server-side
-    const suppliers = await ctx.runQuery(internal.searchSuggestions._getApprovedSuppliersLight, {});
-    const products = await ctx.runQuery(internal.searchSuggestions._getProductsLight, { limit: 1000 });
-    const categories = await ctx.runQuery(internal.searchSuggestions._getActiveCategoriesLight, {});
+    // Use internal queries to fetch data server-side in parallel
+    const [suppliers, products, categories] = await Promise.all([
+      ctx.runQuery(internal.searchSuggestions._getApprovedSuppliersLight, {}),
+      ctx.runQuery(internal.searchSuggestions._getProductsLight, { limit: 1000 }),
+      ctx.runQuery(internal.searchSuggestions._getActiveCategoriesLight, {}),
+    ]);
 
     // Extract unique supplier business names
     const supplierNames = suppliers
@@ -210,14 +212,23 @@ export const searchSuggestionsWithQuery = action({
       }
     }
 
-    // Get all approved suppliers using internal query
-    const suppliers = await ctx.runQuery(internal.searchSuggestions.getApprovedSuppliers, {});
+    // Parallelize data fetching using lightweight internal queries
+    const [suppliers, products, categories] = await Promise.all([
+      ctx.runQuery(internal.searchSuggestions._getApprovedSuppliersLight, {}),
+      ctx.runQuery(internal.searchSuggestions._getProductsLight, { limit: 1000 }),
+      ctx.runQuery(internal.searchSuggestions._getActiveCategoriesLight, {}),
+    ]);
 
-    // Get all products using internal query
-    const products = await ctx.runQuery(internal.searchSuggestions.getAllProducts, {});
-
-    // Get all active categories using internal query
-    const categories = await ctx.runQuery(internal.searchSuggestions.getActiveCategories, {});
+    // Build a category-to-suppliers map to avoid N+1 queries in the loop below
+    const categoryToSuppliers = new Map<string, string[]>();
+    suppliers.forEach((s: any) => {
+      if (s.category && s.business_name) {
+        if (!categoryToSuppliers.has(s.category)) {
+          categoryToSuppliers.set(s.category, []);
+        }
+        categoryToSuppliers.get(s.category)!.push(s.business_name);
+      }
+    });
 
     // Track product categories for supplier suggestions
     const matchedProductCategories = new Set<string>();
@@ -272,25 +283,17 @@ export const searchSuggestionsWithQuery = action({
       }
     });
 
-    // Add suppliers from matched product categories
+    // Add suppliers from matched product categories (using pre-built map)
     for (const category of matchedProductCategories) {
-      const categorySuppliers = await ctx.runQuery(
-        internal.searchSuggestions.getSuppliersByCategory, 
-        { category }
-      );
-      categorySuppliers.forEach((s: any) => {
-        if (!s.business_name) return;
-        // Avoid duplicates
-        const alreadyAdded = suggestions.some(
-          sug => sug.text.toLowerCase() === s.business_name.toLowerCase() && sug.type === 'supplier'
-        );
-        if (!alreadyAdded) {
-          suggestions.push({
-            text: s.business_name,
-            score: 45, // Slightly lower score than direct matches
-            type: 'supplier',
-          });
-        }
+      const supplierNames = categoryToSuppliers.get(category) || [];
+      // Use up to 10 suppliers per category to keep results balanced
+      supplierNames.slice(0, 10).forEach((business_name) => {
+        // We'll handle overall deduplication at the end
+        suggestions.push({
+          text: business_name,
+          score: 45, // Slightly lower score than direct matches
+          type: 'supplier',
+        });
       });
     }
 
@@ -328,19 +331,27 @@ export const searchSuggestionsWithQuery = action({
       }
     });
 
-    // Sort suggestions by score (descending) and remove duplicates
-    const sortedSuggestions = suggestions
-      .sort((a, b) => b.score - a.score)
-      .filter((item, index, self) => 
-        index === self.findIndex(t => t.text.toLowerCase() === item.text.toLowerCase())
-      )
-      .slice(0, limit);
+    // Sort suggestions by score (descending)
+    suggestions.sort((a, b) => b.score - a.score);
+
+    // Efficiently deduplicate while maintaining sort order and respecting limit
+    const seenTexts = new Set<string>();
+    const finalSuggestions: string[] = [];
+
+    for (const sug of suggestions) {
+      const lowerText = sug.text.toLowerCase();
+      if (!seenTexts.has(lowerText)) {
+        seenTexts.add(lowerText);
+        finalSuggestions.push(sug.text);
+        if (finalSuggestions.length >= limit) break;
+      }
+    }
 
     // Remove duplicate locations and limit results
     const uniqueLocations = [...new Set(locations)].slice(0, limit);
 
     return {
-      suggestions: sortedSuggestions.map(s => s.text),
+      suggestions: finalSuggestions,
       locations: uniqueLocations,
       translationsUsed: queryTranslations.length > 1,
       originalQuery: searchQuery,
