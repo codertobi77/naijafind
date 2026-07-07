@@ -1100,10 +1100,12 @@ export const searchProducts = action({
       return true;
     });
 
+    // Hoist query normalization
+    const queryLower = hasQuery ? args.q!.toLowerCase().trim() : "";
+
     // FILTER BY NAME MATCH: Only show products whose name contains the search query
     // This is applied AFTER the category pre-filter as an additional layer
-    if (hasQuery && args.q) {
-      const queryLower = args.q.toLowerCase().trim();
+    if (hasQuery) {
       scored = scored.filter((p) => {
         const name = (p.name || "").toLowerCase();
         // Keep only products whose name contains the search query
@@ -1140,54 +1142,68 @@ export const searchProducts = action({
 
     // Suppliers per CATEGORY
     const categoryToSuppliers = new Map<string, any[]>();
+    // Case-insensitive map for O(1) lookup during product attachment
+    const categoryLowerToSuppliers = new Map<string, any[]>();
     
     // Combine product categories with inferred categories for coverage
-    const productCategories = scored
-      .map((p) => (p.category || "").toString())
-      .filter((c) => c && c.trim().length > 0);
+    // Optimized: Use a single pass to build categories and a category-to-product map
+    const categoryToProductMap = new Map<string, any>();
+    const productCategoriesSet = new Set<string>();
+
+    for (const p of scored) {
+      if (p.category && typeof p.category === "string") {
+        const cat = p.category.trim();
+        if (cat.length > 0) {
+          productCategoriesSet.add(cat);
+          if (!categoryToProductMap.has(cat)) {
+            categoryToProductMap.set(cat, p);
+          }
+        }
+      }
+    }
     
     const categoriesForMapping = Array.from(
-      new Set([...productCategories, ...inferredCategories])
+      new Set([...Array.from(productCategoriesSet), ...inferredCategories])
     );
     console.log(`Categories for mapping: ${categoriesForMapping.join(',')}`);
 
-    for (const cat of categoriesForMapping as string[]) {
+    // Parallelize category-to-supplier fetches for O(1) round-trip time
+    await Promise.all(categoriesForMapping.map(async (cat) => {
       try {
         const candidates = await ctx.runQuery(
           internal.suppliers._getSuppliersByCategory,
           { category: cat, limit: 50 }
         );
         if (candidates.length > 0) {
-          // Filter out service category suppliers - ONLY if the target category itself isn't a service category
+          // Filter out service category suppliers
           const isTargetService = isServiceCategory(cat);
           const productSuppliers = candidates.filter((s: any) => {
-            if (isTargetService) return true; // Keep all if we're explicitly looking for services
+            if (isTargetService) return true;
             return !isServiceCategory(s.category);
           });
           
           if (productSuppliers.length > 0) {
-            // Score and sort suppliers using the new relevance scoring
+            // O(1) lookup for matching product instead of O(P) find()
+            const matchingProduct = categoryToProductMap.get(cat);
+
             const scoredSuppliers = productSuppliers.map((s: any) => {
-              // Get the product that triggered this category search
-              const matchingProduct = scored.find(p => p.category === cat);
-            let score = 0;
-            let matchDetails: string[] = [];
-            try {
-              const result = calculateSupplierRelevanceScore(
-                s,
-                cat,
-                keywords,
-                matchingProduct?.name || '',
-                matchingProduct?.description
-              );
-              score = result.score;
-              matchDetails = result.matchDetails;
-            } catch (err) {
-              console.error(`Error calculating relevance score for supplier ${s._id}:`, err);
-              // Fallback score if calculation fails
-              score = 1;
-              matchDetails = ['error_fallback'];
-            }
+              let score = 0;
+              let matchDetails: string[] = [];
+              try {
+                const result = calculateSupplierRelevanceScore(
+                  s,
+                  cat,
+                  keywords,
+                  matchingProduct?.name || '',
+                  matchingProduct?.description
+                );
+                score = result.score;
+                matchDetails = result.matchDetails;
+              } catch (err) {
+                console.error(`Error calculating relevance score for supplier ${s._id}:`, err);
+                score = 1;
+                matchDetails = ['error_fallback'];
+              }
               return {
                 ...s,
                 _supplierScore: score,
@@ -1195,12 +1211,10 @@ export const searchProducts = action({
               };
             });
             
-            // Sort by the new relevance score
             const sorted = scoredSuppliers.sort((a: any, b: any) => {
               const scoreDiff = (b._supplierScore || 0) - (a._supplierScore || 0);
               if (scoreDiff !== 0) return scoreDiff;
               
-              // Fallback to verified/rating sorting
               const aVerified = a.verified && a.approved ? 1 : 0;
               const bVerified = b.verified && b.approved ? 1 : 0;
               if (bVerified !== aVerified) return bVerified - aVerified;
@@ -1213,73 +1227,53 @@ export const searchProducts = action({
             });
             
             categoryToSuppliers.set(cat, sorted);
+            categoryLowerToSuppliers.set(cat.toLowerCase().trim(), sorted);
           }
         }
       } catch (err) {
-        // Log error for debugging but continue with other categories
         console.error(`Error fetching suppliers for category "${cat}":`, err);
       }
-    }
+    }));
 
-    // Attach suppliers snapshots (all potential suppliers for the product's category)
+    // Attach suppliers snapshots
     console.log(`Attaching suppliers to ${scored.length} products. Category map has ${categoryToSuppliers.size} categories`);
 
-    // Cache for fallback suppliers to avoid redundant database queries
-    let fallbackSuppliers: any[] | null = null;
+    // Fetch fallback suppliers ONCE if needed
+    let fallbackSuppliers: any[] = [];
+    const needsFallback = scored.some(p => {
+      if (!p.category) return true;
+      const cat = p.category.toString().trim();
+      return !categoryToSuppliers.has(cat) && !categoryLowerToSuppliers.has(cat.toLowerCase());
+    });
 
-    // Helper to get fallback suppliers lazily
-    const getFallbackSuppliers = async () => {
-      if (fallbackSuppliers) return fallbackSuppliers;
-
-      console.log("Fetching fallback suppliers...");
+    if (needsFallback) {
+      console.log("Fetching fallback suppliers once...");
       try {
         const result = await ctx.runQuery(internal.suppliers._getSuppliersPaginated, { limit: 50 });
         fallbackSuppliers = result.page.map(s => ({
           ...s,
-          _supplierScore: 1, // Base score for fallback
+          _supplierScore: 1,
           _matchDetails: ['fallback_match']
         }));
-        return fallbackSuppliers;
       } catch (err) {
         console.error("Error fetching fallback suppliers:", err);
-        return [];
       }
-    };
+    }
 
     const finalScoredProducts: ScoredProduct[] = [];
     for (const p of scored) {
       let list: any[] = [];
 
-      // Try exact category match first
       if (p.category && typeof p.category === "string") {
-        list = categoryToSuppliers.get(p.category) || [];
-
-        // If no exact match, try case-insensitive match
-        if (list.length === 0) {
-          const prodCatLower = p.category.toLowerCase().trim();
-          for (const [mapCat, suppliers] of categoryToSuppliers.entries()) {
-            if (mapCat.toLowerCase().trim() === prodCatLower) {
-              list = suppliers;
-              console.log(
-                `Case-insensitive match: "${p.category}" -> "${mapCat}" (${suppliers.length} suppliers)`
-              );
-              break;
-            }
-          }
-        }
+        const cat = p.category.trim();
+        // O(1) lookup
+        list = categoryToSuppliers.get(cat) || categoryLowerToSuppliers.get(cat.toLowerCase()) || [];
       }
 
-      // Fallback: if no suppliers for this category, fetch some approved ones
       if (list.length === 0) {
-        list = await getFallbackSuppliers();
-        console.log(
-          `No suppliers for category "${p.category}", using ${list.length} fallback suppliers`
-        );
+        list = fallbackSuppliers;
+        console.log(`Product "${p.name}" (category: ${p.category}): using ${list.length} fallback suppliers`);
       }
-
-      console.log(
-        `Product "${p.name}" (category: ${p.category}): ${list.length} suppliers attached`
-      );
 
       finalScoredProducts.push({ ...p, _suppliers: list } as ScoredProduct);
     }
