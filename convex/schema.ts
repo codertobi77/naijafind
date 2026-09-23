@@ -130,6 +130,15 @@ export default defineSchema({
     .index("supplierId", ["supplierId"])
     .index("status", ["status"])
     .index("created_at", ["created_at"]),
+  message_replies: defineTable({
+    messageId: v.string(), // ID of the parent message in messages table
+    senderType: v.string(), // 'supplier' | 'buyer'
+    senderName: v.string(),
+    message: v.string(),
+    created_at: v.string(),
+  })
+    .index("messageId", ["messageId"])
+    .index("created_at", ["created_at"]),
   verification_tokens: defineTable({
     userId: v.string(),
     email: v.string(),
@@ -387,7 +396,7 @@ export default defineSchema({
     unit: v.string(),
     budget: v.optional(v.string()),
     whatsapp: v.string(),
-    image: v.optional(v.string()), // Image URL or base64
+    attachment: v.optional(v.string()), // File URL (image, document, video)
     // Legacy fields - kept for backward compatibility but optional
     location: v.optional(v.string()),
     currency: v.optional(v.string()),

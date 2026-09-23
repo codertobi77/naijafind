@@ -31,7 +31,7 @@ export const sendContactEmail = mutation({
 
     // Send email using Resend via HTTP action
     try {
-      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
+      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
         to: "contact@Suji.com",
         subject: `[Contact Form] ${args.subject}`,
         html: `
@@ -84,7 +84,7 @@ export const sendSupplierContactEmail = mutation({
 
     // Send email notification to supplier
     try {
-      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
+      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
         to: supplier.email,
         subject: `[Suji] New message from ${args.senderName}`,
         html: `
@@ -133,7 +133,7 @@ export const sendVerificationEmail = mutation({
     const verificationLink = `https://Suji.com/verify?token=${verificationToken}`;
     
     try {
-      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
+      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
         to: args.email,
         subject: "Verify your Suji account",
         html: `
@@ -189,7 +189,7 @@ export const sendPasswordResetEmail = mutation({
     const resetLink = `https://Suji.com/reset-password?token=${resetToken}`;
     
     try {
-      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
+      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
         to: args.email,
         subject: "Reset your Suji password",
         html: `
@@ -272,7 +272,7 @@ export const sendSupplierApprovalEmail = mutation({
       `;
     
     try {
-      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
+      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
         to: supplier.email,
         subject: emailSubject,
         html: emailHtml,
@@ -318,7 +318,7 @@ export const sendWelcomeEmail = mutation({
     `;
     
     try {
-      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
+      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
         to: args.email,
         subject: "Welcome to Suji!",
         html: welcomeHtml,
@@ -378,7 +378,7 @@ export const subscribeToNewsletter = mutation({
       
       // Send welcome back email
       try {
-        await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
+        await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
           to: normalizedEmail,
           subject: "Welcome back to Suji newsletter!",
           html: `
@@ -414,7 +414,7 @@ export const subscribeToNewsletter = mutation({
     // Send welcome email
     try {
       console.log("Scheduling welcome email for:", normalizedEmail);
-      const jobId = await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
+      const jobId = await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
         to: normalizedEmail,
         subject: "Welcome to Suji newsletter!",
         html: `
@@ -508,7 +508,7 @@ export const sendNewsletter = mutation({
     let scheduledCount = 0;
     for (const subscriber of subscribers) {
       try {
-        await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction, {
+        await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
           to: subscriber.email,
           subject: args.subject,
           html: args.html,

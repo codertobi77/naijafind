@@ -111,6 +111,38 @@ export const approveSupplier = mutation({
   }
 });
 
+export const deleteSupplierCascade = internalMutation({
+  args: {
+    supplierId: v.id("suppliers"),
+  },
+  handler: async (ctx, { supplierId }) => {
+    const supplier = await ctx.db.get(supplierId);
+
+    if (!supplier) {
+      return;
+    }
+
+    // Supprimer tous les produits
+    const products = await ctx.db
+      .query("products")
+      .withIndex("supplierId", (q) => q.eq("supplierId", supplierId))
+      .collect();
+
+    for (const product of products) {
+      await ctx.db.delete(product._id);
+    }
+
+    // (Optionnel)
+    // Supprimer ici d'autres données liées au fournisseur
+    // reviews
+    // notifications
+    // favorites
+    // etc.
+
+    await ctx.db.delete(supplierId);
+  },
+});
+
 // Delete a supplier (admin only)
 export const deleteSupplier = mutation({
   args: {
@@ -130,9 +162,16 @@ export const deleteSupplier = mutation({
     const wasApproved = supplier.approved;
     const wasFeatured = supplier.featured;
     const category = supplier.category;
-    await ctx.db.delete(args.supplierId);
-    
-    return { success: true };
+    await ctx.runMutation(
+        internal.admin.deleteSupplierCascade,
+        {
+            supplierId: args.supplierId,
+        }
+    );
+
+    return {
+        success: true,
+    };
   }
 });
 
@@ -325,10 +364,15 @@ export const deleteAllSuppliersInternal = internalMutation({
     
     // Delete all suppliers
     for (const supplier of suppliers) {
-      await ctx.db.delete(supplier._id);
+      await ctx.runMutation(
+        internal.admin.deleteSupplierCascade,
+        {
+            supplierId: supplier._id,
+        }
+    );
       deletedCount++;
     }
-    
+
     // Delete associated users
     for (const userId of userIdsToDelete) {
       try {

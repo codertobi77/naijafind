@@ -1,4 +1,5 @@
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
 // Helper function to check if user is admin
@@ -243,13 +244,18 @@ export const deleteCategory = mutation({
     }
 
     // Check if any suppliers are using this category
-    const suppliersWithCategory = await ctx.db
-      .query("suppliers")
-      .filter(q => q.eq(q.field("category"), category.name))
-      .first();
+    const suppliers = await ctx.db
+        .query("suppliers")
+        .filter((q) => q.eq(q.field("category"), category.name))
+        .collect();
 
-    if (suppliersWithCategory) {
-      throw new Error("Impossible de supprimer cette catégorie : des fournisseurs l'utilisent encore");
+    for (const supplier of suppliers) {
+      await ctx.runMutation(
+        internal.admin.deleteSupplierCascade,
+        {
+          supplierId: supplier._id,
+        }
+      );
     }
 
     await ctx.db.delete(args.id);

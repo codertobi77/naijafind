@@ -311,6 +311,63 @@ export function validateAudioFile(
 }
 
 /**
+ * Validate a file for purchase requests.
+ * Allowed: descriptive video of the product, image, or document (Word/PDF).
+ * Size limits are differentiated: videos can be much larger than images/documents.
+ */
+export function validatePurchaseRequestFile(
+  file: File,
+  maxSizeMB: number = 20,
+  maxVideoSizeMB: number = 100
+): string | null {
+  const imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  const videoTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
+  const documentTypes = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ];
+
+  const isVideo = videoTypes.includes(file.type);
+  const isAllowed =
+    imageTypes.includes(file.type) ||
+    isVideo ||
+    documentTypes.includes(file.type);
+
+  if (!isAllowed) {
+    return `Type non supporté. Utilisez une vidéo (MP4, WebM, MOV, AVI), une image (JPG, PNG, GIF, WebP) ou un document (PDF, Word).`;
+  }
+
+  const limitMB = isVideo ? maxVideoSizeMB : maxSizeMB;
+  const maxSizeBytes = limitMB * 1024 * 1024;
+  if (file.size > maxSizeBytes) {
+    return isVideo
+      ? `La vidéo doit peser moins de ${limitMB} Mo`
+      : `Le fichier doit peser moins de ${limitMB} Mo`;
+  }
+  return null;
+}
+
+export type AttachmentKind = 'image' | 'video' | 'document';
+
+/**
+ * Detect the kind of a purchase request attachment from its URL.
+ * Handles Cloudinary URLs (/image|video|raw/upload/ segments), plain file
+ * extensions, and legacy base64 data URLs stored before the migration.
+ */
+export function getAttachmentKind(url: string | null | undefined): AttachmentKind {
+  if (!url) return 'document';
+  if (url.startsWith('data:image/')) return 'image';
+  if (url.startsWith('data:video/')) return 'video';
+  if (/\/(image|video)\/upload\//.test(url)) {
+    return url.includes('/video/upload/') ? 'video' : 'image';
+  }
+  if (/\.(jpg|jpeg|png|gif|webp)$/i.test(url)) return 'image';
+  if (/\.(mp4|webm|mov|avi)$/i.test(url)) return 'video';
+  return 'document';
+}
+
+/**
  * Validate multiple files
  */
 export function validateFiles(

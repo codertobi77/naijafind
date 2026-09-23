@@ -30,6 +30,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { ToastContainer, NotificationDropdown } from '../../components/base';
 import { LogoLink } from '../../components/base/Logo';
 import { EntityImage } from '../../components/EntityImage';
+import { getAttachmentKind } from '../../lib/cloudinary';
 
 type DashboardTab =
   | 'overview'
@@ -1110,6 +1111,10 @@ export default function Dashboard() {
             }}
           />
         );
+      case 'messages':
+        return (
+          <MessagesSection />
+        );
       case 'team':
         return <TeamSection />;
       default:
@@ -1488,6 +1493,314 @@ function DashboardHeader({
         </div>
       </div>
     </header>
+  );
+}
+
+function MessagesSection() {
+  const { t } = useTranslation();
+  const messages = useQuery(api.messages.getSupplierMessages);
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  
+  const selectedMessage = messages?.find(m => m._id === selectedMessageId);
+  
+  const replies = useQuery(
+    api.messages.getMessageReplies,
+    selectedMessageId ? { messageId: selectedMessageId } : 'skip'
+  );
+  
+  const markAsRead = useMutation(api.messages.markMessageAsRead);
+  const replyToMessage = useMutation(api.messages.replyToMessage);
+  
+  const [replyText, setReplyText] = useState('');
+  const [sending, setSending] = useState(false);
+  const repliesEndRef = useRef<HTMLDivElement>(null);
+
+  // Automatically scroll to bottom of replies when replies change
+  useEffect(() => {
+    repliesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [replies]);
+
+  // Mark message as read when selected
+  useEffect(() => {
+    if (selectedMessageId && selectedMessage && selectedMessage.status === 'unread') {
+      markAsRead({ messageId: selectedMessageId }).catch(console.error);
+    }
+  }, [selectedMessageId, selectedMessage]);
+
+  const handleSendReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedMessageId || !replyText.trim() || sending) return;
+
+    setSending(true);
+    try {
+      await replyToMessage({
+        messageId: selectedMessageId,
+        message: replyText.trim()
+      });
+      setReplyText('');
+    } catch (err) {
+      console.error("Error sending reply:", err);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const quickReplies = [
+    "Bonjour, merci pour votre message. Comment pouvons-nous vous aider ?",
+    "Bonjour, nos produits sont actuellement disponibles. Quel volume recherchez-vous ?",
+    "Merci pour votre intérêt. Nous allons vous faire parvenir un devis détaillé rapidement.",
+    "Bonjour, vous pouvez nous contacter directement sur WhatsApp au numéro indiqué sur notre profil."
+  ];
+
+  if (!messages) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <i className="ri-loader-4-line animate-spin text-3xl text-green-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg shadow-lg border border-gray-150 overflow-hidden h-[calc(100vh-200px)] min-h-[500px] flex flex-col md:flex-row">
+      {/* Threads List */}
+      <div className={`w-full md:w-80 border-r border-gray-150 flex flex-col h-full bg-gray-50/50 ${selectedMessageId ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-4 border-b border-gray-150 bg-white">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center justify-between">
+            <span>Messages reçus</span>
+            <span className="bg-green-100 text-green-800 text-xs font-semibold px-2 py-0.5 rounded-full">
+              {messages.filter(m => m.status === 'unread').length} nouveaux
+            </span>
+          </h2>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+          {messages.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <i className="ri-mail-open-line text-4xl mb-3 text-gray-300 block" />
+              <p className="text-sm">Aucun message reçu pour le moment.</p>
+            </div>
+          ) : (
+            messages.map((msg) => {
+              const date = new Date(msg.created_at);
+              const relativeTime = date.toLocaleDateString('fr-FR', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+              
+              const isSelected = msg._id === selectedMessageId;
+              const isUnread = msg.status === 'unread';
+              const isReplied = msg.status === 'replied';
+
+              return (
+                <button
+                  key={msg._id}
+                  onClick={() => setSelectedMessageId(msg._id)}
+                  className={`w-full p-4 text-left transition-colors flex flex-col gap-1.5 focus:outline-none hover:bg-gray-100/50 ${
+                    isSelected ? 'bg-green-50/70 hover:bg-green-50' : ''
+                  } ${isUnread ? 'font-semibold border-l-4 border-green-500 pl-3' : 'pl-4'}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-900 truncate max-w-[140px]">
+                      {msg.senderName}
+                    </span>
+                    <span className="text-xs text-gray-400 whitespace-nowrap">
+                      {relativeTime}
+                    </span>
+                  </div>
+                  
+                  <div className="text-xs font-medium text-gray-800 truncate">
+                    {msg.subject}
+                  </div>
+                  
+                  <div className="text-xs text-gray-500 truncate max-w-[240px]">
+                    {msg.message}
+                  </div>
+
+                  <div className="flex items-center gap-1.5 mt-1">
+                    {isUnread && (
+                      <span className="inline-block h-2 w-2 rounded-full bg-green-500" title="Non lu" />
+                    )}
+                    {isReplied ? (
+                      <span className="text-[10px] text-gray-500 flex items-center gap-0.5">
+                        <i className="ri-reply-line" /> Répondu
+                      </span>
+                    ) : isUnread ? (
+                      <span className="text-[10px] text-green-600">Nouveau</span>
+                    ) : (
+                      <span className="text-[10px] text-gray-400">Lu</span>
+                    )}
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* Conversation Thread */}
+      <div className={`flex-1 flex flex-col h-full bg-white ${!selectedMessageId ? 'hidden md:flex' : 'flex'}`}>
+        {selectedMessage ? (
+          <>
+            {/* Header */}
+            <div className="p-4 border-b border-gray-150 flex items-center justify-between bg-white shadow-sm shrink-0">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setSelectedMessageId(null)}
+                  className="md:hidden p-1 text-gray-500 hover:text-green-600 focus:outline-none"
+                >
+                  <i className="ri-arrow-left-line text-xl" />
+                </button>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-sm sm:text-base leading-tight">
+                    {selectedMessage.senderName}
+                  </h3>
+                  <p className="text-xs text-gray-500 truncate max-w-[200px] sm:max-w-md">
+                    Sujet: {selectedMessage.subject}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-600 font-medium font-mono">
+                  {selectedMessage.senderEmail}
+                </p>
+                {selectedMessage.senderPhone && (
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {selectedMessage.senderPhone}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Messages Stream */}
+            <div className="flex-1 overflow-y-auto p-4 bg-gray-50/30 space-y-4">
+              {/* Original Message */}
+              <div className="flex justify-start">
+                <div className="max-w-[85%] bg-white border border-gray-200 rounded-2xl rounded-tl-none p-3.5 shadow-sm">
+                  <div className="flex items-center justify-between gap-4 mb-1 text-[11px] text-gray-400 border-b border-gray-100 pb-1">
+                    <span className="font-semibold text-gray-700">Message initial d'acheteur</span>
+                    <span>
+                      {new Date(selectedMessage.created_at).toLocaleString('fr-FR', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                    {selectedMessage.message}
+                  </p>
+                </div>
+              </div>
+
+              {/* Replies */}
+              {replies?.map((rep) => {
+                const isSupplierSender = rep.senderType === 'supplier';
+                return (
+                  <div
+                    key={rep._id}
+                    className={`flex ${isSupplierSender ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[85%] p-3.5 rounded-2xl shadow-sm ${
+                        isSupplierSender
+                          ? 'bg-green-600 text-white rounded-tr-none'
+                          : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
+                      }`}
+                    >
+                      <div
+                        className={`flex items-center justify-between gap-4 mb-1 text-[10px] pb-1 border-b ${
+                          isSupplierSender
+                            ? 'text-green-200 border-green-500'
+                            : 'text-gray-400 border-gray-100'
+                        }`}
+                      >
+                        <span className="font-semibold">
+                          {isSupplierSender ? 'Vous' : rep.senderName}
+                        </span>
+                        <span>
+                          {new Date(rep.created_at).toLocaleString('fr-FR', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                        {rep.message}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={repliesEndRef} />
+            </div>
+
+            {/* Reply Input Area */}
+            <div className="p-4 border-t border-gray-150 bg-white shrink-0">
+              {/* Quick replies */}
+              <div className="flex gap-2 overflow-x-auto pb-3 mb-2 scrollbar-none">
+                {quickReplies.map((qr, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setReplyText(qr)}
+                    className="text-xs text-green-700 bg-green-50 hover:bg-green-100 border border-green-150 rounded-full px-3 py-1 whitespace-nowrap transition-colors"
+                  >
+                    {qr.length > 35 ? qr.substring(0, 35) + '...' : qr}
+                  </button>
+                ))}
+              </div>
+
+              <form onSubmit={handleSendReply} className="flex gap-3 items-end">
+                <div className="flex-1 relative">
+                  <textarea
+                    rows={2}
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value.slice(0, 500))}
+                    placeholder="Écrivez votre réponse ici..."
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-12 focus:ring-green-500 focus:border-green-500 text-sm outline-none resize-none"
+                    required
+                  />
+                  <span className="absolute bottom-2 right-3 text-[10px] text-gray-400">
+                    {replyText.length}/500
+                  </span>
+                </div>
+                <button
+                  type="submit"
+                  disabled={sending || !replyText.trim()}
+                  className="bg-green-600 text-white rounded-lg px-4 py-2 hover:bg-green-700 transition-colors font-medium flex items-center justify-center h-10 w-12 sm:w-auto sm:px-5 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                >
+                  {sending ? (
+                    <i className="ri-loader-4-line animate-spin text-lg" />
+                  ) : (
+                    <>
+                      <i className="ri-send-plane-2-line text-lg sm:mr-1.5" />
+                      <span className="hidden sm:inline text-sm">Répondre</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-gray-50/10">
+            <div className="h-16 w-16 bg-green-50 rounded-full flex items-center justify-center text-green-600 mb-4 animate-bounce">
+              <i className="ri-mail-send-line text-3xl" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">
+              Messagerie acheteurs en temps réel
+            </h3>
+            <p className="text-sm text-gray-500 max-w-sm">
+              Sélectionnez une discussion dans la liste de gauche pour lire les messages et y répondre directement.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1912,6 +2225,42 @@ function ReviewsSection({
 
 type ProfileData = typeof DEFAULT_PROFILE;
 
+// Compact type-aware thumbnail for a purchase request attachment
+// (image preview, video or document icon opening in a new tab)
+function AttachmentThumb({ url, name }: { url: string; name?: string }) {
+  const kind = getAttachmentKind(url);
+  if (kind === 'image') {
+    return (
+      <img
+        src={url}
+        alt={name || 'Attachment'}
+        className="h-16 w-16 rounded-lg object-cover"
+      />
+    );
+  }
+  const icon =
+    kind === 'video' ? (
+      <i className="ri-video-line text-2xl" />
+    ) : (
+      <i className="ri-file-text-line text-2xl" />
+    );
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={name}
+      className={`flex h-16 w-16 items-center justify-center rounded-lg ${
+        kind === 'video'
+          ? 'bg-green-50 text-green-600 hover:bg-green-100'
+          : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+      }`}
+    >
+      {icon}
+    </a>
+  );
+}
+
 function PurchaseRequestsSection({
   requests,
   onDelete,
@@ -1919,6 +2268,7 @@ function PurchaseRequestsSection({
   requests: any[];
   onDelete: (request: any) => void;
 }) {
+  const { t } = useTranslation();
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const getStatusBadge = (status: string) => {
@@ -1964,7 +2314,9 @@ function PurchaseRequestsSection({
             </div>
           </Card>
         ) : (
-          requests.map((request) => (
+          requests.map((request) => {
+            const attachmentUrl: string | undefined = request.attachment || request.image;
+            return (
             <Card key={request._id}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -1986,12 +2338,8 @@ function PurchaseRequestsSection({
                   )}
                 </div>
                 <div className="flex items-start gap-2">
-                  {request.image && (
-                    <img
-                      src={request.image}
-                      alt="Request"
-                      className="h-16 w-16 rounded-lg object-cover"
-                    />
+                  {attachmentUrl && (
+                    <AttachmentThumb url={attachmentUrl} name={request.description} />
                   )}
                 </div>
               </div>
@@ -2026,7 +2374,8 @@ function PurchaseRequestsSection({
                 )}
               </div>
             </Card>
-          ))
+            );
+          })
         )}
       </div>
     </div>

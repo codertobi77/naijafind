@@ -11,7 +11,7 @@ export const _createPurchaseRequest = mutation({
     quantity: v.number(),
     unit: v.string(),
     whatsapp: v.string(),
-    image: v.optional(v.string()),
+    attachment: v.optional(v.string()),
     userId: v.string(),
   },
   handler: async (ctx, args) => {
@@ -21,7 +21,7 @@ export const _createPurchaseRequest = mutation({
       quantity: args.quantity,
       unit: args.unit,
       whatsapp: args.whatsapp,
-      image: args.image,
+      attachment: args.attachment,
       status: 'pending',
       userId: args.userId,
       createdAt: now,
@@ -67,7 +67,7 @@ export const createPurchaseRequest = action({
     quantity: v.number(),
     unit: v.string(),
     whatsapp: v.string(),
-    image: v.optional(v.string()),
+    attachment: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Apply rate limiting - max 3 requests per hour per phone/IP
@@ -93,7 +93,7 @@ export const createPurchaseRequest = action({
       quantity: args.quantity,
       unit: args.unit,
       whatsapp: args.whatsapp,
-      image: args.image,
+      attachment: args.attachment,
       userId: userId,
     });
     

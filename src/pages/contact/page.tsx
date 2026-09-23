@@ -128,6 +128,64 @@ export default function Contact() {
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error' | 'rate_limited'>('idle');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
+  // CAPTCHA State
+  const [captchaQuestion, setCaptchaQuestion] = useState({ num1: 0, num2: 0 });
+  const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [captchaError, setCaptchaError] = useState('');
+  const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
+  const recaptchaRef = useRef<string | null>(null);
+
+  const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '';
+
+  // Generate math captcha
+  const generateCaptcha = () => {
+    const num1 = Math.floor(Math.random() * 9) + 1;
+    const num2 = Math.floor(Math.random() * 9) + 1;
+    setCaptchaQuestion({ num1, num2 });
+    setCaptchaAnswer('');
+  };
+
+  useEffect(() => {
+    generateCaptcha();
+
+    // Dynamically load Google reCAPTCHA if site key is configured
+    if (RECAPTCHA_SITE_KEY) {
+      const script = document.createElement('script');
+      script.src = 'https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoadCallback&render=explicit';
+      script.async = true;
+      script.defer = true;
+      document.body.appendChild(script);
+
+      (window as any).onRecaptchaLoadCallback = () => {
+        setRecaptchaLoaded(true);
+        const container = document.getElementById('recaptcha-widget');
+        if (container) {
+          try {
+            (window as any).grecaptcha.render('recaptcha-widget', {
+              sitekey: RECAPTCHA_SITE_KEY,
+              callback: (response: string) => {
+                recaptchaRef.current = response;
+                setCaptchaError('');
+              },
+              'expired-callback': () => {
+                recaptchaRef.current = null;
+              }
+            });
+          } catch (e) {
+            console.error('Error rendering reCAPTCHA:', e);
+          }
+        }
+      };
+
+      return () => {
+        try {
+          document.body.removeChild(script);
+        } catch (e) {}
+        delete (window as any).onRecaptchaLoadCallback;
+      };
+    }
+  }, []);
+
   // Convex mutations and queries
   const sendContactEmail = useMutation(api.emails.sendContactEmail);
   const checkRateLimit = useQuery(api.rateLimit.checkRateLimit,
@@ -151,6 +209,7 @@ export default function Contact() {
     e.preventDefault();
     setIsSubmitting(true);
     setValidationErrors({});
+    setCaptchaError('');
     setSubmitStatus('idle');
 
     try {
@@ -169,6 +228,22 @@ export default function Contact() {
         setSubmitStatus('error');
         setIsSubmitting(false);
         return;
+      }
+
+      // CAPTCHA check
+      if (RECAPTCHA_SITE_KEY) {
+        if (!recaptchaRef.current) {
+          setCaptchaError('Veuillez valider le reCAPTCHA.');
+          setIsSubmitting(false);
+          return;
+        }
+      } else {
+        const expected = captchaQuestion.num1 + captchaQuestion.num2;
+        if (parseInt(captchaAnswer) !== expected) {
+          setCaptchaError('Réponse de sécurité incorrecte.');
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       // Check rate limit
@@ -195,6 +270,11 @@ export default function Contact() {
 
       setSubmitStatus('success');
       setFormData({ name: '', email: '', subject: '', message: '', type: 'general', website: '' });
+      generateCaptcha();
+      if (RECAPTCHA_SITE_KEY && (window as any).grecaptcha) {
+        (window as any).grecaptcha.reset();
+        recaptchaRef.current = null;
+      }
     } catch (error) {
       console.error('Contact form submission error:', error);
       setSubmitStatus('error');
@@ -336,6 +416,48 @@ export default function Contact() {
                   error={validationErrors.message}
                   placeholder={t('contact.placeholder_message')}
                 />
+
+                {RECAPTCHA_SITE_KEY ? (
+                  <div className="mb-4">
+                    <div id="recaptcha-widget" className="g-recaptcha"></div>
+                    {captchaError && (
+                      <p className="text-red-500 text-xs mt-1">{captchaError}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Validation de sécurité : Spam Check
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-semibold text-gray-700 bg-gray-200 px-3 py-2 rounded">
+                        {captchaQuestion.num1} + {captchaQuestion.num2} =
+                      </span>
+                      <input
+                        type="number"
+                        placeholder="?"
+                        value={captchaAnswer}
+                        onChange={(e) => {
+                          setCaptchaAnswer(e.target.value);
+                          setCaptchaError('');
+                        }}
+                        className="w-20 px-3 py-2 border border-gray-300 rounded focus:ring-green-500 focus:border-green-500 text-sm sm:text-base"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={generateCaptcha}
+                        title="Générer un autre calcul"
+                        className="p-2 text-gray-500 hover:text-green-600 focus:outline-none"
+                      >
+                        <i className="ri-refresh-line text-lg"></i>
+                      </button>
+                    </div>
+                    {captchaError && (
+                      <p className="text-red-500 text-xs mt-1">{captchaError}</p>
+                    )}
+                  </div>
+                )}
 
                 <button
                   type="submit"

@@ -204,7 +204,40 @@ export const common = {
   "units.units": "Unités",
   "units.boxes": "Cartons",
   "units.pallets": "Palettes",
-  "units.containers": "Conteneurs"
+  "units.containers": "Conteneurs",
+
+  // Purchase request form
+  "purchase_request.title": "Publiez une demande d'achat",
+  "purchase_request.subtitle": "Recevez rapidement des propositions de fournisseurs qualifiés.",
+  "purchase_request.form_header": "Remplissez le formulaire ci-dessous et obtenez des offres des meilleurs fournisseurs",
+  "purchase_request.description": "Description du besoin",
+  "purchase_request.description_placeholder": "Ex: 50 tonnes de riz blanc",
+  "purchase_request.attachment": "Vidéo, image ou document descriptif du produit (optionnel)",
+  "purchase_request.attachment_desc": "Joignez une vidéo descriptive du produit (MP4, WebM, MOV), une image (JPG, PNG) ou un document (PDF, Word)",
+  "purchase_request.quantity": "Quantité",
+  "purchase_request.whatsapp": "Numéro WhatsApp",
+  "purchase_request.whatsapp_placeholder": "+33 6 12 34 56 78",
+  "purchase_request.submit": "Envoyer ma demande",
+  "purchase_request.publishing": "Envoi en cours...",
+  "purchase_request.footer": "Vous serez contacté rapidement par des fournisseurs",
+  "purchase_request.errors.description_required": "La description est requise",
+  "purchase_request.errors.quantity_invalid": "La quantité doit être supérieure à 0",
+  "purchase_request.errors.whatsapp_required": "Le numéro WhatsApp est requis",
+  "purchase_request.errors.submission": "Une erreur est survenue. Veuillez réessayer.",
+  "purchase_request.success_title": "Demande publiée avec succès !",
+  "purchase_request.success_message": "Votre demande a été envoyée à nos fournisseurs qualifiés. Vous recevrez rapidement des propositions adaptées à vos besoins.",
+  "purchase_request.next_steps": "Prochaines étapes :",
+  "purchase_request.step1": "Les fournisseurs vont étudier votre demande",
+  "purchase_request.step2": "Vous recevrez des propositions par email",
+  "purchase_request.step3": "Comparez et choisissez la meilleure offre",
+
+  // File upload component
+  "file_upload.uploading": "Téléchargement...",
+  "file_upload.uploaded": "Fichier uploadé",
+  "file_upload.remove": "Supprimer",
+  "file_upload.click_or_drag": "Cliquez pour télécharger ou glissez-déposez",
+  "file_upload.hint": "Vidéo (max {{video}} Mo), image ou document PDF/Word (max {{doc}} Mo)",
+  "file_upload.failed": "Échec du téléchargement"
 };
 
 export default common;

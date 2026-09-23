@@ -204,7 +204,40 @@ export const common = {
   "units.units": "Units",
   "units.boxes": "Boxes",
   "units.pallets": "Pallets",
-  "units.containers": "Containers"
+  "units.containers": "Containers",
+
+  // Purchase request form
+  "purchase_request.title": "Post a purchase request",
+  "purchase_request.subtitle": "Quickly receive offers from qualified suppliers.",
+  "purchase_request.form_header": "Fill in the form below and get offers from the best suppliers",
+  "purchase_request.description": "Describe your need",
+  "purchase_request.description_placeholder": "E.g.: 50 tonnes of white rice",
+  "purchase_request.attachment": "Product video, image or document (optional)",
+  "purchase_request.attachment_desc": "Attach a descriptive video of the product (MP4, WebM, MOV), an image (JPG, PNG) or a document (PDF, Word)",
+  "purchase_request.quantity": "Quantity",
+  "purchase_request.whatsapp": "WhatsApp number",
+  "purchase_request.whatsapp_placeholder": "+33 6 12 34 56 78",
+  "purchase_request.submit": "Send my request",
+  "purchase_request.publishing": "Sending...",
+  "purchase_request.footer": "Suppliers will contact you quickly",
+  "purchase_request.errors.description_required": "Description is required",
+  "purchase_request.errors.quantity_invalid": "Quantity must be greater than 0",
+  "purchase_request.errors.whatsapp_required": "WhatsApp number is required",
+  "purchase_request.errors.submission": "An error occurred. Please try again.",
+  "purchase_request.success_title": "Request posted successfully!",
+  "purchase_request.success_message": "Your request has been sent to our qualified suppliers. You will quickly receive suitable proposals.",
+  "purchase_request.next_steps": "Next steps:",
+  "purchase_request.step1": "Suppliers will review your request",
+  "purchase_request.step2": "You will receive offers by email",
+  "purchase_request.step3": "Compare and choose the best offer",
+
+  // File upload component
+  "file_upload.uploading": "Uploading...",
+  "file_upload.uploaded": "File uploaded",
+  "file_upload.remove": "Remove",
+  "file_upload.click_or_drag": "Click to upload or drag and drop",
+  "file_upload.hint": "Video (max {{video}} MB), image or PDF/Word document (max {{doc}} MB)",
+  "file_upload.failed": "Upload failed"
 };
 
 export default common;

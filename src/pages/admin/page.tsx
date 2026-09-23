@@ -13,6 +13,7 @@ import { useToast } from '../../hooks/useToast';
 import { ToastContainer, NotificationDropdown } from '../../components/base';
 import { LogoLink } from '../../components/base/Logo';
 import AdBannerManager from '../../components/admin/AdBannerManager';
+import { getAttachmentKind } from '../../lib/cloudinary';
 
 // Define proper TypeScript interfaces based on Convex data model
 type Supplier = Doc<"suppliers">;
@@ -150,6 +151,29 @@ const COMMON_REMIX_ICONS = [
   'ri-flashlight-line', 'ri-flashlight-fill', 'ri-landscape-line', 'ri-landscape-fill',
   'ri-gallery-upload-line', 'ri-gallery-upload-fill', 'ri-gallery-download-line', 'ri-gallery-download-fill',
 ];
+
+// Render the purchase request attachment (video, image or document) as a typed link
+function renderPurchaseRequestAttachment(request: any) {
+  const url = request.attachment || request.image;
+  if (!url) return '-';
+  const kind = getAttachmentKind(url);
+  const label =
+    kind === 'video'
+      ? 'Voir la vidéo'
+      : kind === 'image'
+        ? "Voir l'image"
+        : 'Voir le document';
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-blue-600 hover:underline text-xs"
+    >
+      {label}
+    </a>
+  );
+}
 
 // Icon Autocomplete Component
 function IconAutocomplete({
@@ -2057,7 +2081,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                       <th className="text-left px-2 py-3 font-semibold text-gray-600">Budget</th>
                       <th className="text-left px-2 py-3 font-semibold text-gray-600">WhatsApp</th>
                       <th className="text-left px-2 py-3 font-semibold text-gray-600">Statut</th>
-                      <th className="text-left px-2 py-3 font-semibold text-gray-600">Image</th>
+                      <th className="text-left px-2 py-3 font-semibold text-gray-600">Pièce jointe</th>
                       <th className="text-left px-2 py-3 font-semibold text-gray-600">Actions</th>
                     </tr>
                   </thead>
@@ -2103,18 +2127,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                             </span>
                           </td>
                           <td className="px-2 py-3">
-                            {request.image ? (
-                              <a 
-                                href={request.image}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:underline text-xs"
-                              >
-                                Voir l'image
-                              </a>
-                            ) : (
-                              '-'
-                            )}
+                            {renderPurchaseRequestAttachment(request)}
                           </td>
                           <td className="px-2 py-3">
                             <select
