@@ -7,19 +7,6 @@ import { Header } from '../../components/base';
 import { Package, FileText, Send, ChevronDown, MessageCircle } from 'lucide-react';
 import FileUpload from '../../components/base/FileUpload';
 
-// Quantity units - now internationalized
-const getQuantityUnits = (t: (key: string) => string) => [
-  { value: 'pieces', label: t('units.pieces', 'Pièces') },
-  { value: 'kg', label: t('units.kg', 'Kilogrammes') },
-  { value: 'tonnes', label: t('units.tonnes', 'Tonnes') },
-  { value: 'litres', label: t('units.litres', 'Litres') },
-  { value: 'meters', label: t('units.meters', 'Mètres') },
-  { value: 'units', label: t('units.units', 'Unités') },
-  { value: 'boxes', label: t('units.boxes', 'Cartons') },
-  { value: 'pallets', label: t('units.pallets', 'Palettes') },
-  { value: 'containers', label: t('units.containers', 'Conteneurs') },
-];
-
 export default function PurchaseRequestPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -41,6 +28,21 @@ export default function PurchaseRequestPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Quantity units - now internationalized
+  // NB : appels t() directs (littéraux). Ne pas passer t en paramètre (key: string) => string :
+  // la résolution d'overloads de la TFunction typée fait crasher le checker TS.
+  const quantityUnits = [
+    { value: 'pieces', label: t('units.pieces', 'Pièces') },
+    { value: 'kg', label: t('units.kg', 'Kilogrammes') },
+    { value: 'tonnes', label: t('units.tonnes', 'Tonnes') },
+    { value: 'litres', label: t('units.litres', 'Litres') },
+    { value: 'meters', label: t('units.meters', 'Mètres') },
+    { value: 'units', label: t('units.units', 'Unités') },
+    { value: 'boxes', label: t('units.boxes', 'Cartons') },
+    { value: 'pallets', label: t('units.pallets', 'Palettes') },
+    { value: 'containers', label: t('units.containers', 'Conteneurs') },
+  ];
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -222,7 +224,7 @@ export default function PurchaseRequestPage() {
                     onChange={(e) => handleChange('unit', e.target.value)}
                     className="appearance-none w-[90px] sm:w-[100px] px-2 sm:px-3 py-3 pr-8 sm:pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white text-sm"
                   >
-                    {getQuantityUnits(t).map(unit => (
+                    {quantityUnits.map(unit => (
                       <option key={unit.value} value={unit.value}>{unit.label}</option>
                     ))}
                   </select>
