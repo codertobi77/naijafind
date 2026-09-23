@@ -620,8 +620,13 @@ export const setProductOriginalLanguage = mutation({
       .withIndex("email", (q) => q.eq("email", identity.email ?? ""))
       .first();
 
+    const supplier = await ctx.db
+      .query("suppliers")
+      .withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier))
+      .first();
     const isAdmin = user?.is_admin || user?.user_type === "admin";
-    const isOwner = product.supplierId === identity.subject; // Simplified check
+    // product.supplierId référence suppliers._id : on vérifie via le profil fournisseur
+    const isOwner = !!supplier && product.supplierId === (supplier._id as unknown as string);
 
     if (!isAdmin && !isOwner) {
       throw new Error("Not authorized to modify this product");

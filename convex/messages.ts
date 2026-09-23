@@ -3,6 +3,7 @@ import { internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { escapeHtml } from "./htmlEscape";
 
 // ==========================================
 // INTERNAL FUNCTIONS FOR SUPPLIER DEDUPLICATION
@@ -53,7 +54,7 @@ export const getSupplierMessages = query({
 
     const supplier = await ctx.db
       .query("suppliers")
-      .withIndex("userId", (q) => q.eq("userId", identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier))
       .first();
 
     if (!supplier) return [];
@@ -127,7 +128,7 @@ export const replyToMessage = mutation({
 
     const supplier = await ctx.db
       .query("suppliers")
-      .withIndex("userId", (q) => q.eq("userId", identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier))
       .first();
 
     if (!supplier) throw new Error("Supplier profile not found");
@@ -153,17 +154,17 @@ export const replyToMessage = mutation({
     try {
       await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
         to: originalMessage.senderEmail,
-        subject: `[Suji] Réponse de ${supplier.business_name} à votre demande`,
+        subject: `[Suji] Réponse de ${escapeHtml(supplier.business_name)} à votre demande`,
         html: `
-          <h2>Nouvelle réponse de ${supplier.business_name}</h2>
-          <p>Bonjour ${originalMessage.senderName},</p>
-          <p>Le fournisseur <strong>${supplier.business_name}</strong> a répondu à votre message concernant le sujet : "<em>${originalMessage.subject}</em>".</p>
+          <h2>Nouvelle réponse de ${escapeHtml(supplier.business_name)}</h2>
+          <p>Bonjour ${escapeHtml(originalMessage.senderName)},</p>
+          <p>Le fournisseur <strong>${escapeHtml(supplier.business_name)}</strong> a répondu à votre message concernant le sujet : "<em>${escapeHtml(originalMessage.subject)}</em>".</p>
           <p><strong>Message du fournisseur :</strong></p>
           <p style="padding: 12px; background-color: #f3f4f6; border-left: 4px solid #10b981; border-radius: 4px; font-family: sans-serif; font-size: 15px; color: #1f2937;">
-            ${args.message.replace(/\n/g, '<br/>')}
+            ${escapeHtml(args.message).replace(/\n/g, '<br/>')}
           </p>
           <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-          <p><small style="color: #6b7280;">Pour continuer à échanger, vous pouvez répondre directement à cet e-mail ou contacter le fournisseur à l'adresse suivante : ${supplier.email}</small></p>
+          <p><small style="color: #6b7280;">Pour continuer à échanger, vous pouvez répondre directement à cet e-mail ou contacter le fournisseur à l'adresse suivante : ${escapeHtml(supplier.email)}</small></p>
         `,
       });
     } catch (emailError) {

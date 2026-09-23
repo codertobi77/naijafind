@@ -241,7 +241,7 @@ export const deleteProduct = mutation({
     const prod = await ctx.db.get(id);
     if (!prod) throw new Error("Produit introuvable");
 
-    const supplier = await ctx.db.query("suppliers").filter(q => q.eq(q.field("userId"), identity.subject)).first();
+    const supplier = await ctx.db.query("suppliers").withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier)).first();
     if (!supplier || prod.supplierId !== (supplier._id as unknown as string)) throw new Error("Accès refusé");
 
     await ctx.db.delete(id);

@@ -1,7 +1,6 @@
 import { query } from "./_generated/server";
 
 // Pagination constants to stay under 1GB bandwidth
-const DEFAULT_PAGE_SIZE = 100;
 const MAX_PAGE_SIZE = 500;
 
 export const supplierDashboard = query({
@@ -12,16 +11,14 @@ export const supplierDashboard = query({
 
     const supplier = await ctx.db
       .query("suppliers")
-      .withIndex("userId", (q) => q.eq("userId", identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier))
       .first();
     if (!supplier) throw new Error("Profil fournisseur non trouvé");
 
-    const ordersResult = await ctx.db
-      .query("orders")
-      .filter(q => q.eq(q.field("supplierId"), supplier._id as unknown as string))
-      .paginate({ cursor: null, numItems: MAX_PAGE_SIZE });
-    const orders = ordersResult.page;
-    
+    // La table "orders" n'existe pas dans le schéma (aucune fonctionnalité de commandes).
+    // On conserve la forme de l'API avec des valeurs vides.
+    const orders: any[] = [];
+
     const productsResult = await ctx.db
       .query("products")
       .filter(q => q.eq(q.field("supplierId"), supplier._id as unknown as string))
@@ -34,18 +31,12 @@ export const supplierDashboard = query({
       .paginate({ cursor: null, numItems: MAX_PAGE_SIZE });
     const reviews = reviewsResult.page;
 
-    const totalOrders = orders.length;
+    const totalOrders = 0;
     const totalProducts = products.length;
     const totalReviews = reviews.length;
     const averageRating = reviews.length > 0 ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10 : 0;
 
-    const now = new Date();
-    const monthlyRevenue = orders
-      .filter(o => {
-        const d = new Date(o.created_at);
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && o.payment_status === 'paid';
-      })
-      .reduce((sum, o) => sum + o.total_amount, 0);
+    const monthlyRevenue = 0;
 
     return {
       profile: supplier,

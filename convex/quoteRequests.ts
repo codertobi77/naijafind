@@ -202,7 +202,7 @@ export const updateQuoteRequestStatus = mutation({
     const supplierIds = supplierEntry.map((s) => s.supplierId);
     const isInvolvedSupplier = await ctx.db
       .query("suppliers")
-      .withIndex("userId", (q) => q.eq("userId", identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier))
       .first()
       .then((s) => s && supplierIds.includes(s._id));
 
@@ -244,7 +244,7 @@ export const respondToQuoteRequest = mutation({
     // Verify this supplier owns this entry
     const supplier = await ctx.db
       .query("suppliers")
-      .withIndex("userId", (q) => q.eq("userId", identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier))
       .first();
 
     if (!supplier || qrs.supplierId !== supplier._id) {
@@ -414,7 +414,7 @@ export const getSupplierQuoteRequests = query({
     // Verify supplier ownership
     const supplier = await ctx.db
       .query("suppliers")
-      .withIndex("userId", (q) => q.eq("userId", identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier))
       .first();
 
     if (!supplier || supplier._id !== args.supplierId) {

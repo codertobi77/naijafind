@@ -150,7 +150,7 @@ export const deletePurchaseRequest = mutation({
     }
     
     // Only allow owner or admin to delete
-    if (request.userId !== identity.subject) {
+    if (request.userId !== identity.tokenIdentifier) {
       const user = await ctx.db
         .query("users")
         .withIndex("email", (q) => q.eq("email", identity.email))
@@ -183,7 +183,7 @@ export const getMyPurchaseRequests = query({
     
     const requests = await ctx.db
       .query("purchaseRequests")
-      .withIndex("userId", (q) => q.eq("userId", identity.subject))
+      .withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier))
       .order("desc")
       .take(limit);
     
@@ -209,18 +209,8 @@ export const getPurchaseRequestById = query({
       return null;
     }
     
-    // Only allow owner or admin to view
-    if (request.userId !== identity.subject) {
-      const user = await ctx.db
-        .query("users")
-        .withIndex("email", (q) => q.eq("email", identity.email))
-        .first();
-      
-      if (!user?.is_admin) {
-        throw new Error("Accès refusé");
-      }
-    }
-    
+    // Accessible à tout utilisateur authentifié : les fournisseurs notifiés
+    // doivent pouvoir consulter la demande d'achat pour y répondre.
     return request;
   }
 });
@@ -243,6 +233,18 @@ export const updatePurchaseRequestStatus = mutation({
     const request = await ctx.db.get(args.id);
     if (!request) {
       throw new Error("Demande non trouvée");
+    }
+    
+    // Seul le propriétaire de la demande ou un admin peut modifier le statut
+    if (request.userId !== identity.tokenIdentifier) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("email", (q) => q.eq("email", identity.email))
+        .first();
+      
+      if (!user?.is_admin) {
+        throw new Error("Accès refusé");
+      }
     }
     
     const now = new Date().toISOString();
@@ -298,7 +300,7 @@ export const submitQuote = mutation({
     }
     
     // Verify supplier belongs to this user
-    if (supplier.userId !== identity.subject) {
+    if (supplier.userId !== identity.tokenIdentifier) {
       throw new Error("Accès refusé");
     }
     
@@ -406,20 +408,28 @@ export const getPurchaseRequestStats = query({
       throw new Error("Accès refusé. Admin uniquement.");
     }
     
-    const allRequests = await ctx.db.query("purchaseRequests").collect();
+    // Comptage borné via les index status/createdAt (évite de charger toutes les lignes)
+    const countByStatus = async (status: string) =>
+      (await ctx.db
+        .query("purchaseRequests")
+        .withIndex("status", (q) => q.eq("status", status))
+        .take(10000)).length;
     
-    const pending = allRequests.filter(r => r.status === 'pending').length;
-    const contacted = allRequests.filter(r => r.status === 'contacted').length;
-    const quoted = allRequests.filter(r => r.status === 'quoted').length;
-    const completed = allRequests.filter(r => r.status === 'completed').length;
-    const cancelled = allRequests.filter(r => r.status === 'cancelled').length;
+    const pending = await countByStatus('pending');
+    const contacted = await countByStatus('contacted');
+    const quoted = await countByStatus('quoted');
+    const completed = await countByStatus('completed');
+    const cancelled = await countByStatus('cancelled');
     
-    // Get today's requests
+    // Demandes du jour (les dates ISO se trient lexicographiquement)
     const today = new Date().toISOString().split('T')[0];
-    const todayRequests = allRequests.filter(r => r.createdAt.startsWith(today)).length;
+    const todayRequests = (await ctx.db
+      .query("purchaseRequests")
+      .withIndex("createdAt", (q) => q.gte("createdAt", today))
+      .take(10000)).length;
     
     return {
-      total: allRequests.length,
+      total: pending + contacted + quoted + completed + cancelled,
       pending,
       contacted,
       quoted,

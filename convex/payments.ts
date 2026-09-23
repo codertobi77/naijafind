@@ -534,7 +534,7 @@ export const getPaymentStatus = query({
     }
 
     // Verify ownership or admin
-    if (payment.userId !== identity.subject) {
+    if (payment.userId !== identity.tokenIdentifier) {
       const user = await ctx.db
         .query("users")
         .withIndex("email", (q) => q.eq("email", identity.email))
@@ -675,7 +675,7 @@ export const cancelPayment = mutation({
     }
 
     // Verify ownership or admin
-    if (payment.userId !== identity.subject) {
+    if (payment.userId !== identity.tokenIdentifier) {
       const user = await ctx.db
         .query("users")
         .withIndex("email", (q) => q.eq("email", identity.email))

@@ -162,7 +162,7 @@ export const addCategory = mutation({
     }
 
     const now = new Date().toISOString();
-    const userId = identity.subject;
+    const userId = identity.tokenIdentifier;
 
     const id = await ctx.db.insert("categories", {
       name: args.name,

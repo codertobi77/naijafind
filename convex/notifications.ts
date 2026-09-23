@@ -1,6 +1,5 @@
 import { v } from 'convex/values';
 import { query, mutation } from './_generated/server';
-import { getAuthUserId } from '@convex-dev/auth/server';
 
 // Get all notifications for the current user
 export const getNotifications = query({
@@ -9,34 +8,26 @@ export const getNotifications = query({
     onlyUnread: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    // Identité Clerk : userId au format tokenIdentifier,
+    // comme toutes les écritures de notifications.
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
       throw new Error('Not authenticated');
     }
 
-    // Look up the user to get their Convex document ID
-    const user = await ctx.db
-      .query('users')
-      .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', userId))
-      .first();
-    
-    if (!user) {
-      return []; // No user found, return empty array
-    }
-
-    const convexUserId = user._id;
+    const userId = identity.tokenIdentifier;
 
     let notifications;
     if (args.onlyUnread) {
       notifications = await ctx.db
         .query('notifications')
-        .withIndex('userId_read', (q) => q.eq('userId', convexUserId).eq('read', false))
+        .withIndex('userId_read', (q) => q.eq('userId', userId).eq('read', false))
         .order('desc')
         .take(args.limit ?? 50);
     } else {
       notifications = await ctx.db
         .query('notifications')
-        .withIndex('userId', (q) => q.eq('userId', convexUserId))
+        .withIndex('userId', (q) => q.eq('userId', userId))
         .order('desc')
         .take(args.limit ?? 50);
     }
@@ -48,26 +39,16 @@ export const getNotifications = query({
 // Get unread notification count
 export const getUnreadCount = query({
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
       return 0;
     }
 
-    // Look up the user to get their Convex document ID
-    const user = await ctx.db
-      .query('users')
-      .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', userId))
-      .first();
-    
-    if (!user) {
-      return 0;
-    }
-
-    const convexUserId = user._id;
+    const userId = identity.tokenIdentifier;
 
     const notifications = await ctx.db
       .query('notifications')
-      .withIndex('userId_read', (q) => q.eq('userId', convexUserId).eq('read', false))
+      .withIndex('userId_read', (q) => q.eq('userId', userId).eq('read', false))
       .take(1000);
 
     // Return capped count - for accurate counts at scale, use a denormalized counter
@@ -86,19 +67,19 @@ export const createNotification = mutation({
     actionUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const currentUserId = await getAuthUserId(ctx);
-    if (!currentUserId) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
       throw new Error('Not authenticated');
     }
 
     // Look up current user by tokenIdentifier
     const currentUser = await ctx.db
       .query('users')
-      .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', currentUserId))
+      .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
       .first();
 
-    // Check if user is admin or creating for themselves (compare _id with args.userId)
-    if (currentUser?._id !== args.userId && !currentUser?.is_admin) {
+    // Check if user is admin or creating for themselves
+    if (args.userId !== identity.tokenIdentifier && !currentUser?.is_admin) {
       throw new Error('Unauthorized to create notification for this user');
     }
 
@@ -123,8 +104,8 @@ export const markAsRead = mutation({
     notificationId: v.id('notifications'),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
       throw new Error('Not authenticated');
     }
 
@@ -133,7 +114,7 @@ export const markAsRead = mutation({
       throw new Error('Notification not found');
     }
 
-    if (notification.userId !== userId) {
+    if (notification.userId !== identity.tokenIdentifier) {
       throw new Error('Unauthorized to modify this notification');
     }
 
@@ -145,14 +126,14 @@ export const markAsRead = mutation({
 // Mark all notifications as read
 export const markAllAsRead = mutation({
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
       throw new Error('Not authenticated');
     }
 
     const notifications = await ctx.db
       .query('notifications')
-      .withIndex('userId_read', (q) => q.eq('userId', userId).eq('read', false))
+      .withIndex('userId_read', (q) => q.eq('userId', identity.tokenIdentifier).eq('read', false))
       .collect();
 
     await Promise.all(
@@ -169,8 +150,8 @@ export const deleteNotification = mutation({
     notificationId: v.id('notifications'),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
       throw new Error('Not authenticated');
     }
 
@@ -179,7 +160,7 @@ export const deleteNotification = mutation({
       throw new Error('Notification not found');
     }
 
-    if (notification.userId !== userId) {
+    if (notification.userId !== identity.tokenIdentifier) {
       throw new Error('Unauthorized to delete this notification');
     }
 
@@ -265,10 +246,12 @@ export const createContactRequest = mutation({
     message: v.string(),
   },
   handler: async (ctx, args) => {
-    const currentUserId = await getAuthUserId(ctx);
-    if (!currentUserId) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
       throw new Error('Not authenticated');
     }
+
+    const currentUserId = identity.tokenIdentifier;
 
     // Create notification for supplier
     const notificationId = await ctx.db.insert('notifications', {
@@ -302,13 +285,16 @@ export const sendAdminNotification = mutation({
     actionUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const currentUserId = await getAuthUserId(ctx);
-    if (!currentUserId) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
       throw new Error('Not authenticated');
     }
 
     // Verify the current user is an admin
-    const currentUser = await ctx.db.get(currentUserId);
+    const currentUser = await ctx.db
+      .query('users')
+      .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
+      .first();
     if (!currentUser?.is_admin && currentUser?.user_type !== 'admin') {
       throw new Error('Unauthorized: Only admins can send notifications');
     }
@@ -318,7 +304,7 @@ export const sendAdminNotification = mutation({
       type: args.type || 'system',
       title: args.title,
       message: args.message,
-      data: { sentByAdmin: true, adminId: currentUserId },
+      data: { sentByAdmin: true, adminId: identity.tokenIdentifier },
       read: false,
       actionUrl: args.actionUrl,
       createdAt: new Date().toISOString(),
@@ -338,13 +324,16 @@ export const sendBulkNotification = mutation({
     actionUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const currentUserId = await getAuthUserId(ctx);
-    if (!currentUserId) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
       throw new Error('Not authenticated');
     }
 
     // Verify the current user is an admin
-    const currentUser = await ctx.db.get(currentUserId);
+    const currentUser = await ctx.db
+      .query('users')
+      .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
+      .first();
     if (!currentUser?.is_admin && currentUser?.user_type !== 'admin') {
       throw new Error('Unauthorized: Only admins can send bulk notifications');
     }
@@ -356,7 +345,7 @@ export const sendBulkNotification = mutation({
           type: args.type || 'system',
           title: args.title,
           message: args.message,
-          data: { sentByAdmin: true, adminId: currentUserId, bulk: true },
+          data: { sentByAdmin: true, adminId: identity.tokenIdentifier, bulk: true },
           read: false,
           actionUrl: args.actionUrl,
           createdAt: new Date().toISOString(),

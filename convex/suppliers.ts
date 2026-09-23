@@ -518,7 +518,7 @@ export const updateSupplierProfile = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Non autorisé");
 
-    const userId = identity.subject;
+    const userId = identity.tokenIdentifier;
     // Application-level enforcement: Check for existing supplier profile for this user
     const supplier = await ctx.db.query("suppliers").withIndex("userId", (q) => q.eq("userId", userId)).first();
     if (!supplier) throw new Error("Profil fournisseur non trouvé");

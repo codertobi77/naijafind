@@ -2,6 +2,13 @@ import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { escapeHtml } from "./htmlEscape";
+
+// Destinataire et URL de base configurables via les variables d'environnement Convex :
+//   npx convex env add CONTACT_EMAIL "contact@votredomaine.com"
+//   npx convex env add APP_URL "https://votredomaine.com"
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL || "contact@Suji.com";
+const APP_URL = process.env.APP_URL || "https://Suji.com";
 
 /**
  * Email service using Resend
@@ -32,22 +39,20 @@ export const sendContactEmail = mutation({
     // Send email using Resend via HTTP action
     try {
       await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
-        to: "contact@Suji.com",
-        subject: `[Contact Form] ${args.subject}`,
+        to: CONTACT_EMAIL,
+        subject: `[Contact Form] ${escapeHtml(args.subject)}`,
         html: `
           <h2>New Contact Form Submission</h2>
-          <p><strong>From:</strong> ${args.name} (${args.email})</p>
-          <p><strong>Subject:</strong> ${args.subject}</p>
-          <p><strong>Type:</strong> ${args.type || "general"}</p>
+          <p><strong>From:</strong> ${escapeHtml(args.name)} (${escapeHtml(args.email)})</p>
+          <p><strong>Subject:</strong> ${escapeHtml(args.subject)}</p>
+          <p><strong>Type:</strong> ${escapeHtml(args.type || "general")}</p>
           <p><strong>Message:</strong></p>
-          <p>${args.message}</p>
+          <p>${escapeHtml(args.message)}</p>
         `,
       });
     } catch (emailError) {
       console.error("Failed to send contact email:", emailError);
     }
-    
-    console.log("Contact form submission received:", contactId);
 
     return { success: true, id: contactId };
   },
@@ -86,24 +91,22 @@ export const sendSupplierContactEmail = mutation({
     try {
       await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
         to: supplier.email,
-        subject: `[Suji] New message from ${args.senderName}`,
+        subject: `[Suji] New message from ${escapeHtml(args.senderName)}`,
         html: `
-          <h2>New Message for ${supplier.business_name}</h2>
-          <p><strong>From:</strong> ${args.senderName}</p>
-          <p><strong>Email:</strong> ${args.senderEmail}</p>
-          ${args.senderPhone ? `<p><strong>Phone:</strong> ${args.senderPhone}</p>` : ""}
-          <p><strong>Subject:</strong> ${args.subject}</p>
+          <h2>New Message for ${escapeHtml(supplier.business_name)}</h2>
+          <p><strong>From:</strong> ${escapeHtml(args.senderName)}</p>
+          <p><strong>Email:</strong> ${escapeHtml(args.senderEmail)}</p>
+          ${args.senderPhone ? `<p><strong>Phone:</strong> ${escapeHtml(args.senderPhone)}</p>` : ""}
+          <p><strong>Subject:</strong> ${escapeHtml(args.subject)}</p>
           <p><strong>Message:</strong></p>
-          <p>${args.message}</p>
+          <p>${escapeHtml(args.message)}</p>
           <hr>
-          <p><small>Reply to this message by responding directly to this email or contact ${args.senderEmail}</small></p>
+          <p><small>Reply to this message by responding directly to this email or contact ${escapeHtml(args.senderEmail)}</small></p>
         `,
       });
     } catch (emailError) {
       console.error("Failed to send supplier notification:", emailError);
     }
-    
-    console.log("Supplier contact message received:", messageId);
 
     return { success: true, id: messageId };
   },
@@ -130,7 +133,7 @@ export const sendVerificationEmail = mutation({
     });
 
     // Send verification email using Resend
-    const verificationLink = `https://Suji.com/verify?token=${verificationToken}`;
+    const verificationLink = `${APP_URL}/verify?token=${verificationToken}`;
     
     try {
       await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
@@ -151,8 +154,6 @@ export const sendVerificationEmail = mutation({
       console.error("Failed to send verification email:", emailError);
     }
     
-    console.log("Verification email sent to:", args.email);
-
     return { success: true, token: verificationToken };
   },
 });
@@ -186,7 +187,7 @@ export const sendPasswordResetEmail = mutation({
     });
 
     // Send password reset email using Resend
-    const resetLink = `https://Suji.com/reset-password?token=${resetToken}`;
+    const resetLink = `${APP_URL}/reset-password?token=${resetToken}`;
     
     try {
       await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
@@ -207,8 +208,6 @@ export const sendPasswordResetEmail = mutation({
       console.error("Failed to send password reset email:", emailError);
     }
     
-    console.log("Password reset email sent to:", args.email);
-
     return { success: true };
   },
 });
@@ -245,11 +244,11 @@ export const sendSupplierApprovalEmail = mutation({
       ? "Your Suji supplier account has been approved!" 
       : "Update on your Suji supplier application";
     
-    const dashboardLink = "https://Suji.com/dashboard";
+    const dashboardLink = `${APP_URL}/dashboard`;
     const emailHtml = args.approved
       ? `
         <h2>Congratulations! Your supplier account is now active</h2>
-        <p>Dear ${supplier.business_name},</p>
+        <p>Dear ${escapeHtml(supplier.business_name)},</p>
         <p>We're excited to inform you that your supplier account has been approved and is now active on Suji!</p>
         <p>You can now:</p>
         <ul>
@@ -263,9 +262,9 @@ export const sendSupplierApprovalEmail = mutation({
       `
       : `
         <h2>Update on your supplier application</h2>
-        <p>Dear ${supplier.business_name},</p>
+        <p>Dear ${escapeHtml(supplier.business_name)},</p>
         <p>Thank you for your interest in joining Suji. After reviewing your application, we need you to provide additional information or make some updates before we can approve your account.</p>
-        ${args.reason ? `<p><strong>Reason:</strong> ${args.reason}</p>` : ""}
+        ${args.reason ? `<p><strong>Reason:</strong> ${escapeHtml(args.reason)}</p>` : ""}
         <p>Please review your application and make the necessary updates. If you have any questions, feel free to contact our support team.</p>
         <p><a href="${dashboardLink}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Review Application</a></p>
         <p>Best regards,<br>The Suji Team</p>
@@ -281,8 +280,6 @@ export const sendSupplierApprovalEmail = mutation({
       console.error("Failed to send approval email:", emailError);
     }
     
-    console.log("Supplier approval email sent:", supplier.email);
-
     return { success: true };
   },
 });
@@ -296,9 +293,9 @@ export const sendWelcomeEmail = mutation({
   handler: async (ctx, args) => {
     // Send welcome email using Resend
     const isSupplier = args.userType === "supplier";
-    const baseUrl = "https://Suji.com";
+    const baseUrl = APP_URL;
     const welcomeHtml = `
-      <h2>Welcome to Suji${args.firstName ? `, ${args.firstName}` : ""}!</h2>
+      <h2>Welcome to Suji${args.firstName ? `, ${escapeHtml(args.firstName)}` : ""}!</h2>
       <p>We're thrilled to have you join our community.</p>
       ${isSupplier ? `
         <p>As a supplier, you can now:</p>
@@ -327,8 +324,6 @@ export const sendWelcomeEmail = mutation({
       console.error("Failed to send welcome email:", emailError);
     }
     
-    console.log("Welcome email sent to:", args.email);
-
     return { success: true };
   },
 });
@@ -382,8 +377,8 @@ export const subscribeToNewsletter = mutation({
           to: normalizedEmail,
           subject: "Welcome back to Suji newsletter!",
           html: `
-            <h2>Welcome back!</h2>
-            <p>Hi ${args.name || "there"},</p>
+          <h2>Welcome back!</h2>
+          <p>Hi ${escapeHtml(args.name) || "there"},</p>
             <p>You've successfully resubscribed to the Suji newsletter. We're excited to have you back!</p>
             <p>You'll now receive:</p>
             <ul>
@@ -413,13 +408,12 @@ export const subscribeToNewsletter = mutation({
     
     // Send welcome email
     try {
-      console.log("Scheduling welcome email for:", normalizedEmail);
-      const jobId = await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
+      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
         to: normalizedEmail,
         subject: "Welcome to Suji newsletter!",
         html: `
           <h2>Welcome to Suji!</h2>
-          <p>Hi ${args.name || "there"},</p>
+          <p>Hi ${escapeHtml(args.name) || "there"},</p>
           <p>Thank you for subscribing to our newsletter. You're now part of a community that stays informed about the best suppliers and businesses in Nigeria.</p>
           <p>Here's what you can expect:</p>
           <ul>
@@ -428,16 +422,14 @@ export const subscribeToNewsletter = mutation({
             <li>Industry news and updates</li>
             <li>Tips for business growth</li>
           </ul>
-          <p><a href="https://Suji.com/search" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Start Exploring</a></p>
+          <p><a href="${APP_URL}/search" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Start Exploring</a></p>
           <p>Best regards,<br>The Suji Team</p>
         `,
       });
-      console.log("Welcome email scheduled successfully, job ID:", jobId);
     } catch (emailError) {
       console.error("Failed to schedule welcome email:", emailError);
     }
-    
-    console.log("Newsletter subscription created:", subscriptionId);
+
     return { success: true, id: subscriptionId, message: "Successfully subscribed", alreadySubscribed: false };
   },
 });
@@ -519,7 +511,6 @@ export const sendNewsletter = mutation({
       }
     }
     
-    console.log(`Newsletter scheduled for ${scheduledCount} subscribers`);
     return { 
       success: true, 
       sent: scheduledCount, 
