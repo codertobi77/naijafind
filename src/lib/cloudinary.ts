@@ -41,11 +41,6 @@ export async function uploadFileToCloudinary(
     const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
     const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
-    // Debug logging
-    console.log('[Cloudinary Debug] cloudName:', cloudName);
-    console.log('[Cloudinary Debug] uploadPreset:', uploadPreset ? '***set***' : '***missing***');
-    console.log('[Cloudinary Debug] endpoint:', cloudName ? `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload` : 'undefined');
-
     if (!cloudName || !uploadPreset) {
       console.error('Cloudinary configuration missing. Please set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET');
       return fallbackUpload(file);
@@ -106,21 +101,6 @@ export async function uploadFileToCloudinary(
 }
 
 /**
- * Upload multiple files to Cloudinary
- */
-export async function uploadFilesToCloudinary(
-  files: File[],
-  folder: string = 'suji',
-  resourceType: ResourceType = 'auto',
-  transformation?: string
-): Promise<UploadResult[]> {
-  const uploadPromises = files.map(file =>
-    uploadFileToCloudinary(file, folder, resourceType, transformation)
-  );
-  return Promise.all(uploadPromises);
-}
-
-/**
  * Upload a single image to Cloudinary (legacy compatibility)
  */
 export async function uploadImageToCloudinary(
@@ -139,25 +119,9 @@ export async function uploadImagesToCloudinary(
   folder: string = 'suji',
   transformation?: string
 ): Promise<UploadResult[]> {
-  return uploadFilesToCloudinary(files, folder, 'image', transformation);
-}
-
-/**
- * Upload a video to Cloudinary
- * @param file - Video file to upload
- * @param folder - Optional folder path
- * @param generateThumbnail - Whether to auto-generate thumbnail
- */
-export async function uploadVideoToCloudinary(
-  file: File,
-  folder: string = 'suji/videos',
-  generateThumbnail: boolean = true
-): Promise<UploadResult> {
-  const result = await uploadFileToCloudinary(file, folder, 'video');
-  if (result.success && generateThumbnail && result.metadata?.publicId) {
-    result.metadata.thumbnail = getVideoThumbnailUrl(result.metadata.publicId);
-  }
-  return result;
+  return Promise.all(
+    files.map(file => uploadFileToCloudinary(file, folder, 'image', transformation))
+  );
 }
 
 /**
@@ -170,19 +134,6 @@ export async function uploadDocumentToCloudinary(
   folder: string = 'suji/documents'
 ): Promise<UploadResult> {
   return uploadFileToCloudinary(file, folder, 'raw');
-}
-
-/**
- * Upload an audio file to Cloudinary
- * @param file - Audio file to upload
- * @param folder - Optional folder path
- */
-export async function uploadAudioToCloudinary(
-  file: File,
-  folder: string = 'suji/audio'
-): Promise<UploadResult> {
-  void file; // Used via uploadFileToCloudinary
-  return uploadFileToCloudinary(file, folder, 'video'); // Cloudinary uses 'video' for audio too
 }
 
 /**
@@ -220,14 +171,6 @@ function generateThumbnailUrl(
 }
 
 /**
- * Generate video thumbnail URL from public ID
- */
-function getVideoThumbnailUrl(publicId: string): string {
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-  return `https://res.cloudinary.com/${cloudName}/video/upload/w_300,h_200,c_fill,q_auto,so_0/${publicId}.jpg`;
-}
-
-/**
  * Validate an image file before upload
  */
 export function validateImageFile(
@@ -241,24 +184,6 @@ export function validateImageFile(
   const maxSizeBytes = maxSizeMB * 1024 * 1024;
   if (file.size > maxSizeBytes) {
     return `File size must be less than ${maxSizeMB}MB`;
-  }
-  return null;
-}
-
-/**
- * Validate a video file before upload
- */
-export function validateVideoFile(
-  file: File,
-  maxSizeMB: number = 100,
-  allowedTypes: string[] = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo']
-): string | null {
-  if (!allowedTypes.includes(file.type)) {
-    return `Video type must be one of: ${allowedTypes.join(', ')}`;
-  }
-  const maxSizeBytes = maxSizeMB * 1024 * 1024;
-  if (file.size > maxSizeBytes) {
-    return `Video size must be less than ${maxSizeMB}MB`;
   }
   return null;
 }
@@ -288,24 +213,6 @@ export function validateDocumentFile(
   const maxSizeBytes = maxSizeMB * 1024 * 1024;
   if (file.size > maxSizeBytes) {
     return `Document size must be less than ${maxSizeMB}MB`;
-  }
-  return null;
-}
-
-/**
- * Validate an audio file before upload
- */
-export function validateAudioFile(
-  file: File,
-  maxSizeMB: number = 50,
-  allowedTypes: string[] = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3', 'audio/aac']
-): string | null {
-  if (!allowedTypes.includes(file.type)) {
-    return `Audio type must be one of: ${allowedTypes.join(', ')}`;
-  }
-  const maxSizeBytes = maxSizeMB * 1024 * 1024;
-  if (file.size > maxSizeBytes) {
-    return `Audio size must be less than ${maxSizeMB}MB`;
   }
   return null;
 }
@@ -368,18 +275,6 @@ export function getAttachmentKind(url: string | null | undefined): AttachmentKin
 }
 
 /**
- * Validate multiple files
- */
-export function validateFiles(
-  files: File[],
-  validator: (file: File) => string | null
-): string[] {
-  return files
-    .map(file => validator(file))
-    .filter(Boolean) as string[];
-}
-
-/**
  * Validate multiple image files
  */
 export function validateImageFiles(
@@ -387,95 +282,8 @@ export function validateImageFiles(
   maxSizeMB: number = 10,
   allowedTypes?: string[]
 ): string[] {
-  return validateFiles(files, file => validateImageFile(file, maxSizeMB, allowedTypes));
+  return files
+    .map(file => validateImageFile(file, maxSizeMB, allowedTypes))
+    .filter(Boolean) as string[];
 }
 
-/**
- * Detect resource type from file mime type
- */
-export function detectResourceType(file: File): ResourceType {
-  if (file.type.startsWith('image/')) return 'image';
-  if (file.type.startsWith('video/')) return 'video';
-  if (file.type.startsWith('audio/')) return 'video'; // Cloudinary uses 'video' for audio
-  return 'raw';
-}
-
-/**
- * Check if file type is supported
- */
-export function isSupportedFileType(file: File): boolean {
-  const supported = [
-    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-    'video/mp4', 'video/webm', 'video/quicktime',
-    'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3',
-    'application/pdf', 'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel', 'text/plain',
-  ];
-  return supported.includes(file.type);
-}
-
-/**
- * Generate Cloudinary transformation URL for images
- * @param url - Original Cloudinary URL
- * @param transformations - Transformation parameters (e.g., 'w_500,h_500,c_fill')
- */
-export function getTransformedImageUrl(url: string, transformations: string): string {
-  if (!url.includes('cloudinary.com')) {
-    return url;
-  }
-  return url.replace('/upload/', `/upload/${transformations}/`);
-}
-
-/**
- * Generate optimized image URL
- */
-export function getOptimizedImageUrl(url: string, width?: number): string {
-  if (!url.includes('cloudinary.com')) {
-    return url;
-  }
-  const transforms = width
-    ? `w_${width},q_auto,f_auto`
-    : 'q_auto,f_auto';
-  return url.replace('/upload/', `/upload/${transforms}/`);
-}
-
-/**
- * Generate responsive image srcset URLs
- */
-export function getResponsiveImageUrls(url: string): { url: string; width: number }[] {
-  if (!url.includes('cloudinary.com')) {
-    return [{ url, width: 0 }];
-  }
-  const sizes = [320, 640, 960, 1280, 1920];
-  return sizes.map(width => ({
-    width,
-    url: url.replace('/upload/', `/upload/w_${width},q_auto,f_auto/`),
-  }));
-}
-
-/**
- * Generate video transformation URL
- */
-export function getTransformedVideoUrl(url: string, transformations?: string): string {
-  if (!url.includes('cloudinary.com')) {
-    return url;
-  }
-  const transforms = transformations || 'q_auto,f_auto';
-  return url.replace('/video/upload/', `/video/upload/${transforms}/`);
-}
-
-/**
- * Delete a file from Cloudinary (requires backend implementation)
- * Note: This requires signed authentication, so it should be done via Convex backend
- */
-export async function deleteFromCloudinary(
-  publicId: string,
-  resourceType: ResourceType = 'image'
-): Promise<boolean> {
-  console.warn('File deletion should be implemented on the backend with Convex');
-  return false;
-}
-
-// Legacy export for backward compatibility
-export { deleteFromCloudinary as deleteImageFromCloudinary };

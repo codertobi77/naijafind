@@ -15,7 +15,9 @@ describe('DocumentUpload Component', () => {
   const mockOnChange = vitest.fn();
 
   beforeEach(() => {
-    vitest.clearAllMocks();
+    // resetAllMocks: clearAllMocks ne réinitialise pas les mockReturnValue/mockResolvedValue
+    // du test précédent (fuite qui faisait échouer le test d'état de chargement)
+    vitest.resetAllMocks();
   });
 
   it('renders correctly with label and description', () => {

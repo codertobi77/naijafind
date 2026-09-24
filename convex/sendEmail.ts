@@ -13,15 +13,12 @@ export const sendEmailAction = internalAction({
     from: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    console.log("sendEmailAction called with:", { to: args.to, subject: args.subject });
     
     // Access environment variables through process.env
     // Note: Set these in your Convex dashboard under Settings > Environment Variables
     const RESEND_API_KEY = process.env.RESEND_API_KEY;
     const FROM_EMAIL = process.env.VITE_FROM_EMAIL || "onboarding@resend.dev";
     
-    console.log("Environment check - RESEND_API_KEY exists:", !!RESEND_API_KEY);
-    console.log("Environment check - FROM_EMAIL:", FROM_EMAIL);
     
     if (!RESEND_API_KEY) {
       console.error("RESEND_API_KEY not configured");
@@ -43,8 +40,6 @@ export const sendEmailAction = internalAction({
         }),
       });
 
-      console.log("Response received from Resend API:", response);
-
       if (!response.ok) {
         const error = await response.json();
         console.error("Resend API error:", error);
@@ -52,8 +47,6 @@ export const sendEmailAction = internalAction({
       }
 
       const data = await response.json();
-      console.log("Email sent successfully:", data.id);
-      console.log("Email sending details:", data);
       return { success: true, emailId: data.id };
     } catch (error) {
       console.error("Failed to send email:", error);

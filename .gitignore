@@ -2,3 +2,10 @@
 node_modules
 out
 .cursor
+
+# Données de travail locales (jamais versionnées)
+arms_cache/
+documents.jsonl
+products_documents_shortened.jsonl
+convex_rules.txt
+cleaning_stats.json

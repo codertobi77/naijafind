@@ -82,6 +82,7 @@ export default defineConfig({
           'react-vendor': ['react', 'react-dom'],
           'router-vendor': ['react-router-dom'],
           'i18n-vendor': ['react-i18next', 'i18next'],
+          'clerk-vendor': ['@clerk/clerk-react', '@clerk/clerk-js'],
         },
       },
     },

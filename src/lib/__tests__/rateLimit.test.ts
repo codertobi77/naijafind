@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { checkRateLimit, recordAttempt } from '../../convex/rateLimit';
-import { mutation, query } from '../../convex/_generated/server';
+import { checkRateLimit, recordAttempt } from '../../../convex/rateLimit';
+import { mutation, query } from '../../../convex/_generated/server';
 import { v } from 'convex/values';
 
 // Mock the Convex context

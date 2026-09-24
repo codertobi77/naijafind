@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useId } from 'react';
+import { useTranslation } from 'react-i18next';
 import { uploadDocumentToCloudinary, validateDocumentFile } from '../../lib/cloudinary';
 
 interface DocumentUploadProps {
@@ -18,11 +19,13 @@ export default function DocumentUpload({
   accept = 'image/*,application/pdf,.doc,.docx',
   description
 }: DocumentUploadProps) {
+  const { t } = useTranslation();
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
+  const inputId = useId();
 
   const handleFileChange = async (file: File | null) => {
     if (!file) return;
@@ -48,10 +51,10 @@ export default function DocumentUpload({
       if (result.success) {
         onChange(result.url, file.name);
       } else {
-        setError(result.error || 'Échec du téléchargement');
+        setError(result.error || t('file_upload.failed', 'Échec du téléchargement'));
       }
     } catch (err) {
-      setError('Échec du téléchargement');
+      setError(t('file_upload.failed', 'Échec du téléchargement'));
       console.error('Upload error:', err);
     } finally {
       setUploading(false);
@@ -90,7 +93,7 @@ export default function DocumentUpload({
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
+      <label htmlFor={inputId} className="text-sm font-medium text-gray-700">{label}</label>
       {description && (
         <p className="text-xs text-gray-500">{description}</p>
       )}
@@ -106,6 +109,7 @@ export default function DocumentUpload({
         onDrop={handleDrop}
       >
         <input
+          id={inputId}
           type="file"
           ref={fileInputRef}
           className="hidden"
@@ -116,12 +120,12 @@ export default function DocumentUpload({
         {uploading ? (
           <div className="space-y-2">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
-            <p className="text-sm text-gray-600">Téléchargement...</p>
+            <p className="text-sm text-gray-600">{t('file_upload.uploading', 'Téléchargement...')}</p>
           </div>
         ) : value ? (
           <div className="space-y-2">
             <i className="ri-file-check-line text-4xl text-green-600"></i>
-            <p className="text-sm font-medium text-gray-900">{fileName || 'Document téléchargé'}</p>
+            <p className="text-sm font-medium text-gray-900">{fileName || t('file_upload.uploaded', 'Document téléchargé')}</p>
             <button
               type="button"
               className="text-xs text-green-600 hover:text-green-700 underline"
@@ -131,14 +135,14 @@ export default function DocumentUpload({
                 setFileName('');
               }}
             >
-              Changer le document
+              {t('file_upload.change_document', 'Changer le document')}
             </button>
           </div>
         ) : (
           <div className="space-y-2">
             <i className="ri-upload-cloud-2-line text-4xl text-gray-400"></i>
-            <p className="text-sm text-gray-600">Cliquez pour télécharger ou glissez-déposez</p>
-            <p className="text-xs text-gray-400">PDF, JPG, PNG jusqu'à 10MB</p>
+            <p className="text-sm text-gray-600">{t('file_upload.click_or_drag', 'Cliquez pour télécharger ou glissez-déposez')}</p>
+            <p className="text-xs text-gray-400">PDF, JPG, PNG jusqu'à 20 MB</p>
           </div>
         )}
         

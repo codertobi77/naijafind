@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useTranslation, type TFunction } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { Header } from '../../components/base';
 import { useConvexAuth, useMutation, useAction } from 'convex/react';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { api } from '@convex/_generated/api';
-import type { Doc } from 'convex/values';
+import type { Doc } from '@convex/_generated/dataModel';
 import Modal from '../../components/base/Modal';
 import { HeroSection, Section, Container, Footer } from '../../components/layout';
 import { CTASection } from '../../components/ui';

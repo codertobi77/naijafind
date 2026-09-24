@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import i18n, { SupportedLanguageCode, getStoredLanguage, supportedLanguages } from "../i18n";
+import i18n, { type SupportedLanguageCode, getStoredLanguage, supportedLanguages } from "../i18n";
 
 /**
  * Cache for search translations (Alibaba-style)

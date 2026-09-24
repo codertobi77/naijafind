@@ -360,6 +360,7 @@ export default function Contact() {
                   value={formData.website}
                   onChange={handleChange}
                   className="hidden"
+                  aria-hidden="true"
                   tabIndex={-1}
                   autoComplete="off"
                 />

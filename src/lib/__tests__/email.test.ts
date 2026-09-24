@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { sendContactEmail } from '../../convex/emails';
-import { sendEmailAction } from '../../convex/sendEmail';
+import { sendContactEmail } from '../../../convex/emails';
+import { sendEmailAction } from '../../../convex/sendEmail';
 
 // Mock global fetch
 const mockFetch = vi.fn();

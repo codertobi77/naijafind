@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { Notification, NotificationType } from '../../hooks/useNotifications';
-import type { Id } from 'convex/values';
+import type { Id } from '@convex/_generated/dataModel';
 
 interface NotificationDropdownProps {
   notifications: Notification[];

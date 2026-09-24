@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { supportedLanguages, normalizeLanguageCode, SupportedLanguageCode } from '../../i18n';
+import { supportedLanguages, normalizeLanguageCode, type SupportedLanguageCode } from '../../i18n';
 
 const LanguageSelector: React.FC = () => {
   const { i18n, t } = useTranslation();

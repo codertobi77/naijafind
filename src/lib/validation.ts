@@ -14,8 +14,8 @@ export const contactFormSchema = z.object({
     .min(20, 'Message must be at least 20 characters')
     .max(500, 'Message must be less than 500 characters'),
   type: z.enum(['general', 'supplier', 'technical', 'partnership', 'feedback']),
-  // Honeypot field for spam protection
-  website: z.string().optional(),
+  // Honeypot field for spam protection: bots fill it, so it must stay empty
+  website: z.string().optional().refine((val) => !val, 'Honeypot field must be empty'),
 });
 
 export type ContactFormData = z.infer<typeof contactFormSchema>;
@@ -39,8 +39,8 @@ export const supplierContactSchema = z.object({
   message: z.string()
     .min(20, 'Message must be at least 20 characters')
     .max(500, 'Message must be less than 500 characters'),
-  // Honeypot field
-  website: z.string().optional(),
+  // Honeypot field: bots fill it, so it must stay empty
+  website: z.string().optional().refine((val) => !val, 'Honeypot field must be empty'),
 });
 
 export type SupplierContactFormData = z.infer<typeof supplierContactSchema>;
