@@ -17,6 +17,7 @@ import type * as checkMigration from "../checkMigration.js";
 import type * as crons from "../crons.js";
 import type * as dashboard from "../dashboard.js";
 import type * as emails from "../emails.js";
+import type * as htmlEscape from "../htmlEscape.js";
 import type * as http from "../http.js";
 import type * as init from "../init.js";
 import type * as messages from "../messages.js";
@@ -63,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   dashboard: typeof dashboard;
   emails: typeof emails;
+  htmlEscape: typeof htmlEscape;
   http: typeof http;
   init: typeof init;
   messages: typeof messages;
