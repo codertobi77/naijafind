@@ -22,6 +22,10 @@ export const dashboard = {
   "tab.subscription": "Abonnement",
   "tab.settings": "Paramètres",
   "tab.team": "Équipe",
+  "tab.purchase_requests": "Demandes d'achat",
+  "tab.messages": "Messages",
+  "tab.galerie": "Galerie",
+  "tab.verification": "Vérification",
   
   // Profile section
   "profile.title": "Informations du profil",
@@ -124,6 +128,11 @@ export const dashboard = {
   "dashboard.subscription": "Abonnement",
   "dashboard.team": "Équipe",
   "dashboard.purchase_requests": "Demandes d'achat",
+  "dashboard.my_purchase_requests": "Mes demandes d'achat",
+  "dashboard.manage_purchase_requests_desc": "Suivez vos demandes d'achat et les devis reçus des fournisseurs.",
+  "dashboard.no_purchase_requests": "Vous n'avez pas encore de demande d'achat",
+  "dashboard.create_request_from_home": "Publiez une demande depuis la page « Demande d'achat » pour recevoir des offres de fournisseurs.",
+  "dashboard.confirm_delete": "Confirmer la suppression ?",
   "dashboard.business_profile": "Profil de l'entreprise",
 
   // Error messages

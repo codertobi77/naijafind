@@ -25,6 +25,7 @@ import type { privacy } from '../i18n/local/en/privacy';
 import type { about } from '../i18n/local/en/about';
 import type { notfound } from '../i18n/local/en/notfound';
 import type { claims } from '../i18n/local/en/claims';
+import type { supplierFlow } from '../i18n/local/en/supplierFlow';
 
 /**
  * Combined translation resources type
@@ -44,7 +45,8 @@ type TranslationResources = typeof common &
   typeof privacy &
   typeof about &
   typeof notfound &
-  typeof claims;
+  typeof claims &
+  typeof supplierFlow;
 
 /**
  * Extract all translation keys as a union type

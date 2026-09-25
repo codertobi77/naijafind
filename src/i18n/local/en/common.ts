@@ -40,6 +40,8 @@ export const common = {
   "btn.open": "Open",
   "btn.show_more": "Show More",
   "btn.show_less": "Show Less",
+  "btn.yes": "Yes",
+  "btn.no": "No",
 
   // Common labels
   "label.name": "Name",

@@ -69,23 +69,23 @@ function getSidebarTabs(businessType: string | undefined): Array<{ id: Dashboard
   const isServiceProvider = businessType === 'services';
 
   const baseTabs: Array<{ id: DashboardTab; label: string; icon: string }> = [
-    { id: 'overview', label: 'Aperçu', icon: 'ri-dashboard-line' },
-    { id: 'purchaseRequests', label: 'Demandes d\'achat', icon: 'ri-shopping-cart-line' },
-    { id: 'profile', label: 'Profil', icon: 'ri-building-line' },
-    { id: 'reviews', label: 'Avis', icon: 'ri-star-line' },
-    { id: 'messages', label: 'Messages', icon: 'ri-mail-line' },
-    { id: 'verification', label: 'Vérification', icon: 'ri-shield-check-line' },
-    { id: 'analytics', label: 'Analytics', icon: 'ri-bar-chart-line' },
-    { id: 'subscription', label: 'Abonnement', icon: 'ri-vip-crown-line' },
-    { id: 'settings', label: 'Paramètres', icon: 'ri-settings-line' },
-    { id: 'team', label: 'Équipe', icon: 'ri-team-line' },
+    { id: 'overview', label: 'tab.overview', icon: 'ri-dashboard-line' },
+    { id: 'purchaseRequests', label: 'tab.purchase_requests', icon: 'ri-shopping-cart-line' },
+    { id: 'profile', label: 'tab.profile', icon: 'ri-building-line' },
+    { id: 'reviews', label: 'tab.reviews', icon: 'ri-star-line' },
+    { id: 'messages', label: 'tab.messages', icon: 'ri-mail-line' },
+    { id: 'verification', label: 'tab.verification', icon: 'ri-shield-check-line' },
+    { id: 'analytics', label: 'tab.analytics', icon: 'ri-bar-chart-line' },
+    { id: 'subscription', label: 'tab.subscription', icon: 'ri-vip-crown-line' },
+    { id: 'settings', label: 'tab.settings', icon: 'ri-settings-line' },
+    { id: 'team', label: 'tab.team', icon: 'ri-team-line' },
   ];
   const tabs: Array<{ id: DashboardTab; label: string; icon: string }> = [...baseTabs];
   if (isProductVendor) {
-    tabs.splice(2, 0, { id: 'products' as const, label: 'Produits', icon: 'ri-product-hunt-line' });
+    tabs.splice(2, 0, { id: 'products' as const, label: 'tab.products', icon: 'ri-product-hunt-line' });
   }
   if (isServiceProvider) {
-    tabs.splice(2, 0, { id: 'galerie' as const, label: 'Galerie', icon: 'ri-image-line' });
+    tabs.splice(2, 0, { id: 'galerie' as const, label: 'tab.galerie', icon: 'ri-image-line' });
   }
   return tabs;
 }
@@ -1134,6 +1134,11 @@ export default function Dashboard() {
         }))}
         activeTab={activeTab}
         onChange={(tabId, requiresUpgrade) => {
+          if (tabId === 'purchaseRequests') {
+            navigate('/dashboard/purchase-requests');
+            setSidebarOpen(false);
+            return;
+          }
           if (requiresUpgrade) {
             showUpgradePrompt(tabId);
             return;
@@ -1305,6 +1310,23 @@ function DashboardSidebar({
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
 }) {
+  const { t } = useTranslation();
+
+  // Libellés traduits via clés littérales (cf. avertissement TFunction dans src/pages/purchase-request/page.tsx)
+  const tabLabels: Record<DashboardTab, () => string> = {
+    overview: () => t('tab.overview'),
+    purchaseRequests: () => t('tab.purchase_requests'),
+    profile: () => t('tab.profile'),
+    products: () => t('tab.products'),
+    galerie: () => t('tab.galerie'),
+    reviews: () => t('tab.reviews'),
+    messages: () => t('tab.messages'),
+    verification: () => t('tab.verification'),
+    analytics: () => t('tab.analytics'),
+    subscription: () => t('tab.subscription'),
+    settings: () => t('tab.settings'),
+    team: () => t('tab.team'),
+  };
   return (
     <>
       <aside
@@ -1336,10 +1358,10 @@ function DashboardSidebar({
                       : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
                   } ${tab.premium ? 'opacity-60' : ''} ${collapsed ? 'justify-center' : 'space-x-3'}`}
                   data-tour={`${tab.id}-tab`}
-                  title={collapsed ? tab.label : undefined}
+                  title={collapsed ? tabLabels[tab.id]() : undefined}
                 >
                   <i className={`${tab.icon} text-lg ${collapsed ? '' : ''}`} />
-                  {!collapsed && <span className="font-medium">{tab.label}</span>}
+                  {!collapsed && <span className="font-medium">{tabLabels[tab.id]()}</span>}
                   {!collapsed && tab.premium && (
                     <i className="ri-lock-line ml-auto text-sm text-current" />
                   )}
@@ -2279,16 +2301,16 @@ function PurchaseRequestsSection({
       completed: 'bg-green-100 text-green-800',
       cancelled: 'bg-red-100 text-red-800',
     };
-    const labels: Record<string, string> = {
-      pending: 'En attente',
-      contacted: 'Contacté',
-      quoted: 'Devis reçu',
-      completed: 'Complété',
-      cancelled: 'Annulé',
+    const labels: Record<string, () => string> = {
+      pending: () => t('supplierFlow.status_pending'),
+      contacted: () => t('supplierFlow.status_contacted'),
+      quoted: () => t('supplierFlow.status_quoted'),
+      completed: () => t('supplierFlow.status_completed'),
+      cancelled: () => t('supplierFlow.status_cancelled'),
     };
     return (
       <span className={`rounded-full px-2 py-1 text-xs font-medium ${styles[status] || 'bg-gray-100 text-gray-800'}`}>
-        {labels[status] || status}
+        {labels[status]?.() || status}
       </span>
     );
   };
