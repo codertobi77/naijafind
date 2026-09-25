@@ -22,6 +22,10 @@ export const dashboard = {
   "tab.subscription": "Subscription",
   "tab.settings": "Settings",
   "tab.team": "Team",
+  "tab.purchase_requests": "Purchase Requests",
+  "tab.messages": "Messages",
+  "tab.galerie": "Gallery",
+  "tab.verification": "Verification",
   
   // Profile section
   "profile.title": "Profile Information",
@@ -124,6 +128,11 @@ export const dashboard = {
   "dashboard.subscription": "Subscription",
   "dashboard.team": "Team",
   "dashboard.purchase_requests": "Purchase Requests",
+  "dashboard.my_purchase_requests": "My purchase requests",
+  "dashboard.manage_purchase_requests_desc": "Track your purchase requests and the quotes received from suppliers.",
+  "dashboard.no_purchase_requests": "You don't have any purchase requests yet",
+  "dashboard.create_request_from_home": "Publish a request from the “Purchase Request” page to receive supplier quotes.",
+  "dashboard.confirm_delete": "Confirm deletion?",
   "dashboard.business_profile": "Business Profile",
 
   // Error messages  

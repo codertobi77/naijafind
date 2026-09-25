@@ -147,7 +147,6 @@ export const admin = {
   "admin.type_verification": "Vérification",
   "admin.type_approval": "Approbation",
   "admin.all_users": "Tous les utilisateurs",
-  "admin.all_suppliers": "Tous les fournisseurs",
   "admin.filter_by_category": "Filtrer par catégorie",
   "admin.notifications_history": "Historique des notifications",
   "admin.date": "Date",

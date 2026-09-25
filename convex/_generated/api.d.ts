@@ -41,6 +41,7 @@ import type * as sendEmail from "../sendEmail.js";
 import type * as stats from "../stats.js";
 import type * as statsCron from "../statsCron.js";
 import type * as statsOptimized from "../statsOptimized.js";
+import type * as supplierFlow from "../supplierFlow.js";
 import type * as supplierSearches from "../supplierSearches.js";
 import type * as suppliers from "../suppliers.js";
 import type * as suppliersInternal from "../suppliersInternal.js";
@@ -88,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   stats: typeof stats;
   statsCron: typeof statsCron;
   statsOptimized: typeof statsOptimized;
+  supplierFlow: typeof supplierFlow;
   supplierSearches: typeof supplierSearches;
   suppliers: typeof suppliers;
   suppliersInternal: typeof suppliersInternal;

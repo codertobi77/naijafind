@@ -20,6 +20,12 @@ const CheckRole = lazy(() => import('../pages/auth/check-role'));
 const ChooseRole = lazy(() => import('../pages/auth/choose-role'));
 const SupplierSetup = lazy(() => import('../pages/auth/supplier-setup'));
 const Dashboard = lazy(() => import('../pages/dashboard/page'));
+const DashboardPurchaseRequestsList = lazy(
+  () => import('../pages/dashboard/purchase-requests/list/page')
+);
+const DashboardPurchaseRequestDetail = lazy(
+  () => import('../pages/dashboard/purchase-requests/detail/page')
+);
 const NotFound = lazy(() => import('../pages/NotFound'));
 const Admin = lazy(() => import('../pages/admin/page'));
 
@@ -95,6 +101,14 @@ const routes: RouteObject[] = [
   {
     path: '/dashboard',
     element: <Dashboard />,
+  },
+  {
+    path: '/dashboard/purchase-requests',
+    element: <DashboardPurchaseRequestsList />,
+  },
+  {
+    path: '/dashboard/purchase-requests/:requestId',
+    element: <DashboardPurchaseRequestDetail />,
   },
   {
     path: '/admin/*',
