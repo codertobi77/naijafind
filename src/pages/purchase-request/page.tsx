@@ -292,25 +292,26 @@ export default function PurchaseRequestPage() {
                     {t('purchase_request.processing_normal_desc', 'Traitement sous 1 semaine — Gratuit')}
                   </p>
                 </button>
+                {/* Option Xpress désactivée temporairement : le module de paiement n'est pas encore implémenté.
+                    Réactivation : retirer `disabled` + style grisé, restaurer onClick={() => handleChange('processingOption', 'xpress')}
+                    et les branches conditionnelles sur formData.processingOption === 'xpress'. */}
                 <button
                   type="button"
-                  onClick={() => handleChange('processingOption', 'xpress')}
-                  className={`text-left p-4 border rounded-lg transition-all ${
-                    formData.processingOption === 'xpress'
-                      ? 'border-amber-500 ring-2 ring-amber-500 bg-amber-50'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
+                  disabled
+                  title={t('purchase_request.processing_xpress_soon', 'Bientôt disponible')}
+                  className="text-left p-4 border rounded-lg border-gray-200 bg-gray-50 cursor-not-allowed opacity-60"
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-gray-900">
                       {t('purchase_request.processing_xpress', 'Xpress')}
                     </span>
-                    {formData.processingOption === 'xpress' && (
-                      <Check className="w-4 h-4 text-amber-600" />
-                    )}
+                    <Zap className="w-4 h-4 text-gray-400" />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     {t('purchase_request.processing_xpress_desc', 'Traitement sous 48-72h — Payant')}
+                  </p>
+                  <p className="text-xs font-medium text-gray-400 mt-2">
+                    {t('purchase_request.processing_xpress_soon', 'Bientôt disponible')}
                   </p>
                 </button>
               </div>

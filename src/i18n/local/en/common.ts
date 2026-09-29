@@ -237,6 +237,7 @@ export const common = {
   "purchase_request.processing_normal_desc": "Processed within 1 week — Free",
   "purchase_request.processing_xpress": "Xpress",
   "purchase_request.processing_xpress_desc": "Processed within 48-72h — Paid",
+  "purchase_request.processing_xpress_soon": "Coming soon",
   "purchase_request.success_normal": "Your request will be processed within about 1 week.",
   "purchase_request.success_xpress": "Your Xpress request will be processed as a priority within 48-72h.",
 
