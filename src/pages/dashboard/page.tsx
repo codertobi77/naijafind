@@ -30,6 +30,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { ToastContainer, NotificationDropdown } from '../../components/base';
 import { LogoLink } from '../../components/base/Logo';
 import { EntityImage } from '../../components/EntityImage';
+import ProcessingOptionBadge from '../../components/purchase-request/ProcessingOptionBadge';
 import { getAttachmentKind } from '../../lib/cloudinary';
 
 type DashboardTab =
@@ -2342,8 +2343,9 @@ function PurchaseRequestsSection({
             <Card key={request._id}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
+                  <div className="flex flex-wrap items-center gap-3 mb-2">
                     {getStatusBadge(request.status)}
+                    <ProcessingOptionBadge option={request.processingOption} />
                     <span className="text-xs text-gray-500">
                       {new Date(request.createdAt).toLocaleDateString('fr-FR')}
                     </span>

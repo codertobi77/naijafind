@@ -232,6 +232,13 @@ export const common = {
   "purchase_request.step1": "Les fournisseurs vont étudier votre demande",
   "purchase_request.step2": "Vous recevrez des propositions par email",
   "purchase_request.step3": "Comparez et choisissez la meilleure offre",
+  "purchase_request.processing_option": "Option de traitement",
+  "purchase_request.processing_normal": "Normal",
+  "purchase_request.processing_normal_desc": "Traitement sous 1 semaine — Gratuit",
+  "purchase_request.processing_xpress": "Xpress",
+  "purchase_request.processing_xpress_desc": "Traitement sous 48-72h — Payant",
+  "purchase_request.success_normal": "Votre demande sera traitée sous environ 1 semaine.",
+  "purchase_request.success_xpress": "Votre demande Xpress sera traitée en priorité sous 48-72h.",
 
   // File upload component
   "file_upload.uploading": "Téléchargement...",

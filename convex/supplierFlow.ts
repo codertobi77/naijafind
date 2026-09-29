@@ -55,6 +55,8 @@ export type PurchaseRequestSummary = {
   contactEmail: string | undefined;
   contactPhone: string | undefined;
   preferredDeliveryDate: string | undefined;
+  processingOption: string | undefined; // 'normal' | 'xpress' (absent = normal, lignes antérieures)
+  expectedResponseAt: string | undefined; // date ISO d'échéance de traitement
   status: string;
   userId: string;
   createdAt: string;
@@ -77,6 +79,8 @@ export type OpenPurchaseRequest = {
   contactEmail: string | undefined;
   contactPhone: string | undefined;
   preferredDeliveryDate: string | undefined;
+  processingOption: string | undefined; // 'normal' | 'xpress' (absent = normal, lignes antérieures)
+  expectedResponseAt: string | undefined; // date ISO d'échéance de traitement
   status: string;
   userId: string;
   createdAt: string;
@@ -100,6 +104,8 @@ export type MyPurchaseRequest = {
   contactEmail: string | undefined;
   contactPhone: string | undefined;
   preferredDeliveryDate: string | undefined;
+  processingOption: string | undefined; // 'normal' | 'xpress' (absent = normal, lignes antérieures)
+  expectedResponseAt: string | undefined; // date ISO d'échéance de traitement
   status: string;
   userId: string;
   createdAt: string;
@@ -197,6 +203,8 @@ export const getOpenPurchaseRequests = query({
         contactEmail: request.contactEmail,
         contactPhone: request.contactPhone,
         preferredDeliveryDate: request.preferredDeliveryDate,
+        processingOption: request.processingOption,
+        expectedResponseAt: request.expectedResponseAt,
         status: request.status,
         userId: request.userId,
         createdAt: request.createdAt,
@@ -255,6 +263,8 @@ export const getMyPurchaseRequests = query({
           contactEmail: request.contactEmail,
           contactPhone: request.contactPhone,
           preferredDeliveryDate: request.preferredDeliveryDate,
+          processingOption: request.processingOption,
+          expectedResponseAt: request.expectedResponseAt,
           status: request.status,
           userId: request.userId,
           createdAt: request.createdAt,
@@ -372,6 +382,8 @@ export const getPurchaseRequestDetail = query({
         contactEmail: request.contactEmail,
         contactPhone: request.contactPhone,
         preferredDeliveryDate: request.preferredDeliveryDate,
+        processingOption: request.processingOption,
+        expectedResponseAt: request.expectedResponseAt,
         status: request.status,
         userId: request.userId,
         createdAt: request.createdAt,

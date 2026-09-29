@@ -12,16 +12,28 @@ export const _createPurchaseRequest = mutation({
     unit: v.string(),
     whatsapp: v.string(),
     attachment: v.optional(v.string()),
+    processingOption: v.optional(v.union(v.literal('normal'), v.literal('xpress'))),
     userId: v.string(),
   },
   handler: async (ctx, args) => {
     const now = new Date().toISOString();
+    // Normal par défaut : les anciens appelants (sans l'argument) restent rétro-compatibles.
+    const processingOption = args.processingOption ?? 'normal';
+    // Échéance de traitement calculée côté serveur : +72h (xpress) ou +7 jours (normal).
+    const expectedResponseAt = new Date(
+      Date.now() +
+        (processingOption === 'xpress'
+          ? 72 * 60 * 60 * 1000
+          : 7 * 24 * 60 * 60 * 1000)
+    ).toISOString();
     return await ctx.db.insert("purchaseRequests", {
       description: args.description,
       quantity: args.quantity,
       unit: args.unit,
       whatsapp: args.whatsapp,
       attachment: args.attachment,
+      processingOption,
+      expectedResponseAt,
       status: 'pending',
       userId: args.userId,
       createdAt: now,
@@ -68,6 +80,7 @@ export const createPurchaseRequest = action({
     unit: v.string(),
     whatsapp: v.string(),
     attachment: v.optional(v.string()),
+    processingOption: v.optional(v.union(v.literal('normal'), v.literal('xpress'))),
   },
   handler: async (ctx, args) => {
     // Apply rate limiting - max 3 requests per hour per phone/IP
@@ -94,6 +107,7 @@ export const createPurchaseRequest = action({
       unit: args.unit,
       whatsapp: args.whatsapp,
       attachment: args.attachment,
+      processingOption: args.processingOption,
       userId: userId,
     });
     

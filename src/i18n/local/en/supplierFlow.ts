@@ -25,6 +25,13 @@ export const supplierFlow = {
   "supplierFlow.status_completed": "Completed",
   "supplierFlow.status_cancelled": "Cancelled",
 
+  // Processing option (Normal/Xpress)
+  "supplierFlow.processing_xpress_badge": "Xpress · 48-72h",
+  "supplierFlow.processing_label": "Processing",
+  "supplierFlow.processing_normal_full": "Normal — free, response within ~1 week",
+  "supplierFlow.processing_xpress_full": "Xpress — paid, response within 48-72h",
+  "supplierFlow.expected_response_label": "Response expected by",
+
   // Detail page /dashboard/purchase-requests/:requestId
   "supplierFlow.request_not_found": "Request not found",
   "supplierFlow.request_not_found_desc":

@@ -397,6 +397,9 @@ export default defineSchema({
     budget: v.optional(v.string()),
     whatsapp: v.string(),
     attachment: v.optional(v.string()), // File URL (image, document, video)
+    // Champ legacy : présent sur des documents prod antérieurs (ex. data URL base64)
+    // avant l'unification sur `attachment`. Conservé optionnel pour la validation du schéma.
+    image: v.optional(v.string()),
     // Legacy fields - kept for backward compatibility but optional
     location: v.optional(v.string()),
     currency: v.optional(v.string()),
@@ -405,6 +408,9 @@ export default defineSchema({
     contactEmail: v.optional(v.string()),
     contactPhone: v.optional(v.string()),
     preferredDeliveryDate: v.optional(v.string()),
+    // Option de traitement : 'normal' (gratuit, ~1 semaine) | 'xpress' (payant, 48-72h)
+    processingOption: v.optional(v.union(v.literal('normal'), v.literal('xpress'))),
+    expectedResponseAt: v.optional(v.string()), // Date ISO d'échéance (createdAt + 7j ou + 72h)
     status: v.string(), // 'pending', 'contacted', 'quoted', 'completed', 'cancelled'
     userId: v.string(),
     createdAt: v.string(),

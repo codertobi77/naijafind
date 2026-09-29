@@ -9,6 +9,7 @@ import { useConvexQuery } from '../../../../hooks/useConvexQuery';
 import { Header } from '../../../../components/base';
 import AttachmentThumb from '../../../../components/purchase-request/AttachmentThumb';
 import StatusBadge from '../../../../components/purchase-request/StatusBadge';
+import ProcessingOptionBadge from '../../../../components/purchase-request/ProcessingOptionBadge';
 import useFormatDate from '../../../../hooks/useFormatDate';
 import type { MyPurchaseRequest, OpenPurchaseRequest } from '@convex/supplierFlow';
 
@@ -219,8 +220,9 @@ function RequestCard({
     <article className="flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="mb-2 flex items-center gap-3">
+          <div className="mb-2 flex flex-wrap items-center gap-3">
             <StatusBadge status={request.status} />
+            <ProcessingOptionBadge option={request.processingOption} />
             <span className="text-xs text-gray-500">
               {formatShortDate(request.createdAt)}
             </span>

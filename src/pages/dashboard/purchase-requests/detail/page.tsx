@@ -9,6 +9,7 @@ import { useConvexQuery, useConvexQuerySkippable } from '../../../../hooks/useCo
 import { Header } from '../../../../components/base';
 import AttachmentThumb from '../../../../components/purchase-request/AttachmentThumb';
 import StatusBadge from '../../../../components/purchase-request/StatusBadge';
+import ProcessingOptionBadge from '../../../../components/purchase-request/ProcessingOptionBadge';
 import useFormatDate from '../../../../hooks/useFormatDate';
 import type { PublicQuote, SupplierProfileSummary } from '@convex/supplierFlow';
 
@@ -115,7 +116,10 @@ export default function DashboardPurchaseRequestDetailPage() {
             <i className="ri-arrow-left-line" />
             {t('supplierFlow.back_to_requests')}
           </Link>
-          <StatusBadge status={request.status} />
+          <div className="flex items-center gap-2">
+            <StatusBadge status={request.status} />
+            <ProcessingOptionBadge option={request.processingOption} />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -148,6 +152,26 @@ export default function DashboardPurchaseRequestDetailPage() {
                     {request.whatsapp}
                   </dd>
                 </div>
+                <div className="rounded-lg bg-gray-50 p-4">
+                  <dt className="text-xs font-medium text-gray-500">
+                    {t('supplierFlow.processing_label')}
+                  </dt>
+                  <dd className="mt-1 font-semibold text-gray-900">
+                    {request.processingOption === 'xpress'
+                      ? t('supplierFlow.processing_xpress_full')
+                      : t('supplierFlow.processing_normal_full')}
+                  </dd>
+                </div>
+                {request.expectedResponseAt && (
+                  <div className="rounded-lg bg-gray-50 p-4">
+                    <dt className="text-xs font-medium text-gray-500">
+                      {t('supplierFlow.expected_response_label')}
+                    </dt>
+                    <dd className="mt-1 font-semibold text-gray-900">
+                      {formatDateTime(request.expectedResponseAt)}
+                    </dd>
+                  </div>
+                )}
               </dl>
 
               {request.attachment && (

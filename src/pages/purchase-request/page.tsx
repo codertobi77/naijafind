@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Header } from '../../components/base';
-import { Package, FileText, Send, ChevronDown, MessageCircle } from 'lucide-react';
+import { Package, FileText, Send, ChevronDown, MessageCircle, Zap, Check } from 'lucide-react';
 import FileUpload from '../../components/base/FileUpload';
 
 export default function PurchaseRequestPage() {
@@ -21,6 +21,7 @@ export default function PurchaseRequestPage() {
     quantity: '',
     unit: 'tonnes',
     whatsapp: '',
+    processingOption: 'normal',
   });
   
   const [attachment, setAttachment] = useState<string | null>(null);
@@ -77,6 +78,8 @@ export default function PurchaseRequestPage() {
         unit: formData.unit,
         whatsapp: formData.whatsapp,
         attachment: attachment || undefined,
+        processingOption:
+          formData.processingOption === 'xpress' ? 'xpress' : 'normal',
       });
       
       if (result.success) {
@@ -115,6 +118,11 @@ export default function PurchaseRequestPage() {
             </h2>
             <p className="text-gray-600 mb-6">
               {t('purchase_request.success_message', 'Votre demande a été envoyée à nos fournisseurs qualifiés. Vous recevrez rapidement des propositions adaptées à vos besoins.')}
+            </p>
+            <p className="mb-6 rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+              {formData.processingOption === 'xpress'
+                ? t('purchase_request.success_xpress', 'Votre demande Xpress sera traitée en priorité sous 48-72h.')
+                : t('purchase_request.success_normal', 'Votre demande sera traitée sous environ 1 semaine.')}
             </p>
             <div className="bg-blue-50 rounded-lg p-4 mb-6">
               <p className="text-sm text-blue-700">
@@ -254,6 +262,58 @@ export default function PurchaseRequestPage() {
               {errors.whatsapp && (
                 <p className="text-red-500 text-sm mt-1">{errors.whatsapp}</p>
               )}
+            </div>
+
+            {/* Processing option: Normal (free, ~1 week) / Xpress (paid, 48-72h) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-green-600" />
+                {t('purchase_request.processing_option', 'Option de traitement')}
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleChange('processingOption', 'normal')}
+                  className={`text-left p-4 border rounded-lg transition-all ${
+                    formData.processingOption === 'xpress'
+                      ? 'border-gray-300 hover:border-gray-400'
+                      : 'border-green-500 ring-2 ring-green-500 bg-green-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-gray-900">
+                      {t('purchase_request.processing_normal', 'Normal')}
+                    </span>
+                    {formData.processingOption !== 'xpress' && (
+                      <Check className="w-4 h-4 text-green-600" />
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {t('purchase_request.processing_normal_desc', 'Traitement sous 1 semaine — Gratuit')}
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleChange('processingOption', 'xpress')}
+                  className={`text-left p-4 border rounded-lg transition-all ${
+                    formData.processingOption === 'xpress'
+                      ? 'border-amber-500 ring-2 ring-amber-500 bg-amber-50'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-gray-900">
+                      {t('purchase_request.processing_xpress', 'Xpress')}
+                    </span>
+                    {formData.processingOption === 'xpress' && (
+                      <Check className="w-4 h-4 text-amber-600" />
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {t('purchase_request.processing_xpress_desc', 'Traitement sous 48-72h — Payant')}
+                  </p>
+                </button>
+              </div>
             </div>
 
             {/* Submit Button */}
