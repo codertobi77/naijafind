@@ -428,6 +428,11 @@ interface CategoryKeywordMap {
   [keyword: string]: string[];
 }
 
+// NB : chaque mot-clé ne doit apparaître qu'UNE seule fois ci-dessous.
+// Un mot-clé ambigu (ex. 'oil' : alimentaire / pétrochimie / énergie /
+// automobile) ne peut mapper qu'une seule paire de catégories — en cas de
+// doublon, la dernière occurrence écrase silencieusement les précédentes
+// (esbuild émet un warning « Duplicate key » à chaque deploy).
 const CATEGORY_KEYWORDS: CategoryKeywordMap = {
   // Agroalimentaire
   'riz': ['Agroalimentaire', 'Céréales'],
@@ -442,8 +447,6 @@ const CATEGORY_KEYWORDS: CategoryKeywordMap = {
   'millet': ['Agroalimentaire', 'Céréales'],
   'farine': ['Agroalimentaire', 'Transformation'],
   'flour': ['Agroalimentaire', 'Transformation'],
-  'huile': ['Agroalimentaire', 'Huiles'],
-  'oil': ['Agroalimentaire', 'Huiles'],
   'palm': ['Agroalimentaire', 'Huiles'],
   'soja': ['Agroalimentaire', 'Légumineuses'],
   'soy': ['Agroalimentaire', 'Légumineuses'],
@@ -478,8 +481,6 @@ const CATEGORY_KEYWORDS: CategoryKeywordMap = {
   'cocoa': ['Agroalimentaire', 'Cash crops'],
   'café': ['Agroalimentaire', 'Cash crops'],
   'coffee': ['Agroalimentaire', 'Cash crops'],
-  'coton': ['Agroalimentaire', 'Fibres'],
-  'cotton': ['Agroalimentaire', 'Fibres'],
   'sucre': ['Agroalimentaire', 'Sucrerie'],
   'sugar': ['Agroalimentaire', 'Sucrerie'],
   'lait': ['Agroalimentaire', 'Produits laitiers'],
@@ -518,8 +519,6 @@ const CATEGORY_KEYWORDS: CategoryKeywordMap = {
   'shoe': ['Textile', 'Chaussures'],
   'sac': ['Textile', 'Maroquinerie'],
   'bag': ['Textile', 'Maroquinerie'],
-  'cuir': ['Textile', 'Maroquinerie'],
-  'leather': ['Textile', 'Maroquinerie'],
 
   // Construction & BTP
   'ciment': ['Construction', 'Matériaux'],
@@ -537,8 +536,6 @@ const CATEGORY_KEYWORDS: CategoryKeywordMap = {
   'béton': ['Construction', 'Matériaux'],
   'beton': ['Construction', 'Matériaux'],
   'concrete': ['Construction', 'Matériaux'],
-  'bois': ['Construction', 'Bois'],
-  'wood': ['Construction', 'Bois'],
   'planche': ['Construction', 'Bois'],
   'plank': ['Construction', 'Bois'],
   'tuile': ['Construction', 'Couverture'],
@@ -546,22 +543,12 @@ const CATEGORY_KEYWORDS: CategoryKeywordMap = {
   'tole': ['Construction', 'Couverture'],
   'tôle': ['Construction', 'Couverture'],
   'sheet': ['Construction', 'Couverture'],
-  'peinture': ['Construction', 'Finitions'],
-  'paint': ['Construction', 'Finitions'],
   'carrelage': ['Construction', 'Finitions'],
-  'ceramic': ['Construction', 'Finitions'],
   'plomberie': ['Construction', 'Équipements'],
   'plumbing': ['Construction', 'Équipements'],
-  'électricité': ['Construction', 'Équipements'],
-  'electricity': ['Construction', 'Équipements'],
   'électric': ['Construction', 'Équipements'],
 
   // Chimie & Plastique
-  'plastique': ['Chimie', 'Plastique'],
-  'plastic': ['Chimie', 'Plastique'],
-  'pétrole': ['Chimie', 'Pétrochimie'],
-  'petrol': ['Chimie', 'Pétrochimie'],
-  'oil': ['Chimie', 'Pétrochimie'],
   'engrais': ['Chimie', 'Agrochimie'],
   'fertilizer': ['Chimie', 'Agrochimie'],
   'pesticide': ['Chimie', 'Agrochimie'],
@@ -590,7 +577,6 @@ const CATEGORY_KEYWORDS: CategoryKeywordMap = {
   'telephone': ['Électronique', 'Télécommunications'],
   'phone': ['Électronique', 'Télécommunications'],
   'mobile': ['Électronique', 'Télécommunications'],
-  'ordinateur': ['Électronique', 'Informatique'],
   'computer': ['Électronique', 'Informatique'],
   'ordinateur': ['Électronique', 'Informatique'],
   'laptop': ['Électronique', 'Informatique'],
@@ -606,12 +592,8 @@ const CATEGORY_KEYWORDS: CategoryKeywordMap = {
   'climatisation': ['Électronique', 'Électroménager'],
   'ac': ['Électronique', 'Électroménager'],
   'air conditioner': ['Électronique', 'Électroménager'],
-  'solaire': ['Électronique', 'Énergie'],
-  'solar': ['Électronique', 'Énergie'],
   'panneau': ['Électronique', 'Énergie'],
   'panel': ['Électronique', 'Énergie'],
-  'batterie': ['Électronique', 'Stockage'],
-  'battery': ['Électronique', 'Stockage'],
   'câble': ['Électronique', 'Câblerie'],
   'cable': ['Électronique', 'Câblerie'],
   'composant': ['Électronique', 'Composants'],
@@ -632,7 +614,6 @@ const CATEGORY_KEYWORDS: CategoryKeywordMap = {
   'stone': ['Mines', 'Minerais'],
   'minerai': ['Mines', 'Minerais'],
   'ore': ['Mines', 'Minerais'],
-  'charbon': ['Mines', 'Énergie'],
   'coal': ['Mines', 'Énergie'],
   'zinc': ['Mines', 'Minerais'],
   'cuivre': ['Mines', 'Minerais'],
@@ -655,7 +636,6 @@ const CATEGORY_KEYWORDS: CategoryKeywordMap = {
   'energy': ['Énergie', 'Production'],
   'pétrole': ['Énergie', 'Hydrocarbures'],
   'petrol': ['Énergie', 'Hydrocarbures'],
-  'oil': ['Énergie', 'Hydrocarbures'],
   'gaz': ['Énergie', 'Hydrocarbures'],
   'gas': ['Énergie', 'Hydrocarbures'],
   'solaire': ['Énergie', 'Renouvelable'],
@@ -755,7 +735,6 @@ const CATEGORY_KEYWORDS: CategoryKeywordMap = {
   // Emballage
   'emballage': ['Emballage', 'Emballages'],
   'packaging': ['Emballage', 'Emballages'],
-  'carton': ['Emballage', 'Carton'],
   'cardboard': ['Emballage', 'Carton'],
   'plastique': ['Emballage', 'Plastique'],
   'plastic': ['Emballage', 'Plastique'],

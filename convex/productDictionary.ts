@@ -35,12 +35,10 @@ const dictionaryTerms: Record<string, { synonyms: string[]; related: string[] }>
   "camera": { synonyms: ["dslr", "digital", "camcorder", "gopro"], related: ["electronics", "photography", "video"] },
   "headphones": { synonyms: ["earphones", "headset", "airpods", "earbuds"], related: ["electronics", "audio", "music"] },
   "charger": { synonyms: ["adapter", "power supply", "cable", "usb"], related: ["electronics", "accessories", "power"] },
-  "battery": { synonyms: ["power bank", "cell", "accumulator", "lithium"], related: ["electronics", "power", "energy"] },
   
   // Food
   "rice": { synonyms: ["grain", "paddy", "basmati", "jasmine"], related: ["food", "agriculture", "staple"] },
   "flour": { synonyms: ["wheat", "meal", "powder", "semolina"], related: ["food", "baking", "grain"] },
-  "oil": { synonyms: ["cooking oil", "vegetable oil", "palm oil", "olive oil"], related: ["food", "cooking", "fat"] },
   "sugar": { synonyms: ["sweetener", "sucrose", "cane sugar", "beet sugar"], related: ["food", "sweet", "baking"] },
   "milk": { synonyms: ["dairy", "cream", "yogurt", "cheese"], related: ["food", "dairy", "beverage"] },
   "meat": { synonyms: ["beef", "pork", "chicken", "lamb", "protein"], related: ["food", "protein", "fresh"] },
