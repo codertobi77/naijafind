@@ -19,7 +19,7 @@ export default function PurchaseRequestPage() {
   const [formData, setFormData] = useState({
     description: productFromQuery,
     quantity: '',
-    unit: 'tonnes',
+    unit: 'pieces',
     whatsapp: '',
     processingOption: 'normal',
   });
@@ -190,7 +190,7 @@ export default function PurchaseRequestPage() {
                 type="text"
                 value={formData.description}
                 onChange={(e) => handleChange('description', e.target.value)}
-                placeholder={t('purchase_request.description_placeholder', 'Ex: 50 tonnes de riz blanc')}
+                placeholder={t('purchase_request.description_placeholder', 'Ex: Machine pure water')}
                 className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
                   errors.description ? 'border-red-300' : 'border-gray-300'
                 }`}
@@ -254,7 +254,7 @@ export default function PurchaseRequestPage() {
                 type="tel"
                 value={formData.whatsapp}
                 onChange={(e) => handleChange('whatsapp', e.target.value)}
-                placeholder={t('purchase_request.whatsapp_placeholder', '+33 6 12 34 56 78')}
+                placeholder={t('purchase_request.whatsapp_placeholder', '+225 071486XXXX')}
                 className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all ${
                   errors.whatsapp ? 'border-red-300' : 'border-gray-300'
                 }`}
