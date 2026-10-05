@@ -7,6 +7,11 @@ import { Header } from '../../components/base';
 import { Package, FileText, Send, ChevronDown, MessageCircle, Zap, Check, Mail } from 'lucide-react';
 import FileUpload from '../../components/base/FileUpload';
 
+// Option Xpress (paiement Moneroo, 30 000 NGN) désactivée temporairement :
+// la carte est grisée et non sélectionnable tant que les clés API Moneroo ne
+// sont pas configurées en production. Repasser à true pour la réactiver.
+const XPRESS_ENABLED: boolean = false;
+
 export default function PurchaseRequestPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -350,29 +355,40 @@ export default function PurchaseRequestPage() {
                 </button>
                 <button
                   type="button"
+                  disabled={!XPRESS_ENABLED}
                   onClick={() => handleChange('processingOption', 'xpress')}
                   className={`text-left p-4 border rounded-lg transition-all ${
-                    formData.processingOption === 'xpress'
-                      ? 'border-amber-500 ring-2 ring-amber-500 bg-amber-50'
-                      : 'border-gray-300 hover:border-amber-400'
+                    !XPRESS_ENABLED
+                      ? 'border-gray-200 bg-gray-100 cursor-not-allowed opacity-70'
+                      : formData.processingOption === 'xpress'
+                        ? 'border-amber-500 ring-2 ring-amber-500 bg-amber-50'
+                        : 'border-gray-300 hover:border-amber-400'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-gray-900">
+                    <span className={`font-semibold ${!XPRESS_ENABLED ? 'text-gray-400' : 'text-gray-900'}`}>
                       {t('purchase_request.processing_xpress', 'Xpress')}
                     </span>
-                    {formData.processingOption === 'xpress' ? (
-                      <Check className="w-4 h-4 text-amber-600" />
-                    ) : (
-                      <Zap className="w-4 h-4 text-amber-500" />
+                    {XPRESS_ENABLED && (
+                      formData.processingOption === 'xpress' ? (
+                        <Check className="w-4 h-4 text-amber-600" />
+                      ) : (
+                        <Zap className="w-4 h-4 text-amber-500" />
+                      )
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className={`text-xs mt-1 ${!XPRESS_ENABLED ? 'text-gray-400' : 'text-gray-500'}`}>
                     {t('purchase_request.processing_xpress_desc', 'Traitement prioritaire sous 48-72h — 30 000 ₦')}
                   </p>
-                  <p className="text-xs font-semibold text-amber-600 mt-2">
-                    {t('purchase_request.processing_xpress_price', '30 000 ₦')}
-                  </p>
+                  {XPRESS_ENABLED ? (
+                    <p className="text-xs font-semibold text-amber-600 mt-2">
+                      {t('purchase_request.processing_xpress_price', '30 000 ₦')}
+                    </p>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-gray-200 px-2.5 py-1 text-xs font-medium text-gray-500 mt-2">
+                      {t('purchase_request.processing_xpress_soon', 'Bientôt disponible')}
+                    </span>
+                  )}
                 </button>
               </div>
             </div>
