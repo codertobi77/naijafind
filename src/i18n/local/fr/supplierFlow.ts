@@ -31,6 +31,10 @@ export const supplierFlow = {
   "supplierFlow.processing_normal_full": "Normal — gratuit, réponse sous ~1 semaine",
   "supplierFlow.processing_xpress_full": "Xpress — payant, réponse sous 48-72h",
   "supplierFlow.expected_response_label": "Réponse attendue avant le",
+  "supplierFlow.xpress_upgrade_button": "Passer en Xpress — 30 000 ₦",
+  "supplierFlow.xpress_upgrade_error": "Impossible d'initialiser le paiement Xpress. Veuillez réessayer.",
+  "supplierFlow.xpress_upgrade_no_email": "Aucune adresse email n'est associée à votre compte : impossible de procéder au paiement.",
+  "supplierFlow.xpress_upgrade_success": "Redirection vers le paiement...",
 
   // Page détail /dashboard/purchase-requests/:requestId
   "supplierFlow.request_not_found": "Demande introuvable",

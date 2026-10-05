@@ -1,6 +1,9 @@
-import { mutation, query, internalQuery, action } from "./_generated/server";
+import { mutation, query, internalQuery, internalMutation, action } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+// Type-only : annotations de retour des fonctions internes ajoutées
+// (module paiements) — casse la boucle d'inférence TS7022/TS2589.
+import type { Doc, Id } from "./_generated/dataModel";
 
 /**
  * Internal: Create purchase request (called from action)
@@ -70,6 +73,75 @@ export const _createNotification = mutation({
 });
 
 /**
+ * Internal: Lire une demande d'achat par ID (module paiements)
+ */
+export const _getRequestById = internalQuery({
+  args: { requestId: v.id("purchaseRequests") },
+  handler: async (
+    ctx,
+    args
+  ): Promise<Doc<"purchaseRequests"> | null> => {
+    return await ctx.db.get(args.requestId);
+  },
+});
+
+/**
+ * Internal: Passer une demande en Xpress après paiement confirmé (Moneroo).
+ * Idempotent : sans effet si la demande est déjà en Xpress.
+ */
+export const _markRequestAsXpress = internalMutation({
+  args: { requestId: v.id("purchaseRequests") },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    success: boolean;
+    reason?: "not_found";
+    alreadyXpress?: boolean;
+  }> => {
+    const now = new Date().toISOString();
+    const request = await ctx.db.get(args.requestId);
+    if (!request) {
+      return { success: false, reason: "not_found" as const };
+    }
+    if (request.processingOption === "xpress") {
+      return { success: true, alreadyXpress: true };
+    }
+
+    const expectedResponseAt = new Date(
+      Date.now() + 72 * 60 * 60 * 1000
+    ).toISOString();
+    await ctx.db.patch(args.requestId, {
+      processingOption: "xpress",
+      expectedResponseAt,
+      updatedAt: now,
+    });
+
+    // Notifier le propriétaire (comptes authentifiés uniquement —
+    // les demandes invités n'ont pas de compte à notifier)
+    if (
+      request.userId &&
+      request.userId !== "anonymous" &&
+      !request.userId.startsWith("guest:")
+    ) {
+      await ctx.db.insert("notifications", {
+        userId: request.userId,
+        type: "payment_success",
+        title: "Demande passée en Xpress",
+        message:
+          "Votre paiement Xpress a été confirmé. Votre demande sera traitée en priorité sous 48-72h.",
+        data: { requestId: args.requestId },
+        read: false,
+        actionUrl: `/dashboard/purchase-requests/${args.requestId}`,
+        createdAt: now,
+      });
+    }
+
+    return { success: true };
+  },
+});
+
+/**
  * Create a new purchase request
  * Simplified version with image support
  */
@@ -82,7 +154,12 @@ export const createPurchaseRequest = action({
     attachment: v.optional(v.string()),
     processingOption: v.optional(v.union(v.literal('normal'), v.literal('xpress'))),
   },
-  handler: async (ctx, args) => {
+  // Annotation de retour explicite (cf. _getRequestById ci-dessus) : évite
+  // la boucle d'inférence TS7022/TS2589 qui touchait ce module.
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ success: boolean; requestId: Id<"purchaseRequests"> }> => {
     // Apply rate limiting - max 3 requests per hour per phone/IP
     await ctx.runAction(internal.rateLimit.enforceRateLimit, {
       identifier: args.whatsapp,
@@ -383,11 +460,14 @@ export const getAllPurchaseRequests = query({
     
     const limit = Math.min(args.limit ?? 100, 500);
     
+    // `const` local : conserve le narrowing (string, pas string | undefined)
+    // à l'intérieur de la callback withIndex, contrairement à `args.status`.
+    const status = args.status;
     let requests;
-    if (args.status) {
+    if (status) {
       requests = await ctx.db
         .query("purchaseRequests")
-        .withIndex("status", (q) => q.eq("status", args.status))
+        .withIndex("status", (q) => q.eq("status", status))
         .order("desc")
         .take(limit);
     } else {

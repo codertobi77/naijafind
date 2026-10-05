@@ -62,6 +62,18 @@ export const dashboard = {
   "subscription.upgrade": "Upgrade",
   "subscription.features": "Features",
   "subscription.billing": "Billing",
+  "subscription.expires": "Expires on {{date}}",
+  "subscription.select_plan": "Choose this plan",
+  "subscription.current_badge": "Current plan",
+  "subscription.plan_free_price": "Free",
+  "subscription.plan_basic_price": "25,000 XOF / 30 days",
+  "subscription.plan_premium_price": "200,000 XOF / 365 days",
+  "subscription.premium_includes_featured": "Showcase included",
+  "subscription.featured_title": "Showcase",
+  "subscription.featured_desc": "Your profile appears at the top of search results and categories for 30 days.",
+  "subscription.featured_price": "50,000 XOF / 30 days",
+  "subscription.featured_cta": "Activate Showcase",
+  "subscription.featured_active": "Showcase active until {{date}}",
   
   // Plans
   "plan.free": "Free",

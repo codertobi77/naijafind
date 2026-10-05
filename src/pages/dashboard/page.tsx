@@ -31,6 +31,8 @@ import { ToastContainer, NotificationDropdown } from '../../components/base';
 import { LogoLink } from '../../components/base/Logo';
 import { EntityImage } from '../../components/EntityImage';
 import ProcessingOptionBadge from '../../components/purchase-request/ProcessingOptionBadge';
+import PaymentModal, { type PaymentIntent } from '../../components/payment/PaymentModal';
+import SubscriptionSection from '../../components/payment/SubscriptionSection';
 import { getAttachmentKind } from '../../lib/cloudinary';
 
 type DashboardTab =
@@ -497,9 +499,9 @@ export default function Dashboard() {
   const [reviewModalData, setReviewModalData] = useState<any>(null);
   const [reviewOpLoading, setReviewOpLoading] = useState(false);
 
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
-  const [paymentPlanChoice, setPaymentPlanChoice] = useState('basic');
+  // Intention de paiement en cours (abonnement Basic/Premium ou Vitrine) :
+  // non-null ⇒ PaymentModal ouverte, redirection Moneroo à la confirmation.
+  const [paymentIntent, setPaymentIntent] = useState<PaymentIntent | null>(null);
 
   const sidebarTabs = useMemo(() => getSidebarTabs(meData?.supplier?.business_type), [meData?.supplier?.business_type]);
 
@@ -535,7 +537,7 @@ export default function Dashboard() {
   const [invRole, setInvRole] = useState('editor');
   const [showInviteModal, setShowInviteModal] = useState(false);
 
-  const currentPlan = (dashboardData?.profile as any)?.subscription_plan || 'free';
+  const currentPlan = (dashboardData?.profile as any)?.subscriptionPlan || 'free';
   const planConfig =
     SUBSCRIPTION_PLANS[currentPlan as keyof typeof SUBSCRIPTION_PLANS];
   const totalProducts = dashboardData?.stats?.totalProducts ?? 0;
@@ -1085,7 +1087,16 @@ export default function Dashboard() {
           />
         );
       case 'subscription':
-        return <SubscriptionSection />;
+        return (
+          <SubscriptionSection
+            currentPlan={currentPlan}
+            featured={Boolean((dashboardData?.profile as any)?.featured)}
+            featuredUntil={(dashboardData?.profile as any)?.featuredUntil ?? null}
+            subscriptionExpiresAt={(dashboardData?.profile as any)?.subscriptionExpiresAt ?? null}
+            onChooseSubscription={(planId) => setPaymentIntent({ kind: 'subscription', planId })}
+            onFeaturedUpgrade={() => setPaymentIntent({ kind: 'featured' })}
+          />
+        );
       case 'galerie':
         return (
           <GallerySection
@@ -1252,20 +1263,9 @@ export default function Dashboard() {
       />
 
       <PaymentModal
-        open={showPaymentModal}
-        loading={paymentSuccess}
-        planId={paymentPlanChoice}
-        onClose={() => {
-          setPaymentSuccess(false);
-          setShowPaymentModal(false);
-        }}
-        onConfirm={() => {
-          setPaymentSuccess(true);
-          setTimeout(() => {
-            setPaymentSuccess(false);
-            setShowPaymentModal(false);
-          }, 1200);
-        }}
+        open={paymentIntent !== null}
+        intent={paymentIntent}
+        onClose={() => setPaymentIntent(null)}
       />
 
       <InviteModal

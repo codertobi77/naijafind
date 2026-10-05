@@ -1,167 +1,66 @@
-import { mutation, query, action, internalMutation } from "./_generated/server";
+import {
+  action,
+  internalAction,
+  internalMutation,
+  query,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import {
+  XPRESS_PRICING,
+  FEATURED_PRICING,
+  SUBSCRIPTION_PRICING,
+} from "./pricing";
+import {
+  initializeMonerooPayment,
+  type MonerooCustomer,
+} from "./moneroo";
+// Type-only : les annotations de retour des handlers ci-dessous cassent la
+// boucle d'inférence (corps → internal.* → ApiFromModules → type du handler)
+// responsable de la cascade TS2589/TS7022 sur l'ensemble du codebase.
+import type { Doc, Id } from "./_generated/dataModel";
 
 // ==========================================
-// MONEROO PAYMENT INTEGRATION
+// MODULE DE PAIEMENT MONEROO — actions publiques + crons
 // ==========================================
+// Architecture du module (découpé pour éviter toute auto-référence
+// `internal.<module courant>`, responsable d'une instanciation circulaire
+// des types dans ApiFromModules — cascade TS2589/TS7022 sur tout le codebase) :
+//   - moneroo.ts            : helpers HTTP Moneroo (aucune fonction Convex)
+//   - paymentsData.ts       : queries/mutations internes (accès DB pur)
+//   - paymentsProcessing.ts : action interne webhook + crédit des avantages
+//   - payments.ts (ici)     : actions publiques (init paiements, vérification)
+//                             + crons (sweep, expiration Vitrine)
 
-const MONEROO_API_BASE = "https://api.moneroo.io/v1";
-
-// Get Moneroo API key from environment
-function getMonerooSecretKey(): string {
-  const key = process.env.MONEROO_SECRET_KEY;
-  if (!key) {
-    throw new Error("MONEROO_SECRET_KEY not configured");
-  }
-  return key;
-}
-
-// ==========================================
-// INTERNAL MUTATIONS
-// ==========================================
-
-/**
- * Internal: Create payment record
- */
-export const _createPayment = internalMutation({
-  args: {
-    userId: v.string(),
-    supplierId: v.optional(v.id("suppliers")),
-    type: v.string(),
-    amount: v.number(),
-    currency: v.string(),
-    monerooPaymentId: v.string(),
-    monerooCheckoutUrl: v.optional(v.string()),
-    description: v.optional(v.string()),
-    metadata: v.optional(v.record(v.string(), v.string())),
-  },
-  handler: async (ctx, args) => {
-    const now = new Date().toISOString();
-    return await ctx.db.insert("payments", {
-      userId: args.userId,
-      supplierId: args.supplierId,
-      type: args.type,
-      amount: args.amount,
-      currency: args.currency,
-      status: "pending",
-      monerooPaymentId: args.monerooPaymentId,
-      monerooCheckoutUrl: args.monerooCheckoutUrl,
-      description: args.description,
-      metadata: args.metadata,
-      createdAt: now,
-      updatedAt: now,
-    });
-  },
-});
-
-/**
- * Internal: Update payment status
- */
-export const _updatePaymentStatus = internalMutation({
-  args: {
-    paymentId: v.id("payments"),
-    status: v.string(),
-    paidAt: v.optional(v.string()),
-    failedAt: v.optional(v.string()),
-    refundReason: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const now = new Date().toISOString();
-    const update: any = {
-      status: args.status,
-      updatedAt: now,
-    };
-    if (args.paidAt) update.paidAt = args.paidAt;
-    if (args.failedAt) update.failedAt = args.failedAt;
-    if (args.refundReason) update.refundReason = args.refundReason;
-
-    await ctx.db.patch(args.paymentId, update);
-    return { success: true };
-  },
-});
-
-/**
- * Internal: Update supplier featured status
- */
-export const _updateSupplierFeatured = internalMutation({
-  args: {
-    supplierId: v.id("suppliers"),
-    featured: v.boolean(),
-    featuredUntil: v.optional(v.string()),
-    subscriptionPlan: v.optional(v.string()),
-    subscriptionExpiresAt: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const now = new Date().toISOString();
-    const update: any = {
-      featured: args.featured,
-      updatedAt: now,
-    };
-    if (args.featuredUntil) update.featuredUntil = args.featuredUntil;
-    if (args.subscriptionPlan) update.subscriptionPlan = args.subscriptionPlan;
-    if (args.subscriptionExpiresAt) update.subscriptionExpiresAt = args.subscriptionExpiresAt;
-
-    await ctx.db.patch(args.supplierId, update);
-    return { success: true };
-  },
-});
-
-/**
- * Internal: Create notification for payment
- */
-export const _createPaymentNotification = internalMutation({
-  args: {
-    userId: v.string(),
-    title: v.string(),
-    message: v.string(),
-    paymentId: v.id("payments"),
-    type: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const now = new Date().toISOString();
-    return await ctx.db.insert("notifications", {
-      userId: args.userId,
-      type: args.type,
-      title: args.title,
-      message: args.message,
-      data: { paymentId: args.paymentId },
-      read: false,
-      createdAt: now,
-    });
-  },
-});
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ==========================================
-// ACTIONS (HTTP Calls to Moneroo)
+// ACTIONS PUBLIQUES (initialisation des paiements)
 // ==========================================
 
 /**
- * Initialize a payment with Moneroo
- * Returns checkout_url for redirecting the customer
+ * Initialiser le paiement d'un abonnement (Basic / Premium).
+ * Montant dérivé du plan côté serveur — jamais fourni par le client.
  */
-export const initializePayment = action({
+export const initializeSubscription = action({
   args: {
-    type: v.string(), // 'featured_upgrade', 'subscription', 'purchase'
-    amount: v.number(), // Amount in smallest currency unit (e.g., 50000 for 500 XOF)
-    currency: v.string(), // 'XOF', 'NGN', 'USD'
-    description: v.string(),
-    supplierId: v.optional(v.id("suppliers")),
-    metadata: v.optional(v.record(v.string(), v.string())),
-    returnUrl: v.string(), // Frontend return URL
-    methods: v.optional(v.array(v.string())), // e.g., ['mtn_bj', 'moov_bj']
-    customerEmail: v.string(),
-    customerFirstName: v.string(),
-    customerLastName: v.string(),
-    customerPhone: v.optional(v.string()),
+    plan: v.union(v.literal("basic"), v.literal("premium")),
   },
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    success: boolean;
+    paymentId: Id<"payments">;
+    monerooPaymentId: string;
+    checkoutUrl: string;
+  }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Non autorisé");
     }
 
-    // Rate limiting: max 5 payment initializations per hour per user
+    // Rate limiting: max 5 initialisations / heure / utilisateur
     await ctx.runAction(internal.rateLimit.enforceRateLimit, {
       identifier: identity.tokenIdentifier,
       action: "payment_initialization",
@@ -169,317 +68,321 @@ export const initializePayment = action({
       windowMinutes: 60,
     });
 
-    const now = new Date().toISOString();
-    const secretKey = getMonerooSecretKey();
-
-    // Build customer object
-    const customer: any = {
-      email: args.customerEmail,
-      first_name: args.customerFirstName,
-      last_name: args.customerLastName,
-    };
-    if (args.customerPhone) {
-      customer.phone = args.customerPhone;
+    const supplier = await ctx.runQuery(
+      internal.paymentsData._getSupplierByUserId,
+      { userId: identity.tokenIdentifier }
+    );
+    if (!supplier) {
+      throw new Error("Profil fournisseur non trouvé");
     }
 
-    // Build request body
-    const requestBody: any = {
-      amount: args.amount,
-      currency: args.currency,
-      description: args.description,
-      return_url: args.returnUrl,
-      customer: customer,
+    const pricing = SUBSCRIPTION_PRICING[args.plan];
+    const customer: MonerooCustomer = {
+      email: (identity.email as string | undefined) ?? supplier.email,
+      first_name: (identity.given_name as string | undefined) ?? "Client",
+      last_name: (identity.family_name as string | undefined) ?? "Naijafind",
+    };
+
+    const checkout = await initializeMonerooPayment({
+      amount: pricing.amount,
+      currency: pricing.currency,
+      description: pricing.description,
+      customer,
       metadata: {
-        ...args.metadata,
+        type: "subscription",
+        plan: args.plan,
+        supplierId: supplier._id,
+      },
+    });
+
+    const paymentId = await ctx.runMutation(
+      internal.paymentsData._createPayment,
+      {
         userId: identity.tokenIdentifier,
-        type: args.type,
-        createdAt: now,
-      },
-    };
-
-    // Optional: restrict payment methods
-    if (args.methods && args.methods.length > 0) {
-      requestBody.methods = args.methods;
-    }
-
-    // Call Moneroo API
-    const response = await fetch(`${MONEROO_API_BASE}/payments/initialize`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${secretKey}`,
-        Accept: "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Moneroo API error: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-
-    if (!data.data || !data.data.id || !data.data.checkout_url) {
-      throw new Error("Invalid response from Moneroo API");
-    }
-
-    // Create payment record in database
-    const paymentId = await ctx.runMutation(internal.payments._createPayment, {
-      userId: identity.tokenIdentifier,
-      supplierId: args.supplierId,
-      type: args.type,
-      amount: args.amount,
-      currency: args.currency,
-      monerooPaymentId: data.data.id,
-      monerooCheckoutUrl: data.data.checkout_url,
-      description: args.description,
-      metadata: args.metadata,
-    });
+        supplierId: supplier._id,
+        type: "subscription",
+        amount: pricing.amount,
+        currency: pricing.currency,
+        monerooPaymentId: checkout.id,
+        monerooCheckoutUrl: checkout.checkoutUrl,
+        description: pricing.description,
+        metadata: {
+          plan: args.plan,
+          supplierId: supplier._id,
+        },
+      }
+    );
 
     return {
       success: true,
       paymentId,
-      monerooPaymentId: data.data.id,
-      checkoutUrl: data.data.checkout_url,
+      monerooPaymentId: checkout.id,
+      checkoutUrl: checkout.checkoutUrl,
     };
   },
 });
 
 /**
- * Verify a payment status with Moneroo
- * Should be called when user returns from payment page
+ * Initialiser le paiement de la mise en avant « Vitrine » (50 000 XOF / 30 jours).
  */
-export const verifyPayment = action({
-  args: {
-    monerooPaymentId: v.string(),
-  },
-  handler: async (ctx, args) => {
+export const initializeFeaturedUpgrade = action({
+  args: {},
+  handler: async (
+    ctx
+  ): Promise<{
+    success: boolean;
+    paymentId: Id<"payments">;
+    monerooPaymentId: string;
+    checkoutUrl: string;
+  }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Non autorisé");
     }
 
-    const secretKey = getMonerooSecretKey();
+    await ctx.runAction(internal.rateLimit.enforceRateLimit, {
+      identifier: identity.tokenIdentifier,
+      action: "payment_initialization",
+      limit: 5,
+      windowMinutes: 60,
+    });
 
-    // Call Moneroo verification API
-    const response = await fetch(
-      `${MONEROO_API_BASE}/payments/${args.monerooPaymentId}/verify`,
+    const supplier = await ctx.runQuery(
+      internal.paymentsData._getSupplierByUserId,
+      { userId: identity.tokenIdentifier }
+    );
+    if (!supplier) {
+      throw new Error("Profil fournisseur non trouvé");
+    }
+
+    const customer: MonerooCustomer = {
+      email: (identity.email as string | undefined) ?? supplier.email,
+      first_name: (identity.given_name as string | undefined) ?? "Client",
+      last_name: (identity.family_name as string | undefined) ?? "Naijafind",
+    };
+
+    const checkout = await initializeMonerooPayment({
+      amount: FEATURED_PRICING.amount,
+      currency: FEATURED_PRICING.currency,
+      description: FEATURED_PRICING.description,
+      customer,
+      metadata: {
+        type: "featured_upgrade",
+        supplierId: supplier._id,
+      },
+    });
+
+    const paymentId = await ctx.runMutation(
+      internal.paymentsData._createPayment,
       {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${secretKey}`,
-          Accept: "application/json",
-        },
+        userId: identity.tokenIdentifier,
+        supplierId: supplier._id,
+        type: "featured_upgrade",
+        amount: FEATURED_PRICING.amount,
+        currency: FEATURED_PRICING.currency,
+        monerooPaymentId: checkout.id,
+        monerooCheckoutUrl: checkout.checkoutUrl,
+        description: FEATURED_PRICING.description,
+        metadata: { supplierId: supplier._id },
       }
     );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Moneroo API error: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    const paymentStatus = data.data?.status || "unknown";
-
-    // Find payment in database
-    const payment = await ctx.runQuery(internal.payments._getPaymentByMonerooId, {
-      monerooPaymentId: args.monerooPaymentId,
-    });
-
-    if (!payment) {
-      throw new Error("Payment not found");
-    }
-
-    // Verify ownership
-    if (payment.userId !== identity.tokenIdentifier) {
-      // Check if admin
-      const user = await ctx.runQuery(internal.payments._getUserByToken, {
-        email: identity.email,
-      });
-      if (!user?.is_admin) {
-        throw new Error("Accès refusé");
-      }
-    }
-
-    // Map Moneroo status to our status
-    let status: string;
-    let paidAt: string | undefined;
-    let failedAt: string | undefined;
-
-    switch (paymentStatus) {
-      case "success":
-        status = "completed";
-        paidAt = new Date().toISOString();
-        break;
-      case "failed":
-        status = "failed";
-        failedAt = new Date().toISOString();
-        break;
-      case "pending":
-        status = "pending";
-        break;
-      case "cancelled":
-        status = "failed";
-        failedAt = new Date().toISOString();
-        break;
-      default:
-        status = "pending";
-    }
-
-    // Update payment status
-    await ctx.runMutation(internal.payments._updatePaymentStatus, {
-      paymentId: payment._id,
-      status,
-      paidAt,
-      failedAt,
-    });
-
-    // If payment successful, handle post-payment actions
-    if (status === "completed") {
-      await ctx.runAction(internal.payments._handleSuccessfulPayment, {
-        paymentId: payment._id,
-      });
-    }
-
     return {
       success: true,
-      status,
-      paymentId: payment._id,
-      monerooStatus: paymentStatus,
+      paymentId,
+      monerooPaymentId: checkout.id,
+      checkoutUrl: checkout.checkoutUrl,
     };
   },
 });
 
 /**
- * Internal: Handle successful payment (update supplier status, send notifications)
+ * Initialiser le paiement Xpress d'une demande d'achat (30 000 NGN).
+ * Public : les invités peuvent payer (la demande est créée en Normal,
+ * puis passée en Xpress après confirmation du paiement).
  */
-export const _handleSuccessfulPayment = action({
+export const initializeXpressPayment = action({
   args: {
-    paymentId: v.id("payments"),
+    requestId: v.id("purchaseRequests"),
+    customerEmail: v.string(),
+    customerPhone: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    const payment = await ctx.runQuery(internal.payments._getPaymentById, {
-      paymentId: args.paymentId,
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    success: boolean;
+    checkoutUrl: string;
+    monerooPaymentId: string;
+    reused?: boolean;
+    paymentId?: Id<"payments">;
+  }> => {
+    const email = args.customerEmail.trim().toLowerCase();
+    if (!EMAIL_REGEX.test(email)) {
+      throw new Error("Adresse email invalide");
+    }
+
+    // Rate limiting: max 5 initialisations / heure / email
+    await ctx.runAction(internal.rateLimit.enforceRateLimit, {
+      identifier: email,
+      action: "xpress_payment_init",
+      limit: 5,
+      windowMinutes: 60,
     });
 
+    const identity = await ctx.auth.getUserIdentity();
+    const userId = identity?.tokenIdentifier ?? `guest:${email}`;
+
+    const request = await ctx.runQuery(
+      internal.purchaseRequests._getRequestById,
+      { requestId: args.requestId }
+    );
+    if (!request) {
+      throw new Error("Demande introuvable");
+    }
+    if (request.processingOption === "xpress") {
+      throw new Error("Cette demande est déjà en traitement Xpress");
+    }
+
+    // Réutiliser le checkout en attente s'il existe (évite les doublons Moneroo)
+    const existing = await ctx.runQuery(
+      internal.paymentsData._getPendingXpressPayment,
+      { requestId: args.requestId }
+    );
+    if (existing?.monerooCheckoutUrl) {
+      return {
+        success: true,
+        checkoutUrl: existing.monerooCheckoutUrl,
+        monerooPaymentId: existing.monerooPaymentId,
+        reused: true,
+      };
+    }
+
+    const customer: MonerooCustomer = {
+      email,
+      first_name: (identity?.given_name as string | undefined) ?? "Client",
+      last_name: (identity?.family_name as string | undefined) ?? "Naijafind",
+    };
+    if (args.customerPhone) {
+      customer.phone = args.customerPhone;
+    }
+
+    const checkout = await initializeMonerooPayment({
+      amount: XPRESS_PRICING.amount,
+      currency: XPRESS_PRICING.currency,
+      description: XPRESS_PRICING.description,
+      customer,
+      metadata: {
+        type: "xpress_upgrade",
+        requestId: args.requestId,
+        guestEmail: email,
+      },
+    });
+
+    const paymentId = await ctx.runMutation(
+      internal.paymentsData._createPayment,
+      {
+        userId,
+        purchaseRequestId: args.requestId,
+        type: "xpress_upgrade",
+        amount: XPRESS_PRICING.amount,
+        currency: XPRESS_PRICING.currency,
+        monerooPaymentId: checkout.id,
+        monerooCheckoutUrl: checkout.checkoutUrl,
+        description: XPRESS_PRICING.description,
+        metadata: {
+          requestId: args.requestId,
+          guestEmail: email,
+        },
+        guestEmail: identity ? undefined : email,
+      }
+    );
+
+    return {
+      success: true,
+      paymentId,
+      monerooPaymentId: checkout.id,
+      checkoutUrl: checkout.checkoutUrl,
+    };
+  },
+});
+
+/**
+ * Vérifier le statut d'un paiement (public, rate-limité).
+ * Utilisé par les pages de retour /payment/success et /payment/failed,
+ * y compris pour les paiements invités (Xpress sans compte).
+ * Re-vérifie systématiquement le statut réel auprès de Moneroo.
+ */
+export const verifyPaymentPublic = action({
+  args: {
+    monerooPaymentId: v.string(),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ success: boolean; status: string; type: string | null }> => {
+    // Rate limiting: max 10 vérifications / heure / paiement
+    await ctx.runAction(internal.rateLimit.enforceRateLimit, {
+      identifier: `verify:${args.monerooPaymentId}`,
+      action: "payment_verification",
+      limit: 10,
+      windowMinutes: 60,
+    });
+
+    await ctx.runAction(internal.paymentsProcessing._processMonerooWebhook, {
+      event: "payment.initiated",
+      monerooPaymentId: args.monerooPaymentId,
+    });
+
+    const payment = await ctx.runQuery(
+      internal.paymentsData._getPaymentByMonerooId,
+      { monerooPaymentId: args.monerooPaymentId }
+    );
     if (!payment) {
-      throw new Error("Payment not found");
+      return { success: false, status: "unknown", type: null };
     }
+    return { success: true, status: payment.status, type: payment.type };
+  },
+});
 
-    const now = new Date();
+// ==========================================
+// INTERNAL ACTIONS (cron)
+// ==========================================
 
-    // Handle different payment types
-    switch (payment.type) {
-      case "featured_upgrade":
-        if (payment.supplierId) {
-          // Set featured for 30 days
-          const featuredUntil = new Date();
-          featuredUntil.setDate(featuredUntil.getDate() + 30);
-
-          await ctx.runMutation(internal.payments._updateSupplierFeatured, {
-            supplierId: payment.supplierId,
-            featured: true,
-            featuredUntil: featuredUntil.toISOString(),
-          });
-
-          // Create notification
-          await ctx.runMutation(internal.payments._createPaymentNotification, {
-            userId: payment.userId,
-            title: "Paiement réussi - Statut Vitrine activé",
-            message: `Votre paiement de ${payment.amount} ${payment.currency} a été confirmé. Votre entreprise est maintenant en vitrine jusqu'au ${featuredUntil.toLocaleDateString()}.`,
-            paymentId: args.paymentId,
-            type: "payment_success",
-          });
-        }
-        break;
-
-      case "subscription":
-        if (payment.supplierId) {
-          // Set subscription for 30 days (basic) or 365 days (premium)
-          const plan = payment.metadata?.plan || "basic";
-          const duration = plan === "premium" ? 365 : 30;
-          const expiresAt = new Date();
-          expiresAt.setDate(expiresAt.getDate() + duration);
-
-          await ctx.runMutation(internal.payments._updateSupplierFeatured, {
-            supplierId: payment.supplierId,
-            featured: plan === "premium", // Premium gets featured automatically
-            subscriptionPlan: plan,
-            subscriptionExpiresAt: expiresAt.toISOString(),
-            featuredUntil: plan === "premium" ? expiresAt.toISOString() : undefined,
-          });
-
-          await ctx.runMutation(internal.payments._createPaymentNotification, {
-            userId: payment.userId,
-            title: "Abonnement activé",
-            message: `Votre abonnement ${plan} est maintenant actif jusqu'au ${expiresAt.toLocaleDateString()}.`,
-            paymentId: args.paymentId,
-            type: "payment_success",
-          });
-        }
-        break;
-
-      case "purchase":
-        await ctx.runMutation(internal.payments._createPaymentNotification, {
-          userId: payment.userId,
-          title: "Paiement confirmé",
-          message: `Votre paiement de ${payment.amount} ${payment.currency} a été confirmé.`,
-          paymentId: args.paymentId,
-          type: "payment_success",
-        });
-        break;
+/**
+ * Internal (cron) : filet de sécurité — re-vérifier les paiements en
+ * attente de plus de 15 minutes au cas où le webhook n'aurait pas été reçu.
+ */
+export const sweepPendingPayments = internalAction({
+  args: {},
+  handler: async (ctx): Promise<{ checked: number }> => {
+    const stale = await ctx.runQuery(
+      internal.paymentsData._getPendingPaymentsOlderThan,
+      { olderThanMinutes: 15 }
+    );
+    for (const payment of stale) {
+      try {
+        await ctx.runAction(
+          internal.paymentsProcessing._processMonerooWebhook,
+          {
+            event: "payment.initiated",
+            monerooPaymentId: payment.monerooPaymentId,
+          }
+        );
+      } catch (error) {
+        console.error(
+          `Sweep: échec de vérification du paiement ${payment.monerooPaymentId}:`,
+          error
+        );
+      }
     }
-
-    return { success: true };
+    return { checked: stale.length };
   },
 });
 
 // ==========================================
 // QUERIES
 // ==========================================
-
-/**
- * Get payment by Moneroo ID (internal)
- */
-export const _getPaymentByMonerooId = internalMutation({
-  args: {
-    monerooPaymentId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("payments")
-      .withIndex("monerooPaymentId", (q) => q.eq("monerooPaymentId", args.monerooPaymentId))
-      .first();
-  },
-});
-
-/**
- * Get payment by ID (internal)
- */
-export const _getPaymentById = internalMutation({
-  args: {
-    paymentId: v.id("payments"),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.paymentId);
-  },
-});
-
-/**
- * Get user by token (internal)
- */
-export const _getUserByToken = internalMutation({
-  args: {
-    email: v.string(),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", args.email))
-      .first();
-  },
-});
 
 /**
  * Get current user's payments
@@ -489,362 +392,100 @@ export const getMyPayments = query({
     limit: v.optional(v.number()),
     status: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Doc<"payments">[]> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Non autorisé");
     }
 
     const limit = Math.min(args.limit ?? 50, 100);
+    const status = args.status;
 
-    let query = ctx.db
-      .query("payments")
-      .withIndex("userId", (q) => q.eq("userId", identity.tokenIdentifier))
-      .order("desc");
+    const paymentsQuery = status
+      ? ctx.db
+          .query("payments")
+          .withIndex("userId_status", (q) =>
+            q.eq("userId", identity.tokenIdentifier).eq("status", status)
+          )
+      : ctx.db
+          .query("payments")
+          .withIndex("userId", (q) =>
+            q.eq("userId", identity.tokenIdentifier)
+          );
 
-    if (args.status) {
-      query = ctx.db
-        .query("payments")
-        .withIndex("userId_status", (q) =>
-          q.eq("userId", identity.tokenIdentifier).eq("status", args.status)
-        )
-        .order("desc");
-    }
-
-    return await query.take(limit);
+    return await paymentsQuery.order("desc").take(limit);
   },
 });
 
-/**
- * Get payment status by ID
- */
-export const getPaymentStatus = query({
-  args: {
-    paymentId: v.id("payments"),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Non autorisé");
-    }
+// NOTE: getPaymentStatus / getAllPayments / getPaymentStats / cancelPayment
+// (ancienne API publique, non utilisée par le frontend) ont été retirés lors de
+// la réécriture du module — ils pourront être réintroduits avec l'UI admin des
+// paiements. Les index `status` et `type` restent dans le schéma à cet effet.
 
-    const payment = await ctx.db.get(args.paymentId);
-    if (!payment) {
-      return null;
-    }
-
-    // Verify ownership or admin
-    if (payment.userId !== identity.tokenIdentifier) {
-      const user = await ctx.db
-        .query("users")
-        .withIndex("email", (q) => q.eq("email", identity.email))
-        .first();
-
-      if (!user?.is_admin) {
-        throw new Error("Accès refusé");
-      }
-    }
-
-    return payment;
-  },
-});
+// ==========================================
+// CRON JOBS (enregistrées dans crons.ts)
+// ==========================================
 
 /**
- * Get all payments (admin only)
+ * Vérifier et désactiver les statuts Vitrine expirés.
+ * Appelée quotidiennement par cron (internal).
  */
-export const getAllPayments = query({
-  args: {
-    status: v.optional(v.string()),
-    type: v.optional(v.string()),
-    limit: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Non autorisé");
-    }
-
-    // Check if user is admin
-    const user = await ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", identity.email))
-      .first();
-
-    if (!user?.is_admin) {
-      throw new Error("Accès refusé. Admin uniquement.");
-    }
-
-    const limit = Math.min(args.limit ?? 100, 500);
-
-    let query = ctx.db.query("payments").order("desc");
-
-    if (args.status) {
-      query = ctx.db
-        .query("payments")
-        .withIndex("status", (q) => q.eq("status", args.status))
-        .order("desc");
-    } else if (args.type) {
-      query = ctx.db
-        .query("payments")
-        .withIndex("type", (q) => q.eq("type", args.type))
-        .order("desc");
-    }
-
-    return await query.take(limit);
-  },
-});
-
-/**
- * Get payment statistics (admin only)
- */
-export const getPaymentStats = query({
+export const checkExpiredFeatured = internalMutation({
   args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Non autorisé");
-    }
-
-    // Check if user is admin
-    const user = await ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", identity.email))
-      .first();
-
-    if (!user?.is_admin) {
-      throw new Error("Accès refusé. Admin uniquement.");
-    }
-
-    const allPayments = await ctx.db.query("payments").collect();
-
-    const pending = allPayments.filter((p) => p.status === "pending").length;
-    const completed = allPayments.filter((p) => p.status === "completed").length;
-    const failed = allPayments.filter((p) => p.status === "failed").length;
-    const refunded = allPayments.filter((p) => p.status === "refunded").length;
-
-    // Calculate total revenue (completed payments only)
-    const revenue = allPayments
-      .filter((p) => p.status === "completed")
-      .reduce((sum, p) => sum + p.amount, 0);
-
-    // Group by currency
-    const revenueByCurrency: Record<string, number> = {};
-    allPayments
-      .filter((p) => p.status === "completed")
-      .forEach((p) => {
-        revenueByCurrency[p.currency] = (revenueByCurrency[p.currency] || 0) + p.amount;
-      });
-
-    // Today's payments
-    const today = new Date().toISOString().split("T")[0];
-    const todayPayments = allPayments.filter((p) => p.createdAt.startsWith(today)).length;
-
-    return {
-      total: allPayments.length,
-      pending,
-      completed,
-      failed,
-      refunded,
-      revenue,
-      revenueByCurrency,
-      todayPayments,
-    };
-  },
-});
-
-// ==========================================
-// MUTATIONS
-// ==========================================
-
-/**
- * Cancel a pending payment
- */
-export const cancelPayment = mutation({
-  args: {
-    paymentId: v.id("payments"),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Non autorisé");
-    }
-
-    const payment = await ctx.db.get(args.paymentId);
-    if (!payment) {
-      throw new Error("Paiement non trouvé");
-    }
-
-    // Verify ownership or admin
-    if (payment.userId !== identity.tokenIdentifier) {
-      const user = await ctx.db
-        .query("users")
-        .withIndex("email", (q) => q.eq("email", identity.email))
-        .first();
-
-      if (!user?.is_admin) {
-        throw new Error("Accès refusé");
-      }
-    }
-
-    // Can only cancel pending payments
-    if (payment.status !== "pending") {
-      throw new Error("Seuls les paiements en attente peuvent être annulés");
-    }
-
+  handler: async (
+    ctx
+  ): Promise<{
+    success: boolean;
+    checked: number;
+    expired: number;
+    updated: number;
+  }> => {
     const now = new Date().toISOString();
-    await ctx.db.patch(args.paymentId, {
-      status: "failed",
-      failedAt: now,
-      updatedAt: now,
-    });
 
-    return { success: true };
-  },
-});
-
-// ==========================================
-// WEBHOOK HANDLER (Called from http.ts)
-// ==========================================
-
-/**
- * Process Moneroo webhook
- * Called by http.ts webhook endpoint
- */
-export const processWebhook = mutation({
-  args: {
-    event: v.string(), // 'payment.success', 'payment.failed', etc.
-    data: v.any(), // Moneroo payload
-    signature: v.string(), // For verification
-  },
-  handler: async (ctx, args) => {
-    // Verify webhook signature
-    const webhookSecret = process.env.MONEROO_WEBHOOK_SECRET;
-    if (webhookSecret) {
-      // Simple signature verification (implement HMAC if Moneroo supports it)
-      // For now, we trust the webhook with basic validation
-    }
-
-    const monerooPaymentId = args.data?.id;
-    const status = args.data?.status;
-
-    if (!monerooPaymentId) {
-      throw new Error("Invalid webhook: missing payment ID");
-    }
-
-    // Find payment in database
-    const payment = await ctx.runQuery(internal.payments._getPaymentByMonerooId, {
-      monerooPaymentId,
-    });
-
-    if (!payment) {
-      throw new Error(`Payment not found: ${monerooPaymentId}`);
-    }
-
-    // Avoid processing already completed payments
-    if (payment.status === "completed") {
-      return { success: true, alreadyProcessed: true };
-    }
-
-    const now = new Date().toISOString();
-    let newStatus: string;
-    let paidAt: string | undefined;
-    let failedAt: string | undefined;
-
-    // Map Moneroo events to our status
-    switch (args.event) {
-      case "payment.success":
-        newStatus = "completed";
-        paidAt = now;
-        break;
-      case "payment.failed":
-        newStatus = "failed";
-        failedAt = now;
-        break;
-      case "payment.cancelled":
-        newStatus = "failed";
-        failedAt = now;
-        break;
-      case "payment.refunded":
-        newStatus = "refunded";
-        break;
-      default:
-        throw new Error(`Unknown webhook event: ${args.event}`);
-    }
-
-    // Update payment status
-    await ctx.runMutation(internal.payments._updatePaymentStatus, {
-      paymentId: payment._id,
-      status: newStatus,
-      paidAt,
-      failedAt,
-    });
-
-    // Handle successful payment actions
-    if (newStatus === "completed") {
-      await ctx.runAction(internal.payments._handleSuccessfulPayment, {
-        paymentId: payment._id,
-      });
-    }
-
-    return { success: true, paymentId: payment._id, status: newStatus };
-  },
-});
-
-// ==========================================
-// CRON JOBS
-// ==========================================
-
-/**
- * Check and update expired featured suppliers
- * Called by cron job daily
- */
-export const checkExpiredFeatured = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const now = new Date().toISOString();
-    
-    // Get all suppliers with featuredUntil in the past
     const suppliers = await ctx.db
       .query("suppliers")
       .withIndex("featured", (q) => q.eq("featured", true))
       .collect();
-    
+
     const expiredSuppliers = suppliers.filter(
       (s) => s.featuredUntil && s.featuredUntil < now
     );
-    
+
     let updated = 0;
-    
+
     for (const supplier of expiredSuppliers) {
-      // Check if subscription is also expired
-      const subscriptionExpired = !supplier.subscriptionExpiresAt || supplier.subscriptionExpiresAt < now;
-      
+      // Vérifier si l'abonnement est également expiré
+      const subscriptionExpired =
+        !supplier.subscriptionExpiresAt ||
+        supplier.subscriptionExpiresAt < now;
+
       await ctx.db.patch(supplier._id, {
         featured: false,
-        updatedAt: now,
-        // If subscription also expired, clear the plan
-        ...(subscriptionExpired && { subscriptionPlan: "free" }),
+        updated_at: now,
+        // Si l'abonnement est aussi expiré, repasser au plan gratuit
+        ...(subscriptionExpired ? { subscriptionPlan: "free" } : {}),
       });
-      
-      // Create notification for the supplier owner
+
+      // Notifier le propriétaire
       await ctx.db.insert("notifications", {
         userId: supplier.userId,
         type: "subscription_expired",
         title: "Statut Vitrine expiré",
-        message: "Votre statut en vitrine a expiré. Renouvelez pour continuer à apparaître en avant.",
+        message:
+          "Votre statut en vitrine a expiré. Renouvelez pour continuer à apparaître en avant.",
         read: false,
-        actionUrl: "/dashboard/subscription",
+        actionUrl: "/dashboard",
         createdAt: now,
       });
-      
+
       updated++;
     }
-    
-    return { 
-      success: true, 
-      checked: suppliers.length, 
+
+    return {
+      success: true,
+      checked: suppliers.length,
       expired: expiredSuppliers.length,
-      updated 
+      updated,
     };
   },
 });

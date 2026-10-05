@@ -46,6 +46,10 @@ export default defineSchema({
     updated_at: v.string(),
     claimStatus: v.optional(v.string()), // 'pending', 'approved', 'rejected'
     claimId: v.optional(v.string()), // Reference to supplierClaims
+    // Abonnements & Vitrine (module de paiement Moneroo)
+    subscriptionPlan: v.optional(v.string()), // 'basic' | 'premium' (absent = gratuit)
+    subscriptionExpiresAt: v.optional(v.string()), // Date ISO de fin d'abonnement
+    featuredUntil: v.optional(v.string()), // Date ISO de fin du statut Vitrine
   })
     .index("userId", ["userId"])
     .index("approved", ["approved"])
@@ -456,14 +460,16 @@ export default defineSchema({
   payments: defineTable({
     userId: v.string(),
     supplierId: v.optional(v.id("suppliers")),
-    type: v.string(), // 'featured_upgrade', 'subscription', 'purchase'
-    amount: v.number(),
+    purchaseRequestId: v.optional(v.id("purchaseRequests")), // Paiement Xpress lié à une demande d'achat
+    type: v.string(), // 'featured_upgrade', 'subscription', 'purchase', 'xpress_upgrade'
+    amount: v.number(), // Montant dans l'unité principale de la devise (ex: 30000 = 30 000 NGN)
     currency: v.string(),
     status: v.string(), // 'pending', 'completed', 'failed', 'refunded'
     monerooPaymentId: v.string(),
     monerooCheckoutUrl: v.optional(v.string()),
     description: v.optional(v.string()),
     metadata: v.optional(v.record(v.string(), v.string())),
+    guestEmail: v.optional(v.string()), // Email du payeur invité (Xpress sans compte)
     createdAt: v.string(),
     updatedAt: v.string(),
     paidAt: v.optional(v.string()),
@@ -472,5 +478,8 @@ export default defineSchema({
   })
     .index("userId", ["userId"])
     .index("monerooPaymentId", ["monerooPaymentId"])
-    .index("userId_status", ["userId", "status"]),
+    .index("userId_status", ["userId", "status"])
+    .index("status", ["status"])
+    .index("type", ["type"])
+    .index("purchaseRequestId", ["purchaseRequestId"]),
 });

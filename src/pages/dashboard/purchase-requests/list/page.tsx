@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useConvexAuth, useMutation } from 'convex/react';
+import { useConvexAuth, useAction, useMutation } from 'convex/react';
 import type { Id } from '@convex/_generated/dataModel';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -64,6 +64,41 @@ export default function DashboardPurchaseRequestsListPage() {
     }
   };
 
+  const initializeXpressPayment = useAction(api.payments.initializeXpressPayment);
+  const [xpressUpgradingId, setXpressUpgradingId] = useState<string | null>(null);
+  const [xpressError, setXpressError] = useState<string | null>(null);
+
+  // Passer une de SES demandes en Xpress (30 000 NGN) : redirection vers le
+  // checkout Moneroo ; la demande passe en Xpress après paiement confirmé.
+  const handleXpressUpgrade = async (requestId: Id<'purchaseRequests'>) => {
+    const email = meData?.user?.email;
+    if (!email) {
+      setXpressError(t('supplierFlow.xpress_upgrade_no_email'));
+      return;
+    }
+    setXpressUpgradingId(requestId);
+    setXpressError(null);
+    try {
+      const result = await initializeXpressPayment({
+        requestId,
+        customerEmail: email,
+      });
+      if (result?.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+      throw new Error('checkoutUrl manquant');
+    } catch (err) {
+      console.error('Xpress upgrade failed:', err);
+      setXpressError(
+        err instanceof Error && err.message
+          ? err.message
+          : t('supplierFlow.xpress_upgrade_error')
+      );
+      setXpressUpgradingId(null);
+    }
+  };
+
   const loading = authLoading || myLoading || (isSupplier && openLoading);
 
   return (
@@ -98,9 +133,9 @@ export default function DashboardPurchaseRequestsListPage() {
           </div>
         ) : (
           <div className="space-y-10">
-            {deleteError && (
+            {(deleteError || xpressError) && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {deleteError}
+                {deleteError ?? xpressError}
               </div>
             )}
 
@@ -155,6 +190,26 @@ export default function DashboardPurchaseRequestsListPage() {
                       key={request._id}
                       request={request}
                       quotesCount={request.quotesCount}
+                      onUpgradeXpress={
+                        request.processingOption === 'normal' ? (
+                          <button
+                            onClick={() => void handleXpressUpgrade(request._id)}
+                            disabled={xpressUpgradingId === request._id}
+                            className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-1 text-sm font-medium text-white transition-colors hover:from-amber-600 hover:to-orange-600 disabled:opacity-70"
+                          >
+                            <i
+                              className={
+                                xpressUpgradingId === request._id
+                                  ? 'ri-loader-4-line animate-spin'
+                                  : 'ri-flashlight-line'
+                              }
+                            />
+                            {xpressUpgradingId === request._id
+                              ? t('supplierFlow.xpress_upgrade_success')
+                              : t('supplierFlow.xpress_upgrade_button')}
+                          </button>
+                        ) : undefined
+                      }
                       onDelete={
                         deletingRequestId === request._id ? (
                           <span className="flex items-center gap-2">
@@ -207,10 +262,12 @@ function RequestCard({
   request,
   quotesCount,
   onDelete,
+  onUpgradeXpress,
 }: {
   request: MyPurchaseRequest | OpenPurchaseRequest;
   quotesCount?: number;
   onDelete?: ReactNode;
+  onUpgradeXpress?: ReactNode;
 }) {
   const { t } = useTranslation();
   const { formatShortDate } = useFormatDate();
@@ -260,6 +317,7 @@ function RequestCard({
           <span />
         )}
         <div className="flex items-center gap-2">
+          {onUpgradeXpress}
           {onDelete}
           <Link
             to={`/dashboard/purchase-requests/${request._id}`}

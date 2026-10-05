@@ -62,6 +62,18 @@ export const dashboard = {
   "subscription.upgrade": "Mettre à niveau",
   "subscription.features": "Fonctionnalités",
   "subscription.billing": "Facturation",
+  "subscription.expires": "Expire le {{date}}",
+  "subscription.select_plan": "Choisir ce plan",
+  "subscription.current_badge": "Plan actuel",
+  "subscription.plan_free_price": "Gratuit",
+  "subscription.plan_basic_price": "25 000 XOF / 30 jours",
+  "subscription.plan_premium_price": "200 000 XOF / 365 jours",
+  "subscription.premium_includes_featured": "Vitrine incluse",
+  "subscription.featured_title": "Vitrine",
+  "subscription.featured_desc": "Votre profil apparaît en tête des résultats et des catégories pendant 30 jours.",
+  "subscription.featured_price": "50 000 XOF / 30 jours",
+  "subscription.featured_cta": "Activer la Vitrine",
+  "subscription.featured_active": "Vitrine active jusqu'au {{date}}",
   
   // Plans
   "plan.free": "Gratuit",

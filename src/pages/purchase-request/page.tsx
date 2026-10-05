@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Header } from '../../components/base';
-import { Package, FileText, Send, ChevronDown, MessageCircle, Zap, Check } from 'lucide-react';
+import { Package, FileText, Send, ChevronDown, MessageCircle, Zap, Check, Mail } from 'lucide-react';
 import FileUpload from '../../components/base/FileUpload';
 
 export default function PurchaseRequestPage() {
@@ -15,6 +15,7 @@ export default function PurchaseRequestPage() {
   // Get product name from query params if coming from product details
   const productFromQuery = searchParams.get('product') || '';
   const createPurchaseRequest = useAction(api.purchaseRequests.createPurchaseRequest);
+  const initializeXpressPayment = useAction(api.payments.initializeXpressPayment);
   
   const [formData, setFormData] = useState({
     description: productFromQuery,
@@ -22,6 +23,7 @@ export default function PurchaseRequestPage() {
     unit: 'pieces',
     whatsapp: '',
     processingOption: 'normal',
+    customerEmail: '',
   });
   
   const [attachment, setAttachment] = useState<string | null>(null);
@@ -29,6 +31,10 @@ export default function PurchaseRequestPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // URL de checkout Moneroo pour activer le Xpress après publication de la demande.
+  const [xpressCheckoutUrl, setXpressCheckoutUrl] = useState<string | null>(null);
+  // true si l'initialisation du paiement Xpress a échoué (la demande reste en Normal).
+  const [xpressUnavailable, setXpressUnavailable] = useState(false);
 
   // Quantity units - now internationalized
   // NB : appels t() directs (littéraux). Ne pas passer t en paramètre (key: string) => string :
@@ -60,6 +66,15 @@ export default function PurchaseRequestPage() {
       newErrors.whatsapp = t('purchase_request.errors.whatsapp_required', 'Le numéro WhatsApp est requis');
     }
     
+    if (formData.processingOption === 'xpress') {
+      const email = formData.customerEmail.trim();
+      if (!email) {
+        newErrors.customerEmail = t('purchase_request.errors.email_required', 'L\'adresse email est requise pour le paiement Xpress');
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        newErrors.customerEmail = t('purchase_request.errors.email_invalid', 'Adresse email invalide');
+      }
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -72,23 +87,43 @@ export default function PurchaseRequestPage() {
     setIsSubmitting(true);
     
     try {
+      // La demande est TOUJOURS publiée en Normal : le passage en Xpress
+      // (traitement prioritaire sous 48-72h) n'est effectif qu'après paiement
+      // confirmé du montant Xpress (30 000 NGN) via Moneroo.
       const result = await createPurchaseRequest({
         description: formData.description,
         quantity: Number(formData.quantity),
         unit: formData.unit,
         whatsapp: formData.whatsapp,
         attachment: attachment || undefined,
-        processingOption:
-          formData.processingOption === 'xpress' ? 'xpress' : 'normal',
+        processingOption: 'normal',
       });
       
       if (result.success) {
+        if (formData.processingOption === 'xpress') {
+          // Initialiser le checkout Moneroo sans bloquer la publication :
+          // en cas d'échec, la demande reste publiée en Normal.
+          try {
+            const checkout = await initializeXpressPayment({
+              requestId: result.requestId,
+              customerEmail: formData.customerEmail.trim(),
+            });
+            setXpressCheckoutUrl(checkout.checkoutUrl);
+          } catch (paymentError) {
+            console.error('Xpress payment initialization failed:', paymentError);
+            setXpressUnavailable(true);
+          }
+        }
         setIsSubmitting(false);
         setIsSuccess(true);
         
-        setTimeout(() => {
-          navigate('/');
-        }, 5000);
+        // En mode Xpress, pas de redirection automatique : l'utilisateur doit
+        // pouvoir activer le Xpress depuis l'écran de succès.
+        if (formData.processingOption !== 'xpress') {
+          setTimeout(() => {
+            navigate('/');
+          }, 5000);
+        }
       }
     } catch (error) {
       console.error('Error submitting purchase request:', error);
@@ -119,11 +154,32 @@ export default function PurchaseRequestPage() {
             <p className="text-gray-600 mb-6">
               {t('purchase_request.success_message', 'Votre demande a été envoyée à nos fournisseurs qualifiés. Vous recevrez rapidement des propositions adaptées à vos besoins.')}
             </p>
-            <p className="mb-6 rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-              {formData.processingOption === 'xpress'
-                ? t('purchase_request.success_xpress', 'Votre demande Xpress sera traitée en priorité sous 48-72h.')
-                : t('purchase_request.success_normal', 'Votre demande sera traitée sous environ 1 semaine.')}
-            </p>
+            {formData.processingOption === 'xpress' ? (
+              xpressUnavailable ? (
+                <p className="mb-6 rounded-lg bg-gray-50 px-4 py-3 text-sm font-medium text-gray-600">
+                  {t('purchase_request.xpress_unavailable_note', 'Le paiement Xpress est momentanément indisponible. Votre demande reste publiée en mode Normal (environ 1 semaine).')}
+                </p>
+              ) : (
+                <>
+                  <p className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
+                    {t('purchase_request.xpress_pending_note', 'Votre demande est publiée en mode Normal. Activez le Xpress pour un traitement prioritaire sous 48-72h.')}
+                  </p>
+                  {xpressCheckoutUrl && (
+                    <a
+                      href={xpressCheckoutUrl}
+                      className="mb-6 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-8 py-3 font-semibold text-white transition-all hover:from-amber-600 hover:to-orange-600 hover:shadow-lg"
+                    >
+                      <Zap className="w-5 h-5" />
+                      {t('purchase_request.activate_xpress', 'Activer le Xpress maintenant — 30 000 ₦')}
+                    </a>
+                  )}
+                </>
+              )
+            ) : (
+              <p className="mb-6 rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+                {t('purchase_request.success_normal', 'Votre demande sera traitée sous environ 1 semaine.')}
+              </p>
+            )}
             <div className="bg-blue-50 rounded-lg p-4 mb-6">
               <p className="text-sm text-blue-700">
                 <strong>{t('purchase_request.next_steps', 'Prochaines étapes :')}</strong>
@@ -292,30 +348,57 @@ export default function PurchaseRequestPage() {
                     {t('purchase_request.processing_normal_desc', 'Traitement sous 1 semaine — Gratuit')}
                   </p>
                 </button>
-                {/* Option Xpress désactivée temporairement : le module de paiement n'est pas encore implémenté.
-                    Réactivation : retirer `disabled` + style grisé, restaurer onClick={() => handleChange('processingOption', 'xpress')}
-                    et les branches conditionnelles sur formData.processingOption === 'xpress'. */}
                 <button
                   type="button"
-                  disabled
-                  title={t('purchase_request.processing_xpress_soon', 'Bientôt disponible')}
-                  className="text-left p-4 border rounded-lg border-gray-200 bg-gray-50 cursor-not-allowed opacity-60"
+                  onClick={() => handleChange('processingOption', 'xpress')}
+                  className={`text-left p-4 border rounded-lg transition-all ${
+                    formData.processingOption === 'xpress'
+                      ? 'border-amber-500 ring-2 ring-amber-500 bg-amber-50'
+                      : 'border-gray-300 hover:border-amber-400'
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-gray-900">
                       {t('purchase_request.processing_xpress', 'Xpress')}
                     </span>
-                    <Zap className="w-4 h-4 text-gray-400" />
+                    {formData.processingOption === 'xpress' ? (
+                      <Check className="w-4 h-4 text-amber-600" />
+                    ) : (
+                      <Zap className="w-4 h-4 text-amber-500" />
+                    )}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    {t('purchase_request.processing_xpress_desc', 'Traitement sous 48-72h — Payant')}
+                    {t('purchase_request.processing_xpress_desc', 'Traitement prioritaire sous 48-72h — 30 000 ₦')}
                   </p>
-                  <p className="text-xs font-medium text-gray-400 mt-2">
-                    {t('purchase_request.processing_xpress_soon', 'Bientôt disponible')}
+                  <p className="text-xs font-semibold text-amber-600 mt-2">
+                    {t('purchase_request.processing_xpress_price', '30 000 ₦')}
                   </p>
                 </button>
               </div>
             </div>
+
+            {/* Email — requis uniquement pour le paiement Xpress : reçoit le lien
+                de paiement Moneroo et le suivi de la demande. */}
+            {formData.processingOption === 'xpress' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-amber-600" />
+                  {t('purchase_request.email_label', 'Adresse email (paiement Xpress)')}
+                </label>
+                <input
+                  type="email"
+                  value={formData.customerEmail}
+                  onChange={(e) => handleChange('customerEmail', e.target.value)}
+                  placeholder={t('purchase_request.email_placeholder', 'vous@exemple.com')}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all ${
+                    errors.customerEmail ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                />
+                {errors.customerEmail && (
+                  <p className="text-red-500 text-sm mt-1">{errors.customerEmail}</p>
+                )}
+              </div>
+            )}
 
             {/* Submit Button */}
             <div className="pt-4">

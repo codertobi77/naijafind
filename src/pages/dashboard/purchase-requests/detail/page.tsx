@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useConvexAuth, useMutation } from 'convex/react';
+import { useConvexAuth, useAction, useMutation } from 'convex/react';
 import type { Id } from '@convex/_generated/dataModel';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -53,6 +53,41 @@ export default function DashboardPurchaseRequestDetailPage() {
 
   const { data: meData } = useConvexQuery(api.users.me, {}, { staleTime: 2 * 60 * 1000 });
   const isSupplier = meData?.user?.user_type === 'supplier';
+
+  const initializeXpressPayment = useAction(api.payments.initializeXpressPayment);
+  const [xpressUpgrading, setXpressUpgrading] = useState(false);
+  const [xpressError, setXpressError] = useState<string | null>(null);
+
+  // Passer SA demande en Xpress (30 000 NGN) : redirection vers le checkout
+  // Moneroo ; la demande passe en Xpress après paiement confirmé.
+  const handleXpressUpgrade = async (requestId: Id<'purchaseRequests'>) => {
+    const email = meData?.user?.email;
+    if (!email) {
+      setXpressError(t('supplierFlow.xpress_upgrade_no_email'));
+      return;
+    }
+    setXpressUpgrading(true);
+    setXpressError(null);
+    try {
+      const result = await initializeXpressPayment({
+        requestId,
+        customerEmail: email,
+      });
+      if (result?.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+      throw new Error('checkoutUrl manquant');
+    } catch (err) {
+      console.error('Xpress upgrade failed:', err);
+      setXpressError(
+        err instanceof Error && err.message
+          ? err.message
+          : t('supplierFlow.xpress_upgrade_error')
+      );
+      setXpressUpgrading(false);
+    }
+  };
 
   const { data: myProfiles } = useConvexQuerySkippable(
     api.supplierFlow.getMySupplierProfiles,
@@ -223,6 +258,29 @@ export default function DashboardPurchaseRequestDetailPage() {
                 <p className="text-sm text-green-700">
                   {t('supplierFlow.owner_panel_desc')}
                 </p>
+                {request.processingOption === 'normal' && (
+                  <button
+                    onClick={() => void handleXpressUpgrade(request._id)}
+                    disabled={xpressUpgrading}
+                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 font-semibold text-white transition-colors hover:from-amber-600 hover:to-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    <i
+                      className={
+                        xpressUpgrading
+                          ? 'ri-loader-4-line animate-spin'
+                          : 'ri-flashlight-line'
+                      }
+                    />
+                    {xpressUpgrading
+                      ? t('supplierFlow.xpress_upgrade_success')
+                      : t('supplierFlow.xpress_upgrade_button')}
+                  </button>
+                )}
+                {xpressError && (
+                  <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+                    {xpressError}
+                  </p>
+                )}
               </section>
             ) : isSupplier ? (
               <QuoteForm

@@ -269,6 +269,137 @@ http.route({
   }),
 });
 
+// ==========================================
+// WEBHOOK MONEROO (notifications de paiement)
+// ==========================================
+
+/**
+ * Health check du webhook (GET) — permet de vérifier que la route est joignable.
+ */
+http.route({
+  path: "/webhooks/moneroo",
+  method: "GET",
+  handler: httpAction(async () => {
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+/**
+ * Webhook Moneroo (POST) :
+ * - signature X-Moneroo-Signature = HMAC-SHA256 du corps BRUT avec
+ *   MONEROO_WEBHOOK_SECRET (vérifié via Web Crypto avant tout traitement) ;
+ * - traitement délégué à l'action interne idempotente _processMonerooWebhook,
+ *   qui re-vérifie le statut réel auprès de Moneroo avant tout crédit ;
+ * - répond 200 rapide (< 3s) ; en cas d'échec 500 → Moneroo réessaie (3×/10 min).
+ */
+http.route({
+  path: "/webhooks/moneroo",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const secret = process.env.MONEROO_WEBHOOK_SECRET;
+    if (!secret) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Webhook non configuré" }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Corps brut indispensable au calcul de la signature HMAC
+    const rawBody = await request.text();
+    const signature = request.headers.get("X-Moneroo-Signature");
+
+    if (!signature) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Signature manquante" }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // HMAC-SHA256 du corps brut (Web Crypto API)
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const mac = await crypto.subtle.sign(
+      "HMAC",
+      key,
+      encoder.encode(rawBody)
+    );
+    const expected = Array.from(new Uint8Array(mac))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    if (expected !== signature.trim().toLowerCase()) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Signature invalide" }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    let payload: any;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      return new Response(
+        JSON.stringify({ success: false, error: "JSON invalide" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const event = typeof payload?.event === "string" ? payload.event : null;
+    const monerooPaymentId = payload?.data?.id ?? payload?.id ?? null;
+    if (!event || typeof monerooPaymentId !== "string") {
+      return new Response(
+        JSON.stringify({ success: false, error: "Payload invalide" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    try {
+      const result = await ctx.runAction(
+        internal.paymentsProcessing._processMonerooWebhook,
+        { event, monerooPaymentId }
+      );
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (error: any) {
+      console.error("Webhook Moneroo:", error);
+      // 500 → Moneroo réessaie automatiquement (3× / 10 min)
+      return new Response(
+        JSON.stringify({ success: false, error: error.message || "Erreur interne" }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+  }),
+});
+
 // No custom auth HTTP routes needed with Clerk + Convex client integration
 
 export default http;

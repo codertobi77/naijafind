@@ -26,6 +26,8 @@ const DashboardPurchaseRequestsList = lazy(
 const DashboardPurchaseRequestDetail = lazy(
   () => import('../pages/dashboard/purchase-requests/detail/page')
 );
+const PaymentSuccess = lazy(() => import('../pages/payment/success/page'));
+const PaymentFailed = lazy(() => import('../pages/payment/failed/page'));
 const NotFound = lazy(() => import('../pages/NotFound'));
 const Admin = lazy(() => import('../pages/admin/page'));
 
@@ -109,6 +111,14 @@ const routes: RouteObject[] = [
   {
     path: '/dashboard/purchase-requests/:requestId',
     element: <DashboardPurchaseRequestDetail />,
+  },
+  {
+    path: '/payment/success',
+    element: <PaymentSuccess />,
+  },
+  {
+    path: '/payment/failed',
+    element: <PaymentFailed />,
   },
   {
     path: '/admin/*',

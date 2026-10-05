@@ -3,7 +3,34 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
-// NOTE: All cron jobs have been temporarily disabled
+// ==========================================
+// MODULE DE PAIEMENT MONEROO
+// ==========================================
+
+/**
+ * Cron job (module Moneroo) : toutes les 30 minutes, re-vérifier auprès de
+ * Moneroo les paiements en attente de plus de 15 minutes (filet de sécurité
+ * si un webhook payment.success n'a pas été reçu).
+ */
+crons.interval(
+  "sweepPendingPayments",
+  { minutes: 30 },
+  internal.payments.sweepPendingPayments,
+  {}
+);
+
+/**
+ * Cron job (module Moneroo) : une fois par jour, désactiver les statuts
+ * Vitrine/abonnements expirés et notifier les fournisseurs concernés.
+ */
+crons.interval(
+  "checkExpiredFeatured",
+  { hours: 24 },
+  internal.payments.checkExpiredFeatured,
+  {}
+);
+
+// NOTE: The stats cron jobs below have been temporarily disabled
 // To re-enable, uncomment the relevant sections below
 
 /**
