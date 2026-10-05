@@ -1,25 +1,9 @@
-version: '3.8'
-
 services:
   suji:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        - VITE_CONVEX_URL=${VITE_CONVEX_URL}
-        - VITE_CLERK_PUBLISHABLE_KEY=${VITE_CLERK_PUBLISHABLE_KEY}
-        - VITE_STRIPE_PUBLISHABLE_KEY=${VITE_STRIPE_PUBLISHABLE_KEY}
-        - VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY}
-        - VITE_MAPBOX_TOKEN=${VITE_MAPBOX_TOKEN}
-        - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
-        - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
-        - VITE_FIREBASE_API_KEY=${VITE_FIREBASE_API_KEY}
-        - VITE_FIREBASE_AUTH_DOMAIN=${VITE_FIREBASE_AUTH_DOMAIN}
-        - VITE_FIREBASE_PROJECT_ID=${VITE_FIREBASE_PROJECT_ID}
-        - VITE_FIREBASE_STORAGE_BUCKET=${VITE_FIREBASE_STORAGE_BUCKET}
-        - VITE_FIREBASE_MESSAGING_SENDER_ID=${VITE_FIREBASE_MESSAGING_SENDER_ID}
-        - VITE_FIREBASE_APP_ID=${VITE_FIREBASE_APP_ID}
-        - VITE_CLOUDINARY_CLOUD_NAME=${VITE_CLOUDINARY_CLOUD_NAME}
+    # Image publiée sur GHCR par le workflow GitHub Actions
+    # (.github/workflows/docker-ghcr.yml). Le VPS Hostinger la tire via
+    # `docker compose pull` (image publique : aucun docker login requis).
+    image: ghcr.io/codertobi77/naijafind:latest
     container_name: suji-app
     restart: unless-stopped
     ports:

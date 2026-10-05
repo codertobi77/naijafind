@@ -38,3 +38,66 @@ jobs:
             VITE_FROM_EMAIL=${{ secrets.VITE_FROM_EMAIL }}
             VITE_MAPBOX_ACCESS_TOKEN=${{ secrets.VITE_MAPBOX_ACCESS_TOKEN }}
             VITE_CLOUDINARY_UPLOAD_PRESET=${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
+
+  # Déploiement sur le VPS Hostinger : tire l'image fraîchement publiée sur
+  # GHCR et redémarre le conteneur via docker compose. Rétablit la connexion
+  # CI -> VPS coupée le 2026-02-26 (remplacement de l'ancien deploy.yml).
+  deploy-vps:
+    name: Deploy to Hostinger VPS
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT || '22' }}
+      VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH || '/var/www/suji' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          log-public-key: false
+
+      - name: Verify VPS secrets and configure SSH
+        run: |
+          if [ -z "$VPS_HOST" ]; then echo "❌ VPS_HOST secret manquant"; exit 1; fi
+          if [ -z "$VPS_USER" ]; then echo "❌ VPS_USER secret manquant"; exit 1; fi
+          if [ -z "$VPS_DEPLOY_PATH" ]; then echo "❌ VPS_DEPLOY_PATH secret manquant"; exit 1; fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          ssh-keyscan -p "$VPS_SSH_PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          chmod 644 ~/.ssh/known_hosts
+          echo "✓ SSH configuré pour $VPS_USER@$VPS_HOST:$VPS_SSH_PORT"
+
+      - name: Copy docker-compose.yml to VPS
+        run: |
+          ssh -p "$VPS_SSH_PORT" "$VPS_USER@$VPS_HOST" "mkdir -p '$VPS_DEPLOY_PATH'"
+          scp -P "$VPS_SSH_PORT" docker-compose.yml "$VPS_USER@$VPS_HOST:$VPS_DEPLOY_PATH/"
+          echo "✓ docker-compose.yml copié dans $VPS_DEPLOY_PATH"
+
+      - name: Pull image and restart container
+        # Heredoc non coté : les $VPS_* s'étendent côté runner avant l'envoi SSH
+        run: |
+          ssh -p "$VPS_SSH_PORT" "$VPS_USER@$VPS_HOST" bash << EOF
+            set -e
+            cd "$VPS_DEPLOY_PATH"
+            echo "→ Pull de l'image ghcr.io/codertobi77/naijafind:latest…"
+            docker compose pull
+            echo "→ Redémarrage du conteneur…"
+            docker compose up -d --remove-orphans
+            docker image prune -f >/dev/null 2>&1 || true
+            sleep 5
+            if docker ps --filter name=suji-app --format '{{.Names}}' | grep -q suji-app; then
+              echo "✓ Conteneur suji-app actif"
+            else
+              echo "❌ Conteneur suji-app introuvable — logs :"
+              docker compose logs --tail 50 || true
+              exit 1
+            fi
+            if curl -fsS --max-time 15 http://localhost:3333/ >/dev/null; then
+              echo "✓ L'application répond sur localhost:3333"
+            else
+              echo "⚠️ L'application ne répond pas encore sur localhost:3333 (démarrage en cours ?)"
+            fi
+          EOF
