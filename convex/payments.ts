@@ -197,7 +197,7 @@ export const initializeFeaturedUpgrade = action({
 });
 
 /**
- * Initialiser le paiement Xpress d'une demande d'achat (30 000 NGN).
+ * Initialiser le paiement Xpress d'une demande d'achat (15 000 XOF).
  * Public : les invités peuvent payer (la demande est créée en Normal,
  * puis passée en Xpress après confirmation du paiement).
  */

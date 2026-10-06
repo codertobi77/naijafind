@@ -8,10 +8,10 @@
  * (ex : 30000 = 30 000 NGN, 50000 = 50 000 XOF).
  */
 
-/** Traitement Xpress d'une demande d'achat : 30 000 NGN (48-72h). */
+/** Traitement Xpress d'une demande d'achat : 15 000 XOF (48-72h). */
 export const XPRESS_PRICING = {
-  amount: 30_000,
-  currency: "NGN",
+  amount: 15_000,
+  currency: "XOF",
   description: "Traitement Xpress d'une demande d'achat (48-72h)",
 } as const;
 

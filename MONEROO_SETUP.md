@@ -81,6 +81,7 @@ MONEROO_WEBHOOK_SECRET=whsec_votre_secret_test
 
 ## Tarifs de Référence (à configurer dans le code)
 
+- **Traitement Xpress d'une demande d'achat**: 15,000 XOF (48-72h)
 - **Featured Upgrade**: 50,000 XOF (30 jours)
 - **Abonnement Basic**: 25,000 XOF/mois
 - **Abonnement Premium**: 200,000 XOF/an (inclut featured)

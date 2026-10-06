@@ -68,7 +68,7 @@ export default function DashboardPurchaseRequestsListPage() {
   const [xpressUpgradingId, setXpressUpgradingId] = useState<string | null>(null);
   const [xpressError, setXpressError] = useState<string | null>(null);
 
-  // Passer une de SES demandes en Xpress (30 000 NGN) : redirection vers le
+  // Passer une de SES demandes en Xpress (15 000 XOF) : redirection vers le
   // checkout Moneroo ; la demande passe en Xpress après paiement confirmé.
   const handleXpressUpgrade = async (requestId: Id<'purchaseRequests'>) => {
     const email = meData?.user?.email;

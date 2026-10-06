@@ -7,10 +7,10 @@ import { Header } from '../../components/base';
 import { Package, FileText, Send, ChevronDown, MessageCircle, Zap, Check, Mail } from 'lucide-react';
 import FileUpload from '../../components/base/FileUpload';
 
-// Option Xpress (paiement Moneroo, 30 000 NGN) désactivée temporairement :
-// la carte est grisée et non sélectionnable tant que les clés API Moneroo ne
-// sont pas configurées en production. Repasser à true pour la réactiver.
-const XPRESS_ENABLED: boolean = false;
+// Option Xpress (paiement Moneroo, 15 000 FCFA / XOF) : carte sélectionnable,
+// checkout Moneroo initialisé à la soumission puis CTA sur l'écran de succès.
+// Passer à false pour la désactiver à nouveau (carte grisée « Bientôt disponible »).
+const XPRESS_ENABLED: boolean = true;
 
 export default function PurchaseRequestPage() {
   const { t } = useTranslation();
@@ -94,7 +94,7 @@ export default function PurchaseRequestPage() {
     try {
       // La demande est TOUJOURS publiée en Normal : le passage en Xpress
       // (traitement prioritaire sous 48-72h) n'est effectif qu'après paiement
-      // confirmé du montant Xpress (30 000 NGN) via Moneroo.
+      // confirmé du montant Xpress (15 000 XOF) via Moneroo.
       const result = await createPurchaseRequest({
         description: formData.description,
         quantity: Number(formData.quantity),
@@ -175,7 +175,7 @@ export default function PurchaseRequestPage() {
                       className="mb-6 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-8 py-3 font-semibold text-white transition-all hover:from-amber-600 hover:to-orange-600 hover:shadow-lg"
                     >
                       <Zap className="w-5 h-5" />
-                      {t('purchase_request.activate_xpress', 'Activer le Xpress maintenant — 30 000 ₦')}
+                      {t('purchase_request.activate_xpress', 'Activer le Xpress maintenant — 15 000 FCFA')}
                     </a>
                   )}
                 </>
@@ -378,11 +378,11 @@ export default function PurchaseRequestPage() {
                     )}
                   </div>
                   <p className={`text-xs mt-1 ${!XPRESS_ENABLED ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {t('purchase_request.processing_xpress_desc', 'Traitement prioritaire sous 48-72h — 30 000 ₦')}
+                    {t('purchase_request.processing_xpress_desc', 'Traitement prioritaire sous 48-72h — 15 000 FCFA')}
                   </p>
                   {XPRESS_ENABLED ? (
                     <p className="text-xs font-semibold text-amber-600 mt-2">
-                      {t('purchase_request.processing_xpress_price', '30 000 ₦')}
+                      {t('purchase_request.processing_xpress_price', '15 000 FCFA')}
                     </p>
                   ) : (
                     <span className="inline-flex items-center rounded-full bg-gray-200 px-2.5 py-1 text-xs font-medium text-gray-500 mt-2">
