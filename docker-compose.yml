@@ -12,7 +12,6 @@ services:
       #   proxy_pass de la conf nginx du VPS (vérifié par scan avant/après)
       # - 3333 : défaut documenté (DEPLOYMENT.md)
       - "3555:80"
-      - "3333:80"
     environment:
       - NODE_ENV=production
     healthcheck:
