@@ -78,6 +78,7 @@ jobs:
 
       - name: Pull image and restart container
         # Heredoc non coté : les $VPS_* s'étendent côté runner avant l'envoi SSH
+        # (les variables internes du script distant sont échappées : \$ok, \$i)
         run: |
           ssh -p "$VPS_SSH_PORT" "$VPS_USER@$VPS_HOST" bash << EOF
             set -e
@@ -87,17 +88,24 @@ jobs:
             echo "→ Redémarrage du conteneur…"
             docker compose up -d --remove-orphans
             docker image prune -f >/dev/null 2>&1 || true
-            sleep 5
-            if docker ps --filter name=suji-app --format '{{.Names}}' | grep -q suji-app; then
-              echo "✓ Conteneur suji-app actif"
+            echo "== Diagnostics conteneur =="
+            docker ps --format '{{.Names}} | {{.Status}} | {{.Ports}}'
+            echo "== Attente de l'application (https://suji.ng) =="
+            ok=0
+            for i in 1 2 3 4 5 6; do
+              if curl -fsS --max-time 10 https://suji.ng/ >/dev/null 2>&1; then ok=1; break; fi
+              sleep 10
+            done
+            if [ "\$ok" = "1" ]; then
+              echo "✓ https://suji.ng répond après relance"
             else
-              echo "❌ Conteneur suji-app introuvable — logs :"
-              docker compose logs --tail 50 || true
+              echo "❌ https://suji.ng ne répond pas — diagnostics :"
+              echo "-- conf nginx (proxy_pass/listen) --"
+              grep -rhE 'proxy_pass|listen' /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ 2>/dev/null || echo "(conf nginx illisible)"
+              echo "-- ports en écoute --"
+              (ss -tln 2>/dev/null || netstat -tln 2>/dev/null || true) | grep -E ':(80|443|3000|3333|3555)\b' || echo "(aucun des ports attendus en écoute)"
+              echo "-- logs suji-app --"
+              docker logs suji-app --tail 30 2>&1 || true
               exit 1
-            fi
-            if curl -fsS --max-time 15 http://localhost:3333/ >/dev/null; then
-              echo "✓ L'application répond sur localhost:3333"
-            else
-              echo "⚠️ L'application ne répond pas encore sur localhost:3333 (démarrage en cours ?)"
             fi
           EOF

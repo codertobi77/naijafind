@@ -7,7 +7,12 @@ services:
     container_name: suji-app
     restart: unless-stopped
     ports:
-      - "${APP_PORT:-3333}:80"
+      # Deux ports hôtes vers le nginx interne du conteneur :
+      # - 3555 : port historique du conteneur précédent, attendu par le
+      #   proxy_pass de la conf nginx du VPS (vérifié par scan avant/après)
+      # - 3333 : défaut documenté (DEPLOYMENT.md)
+      - "3555:80"
+      - "3333:80"
     environment:
       - NODE_ENV=production
     healthcheck:
