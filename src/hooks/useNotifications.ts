@@ -3,7 +3,23 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 
-export type NotificationType = 'order' | 'review' | 'message' | 'system' | 'verification' | 'approval';
+// Union alignée sur les types réellement insérés côté Convex (users, admin,
+// purchaseRequests, reviews, payments, notifications.createContactRequest…) :
+// le schéma stocke `type` en string libre, ces clés sont donc « au mieux » —
+// le dropdown gère un fallback pour tout type imprévu.
+export type NotificationType =
+  | 'order'
+  | 'review'
+  | 'message'
+  | 'system'
+  | 'verification'
+  | 'approval'
+  | 'purchase_request'
+  | 'purchase_request_update'
+  | 'new_quote'
+  | 'payment_success'
+  | 'subscription_expired'
+  | 'contact_request';
 
 export interface Notification {
   _id: Id<'notifications'>;

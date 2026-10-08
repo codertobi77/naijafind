@@ -54,12 +54,53 @@ async function ensureUserHelper(ctx: any, args: any) {
     if (!existing.created_at) {
       patchData.created_at = now;
     }
-    
+
+    // RÉCONCILIATION (fournisseurs importés via adminImport.ts) : le doc users
+    // matched par email n'a pas de tokenIdentifier tant que son propriétaire
+    // ne s'est jamais connecté via Clerk. À la première connexion, on le pose
+    // et on repointe les références historiques (suppliers.userId et
+    // notifications.userId) qui utilisaient l'_id du doc users vers le
+    // tokenIdentifier — l'identité réelle des notifications.
+    let reconciled = false;
+    if (!existing.tokenIdentifier && identity.tokenIdentifier) {
+      patchData.tokenIdentifier = identity.tokenIdentifier;
+      reconciled = true;
+    }
+
     // Ne patcher que si on a des changements à faire
     if (Object.keys(patchData).length > 0) {
       await ctx.db.patch(existing._id, patchData);
     }
-    
+
+    if (reconciled) {
+      const legacyUserId = existing._id as unknown as string;
+      try {
+        // Repointer les fournisseurs importés référencés par l'ancien _id
+        const legacySuppliers = await ctx.db
+          .query("suppliers")
+          .withIndex("userId", (q: any) => q.eq("userId", legacyUserId))
+          .collect();
+        for (const supplier of legacySuppliers) {
+          await ctx.db.patch(supplier._id, { userId: identity.tokenIdentifier });
+        }
+
+        // Repointer les notifications historiques adressées à l'ancien _id
+        const legacyNotifications = await ctx.db
+          .query("notifications")
+          .withIndex("userId", (q: any) => q.eq("userId", legacyUserId))
+          .collect();
+        for (const notification of legacyNotifications) {
+          await ctx.db.patch(notification._id, { userId: identity.tokenIdentifier });
+        }
+      } catch (reconcileError) {
+        // Best-effort : ne pas bloquer la connexion si la réconciliation échoue,
+        // elle sera retentée à la connexion suivante (tokenIdentifier déjà posé
+        // sur users — les repoints restants seront rattrapés par le plan admin
+        // de migration ultérieur).
+        console.error("Réconciliation tokenIdentifier échouée :", reconcileError);
+      }
+    }
+
     // Return the updated user data
     const updatedUser = await ctx.db.get(existing._id);
     const supplier = await ctx.db
@@ -82,8 +123,11 @@ async function ensureUserHelper(ctx: any, args: any) {
   });
   
   // Send welcome notification for new users
+  // IMPORTANT : l'identité d'une notification est TOUJOURS le tokenIdentifier
+  // Clerk (cf. convex/notifications.ts getNotifications) — jamais l'_id du doc
+  // users, sinon la notification est invisible pour son destinataire.
   await ctx.db.insert('notifications', {
-    userId: id,
+    userId: identity.tokenIdentifier,
     type: 'system',
     title: 'Bienvenue sur Suji !',
     message: `Bonjour ${args.firstName || ''}, votre compte a été créé avec succès. Complétez votre profil pour commencer.`,

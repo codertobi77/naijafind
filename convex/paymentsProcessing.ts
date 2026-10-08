@@ -19,7 +19,8 @@ import {
   isSubscriptionPlan,
   type SubscriptionPlanId,
 } from "./pricing";
-import { fetchMonerooVerification, mapMonerooStatus } from "./moneroo";
+import { fetchMonerooVerification, mapMonerooStatus, getSiteUrl } from "./moneroo";
+import { xpressGuestReceiptTemplate } from "./emailTemplates";
 
 /**
  * Crédite les avantages d'un paiement réussi (Vitrine, abonnement, Xpress).
@@ -86,6 +87,28 @@ async function fulfillSuccessfulPayment(
         internal.purchaseRequests._markRequestAsXpress,
         { requestId: payment.purchaseRequestId }
       );
+
+      // Reçu email pour les invités (Xpress payé sans compte) : ils n'ont
+      // ni notification in-app ni page de suivi — le reçu email est leur
+      // seule confirmation. Best-effort : n'échoue jamais le paiement.
+      if (payment.guestEmail) {
+        try {
+          await ctx.runAction(internal.sendEmail.sendEmailAction, {
+            to: payment.guestEmail,
+            subject: "Paiement Xpress confirmé — traitement sous 48-72h",
+            html: xpressGuestReceiptTemplate({
+              siteUrl: getSiteUrl(),
+              amount: payment.amount,
+              currency: payment.currency,
+            }),
+          });
+        } catch (receiptError) {
+          console.error(
+            "Échec de l'envoi du reçu Xpress (invité) :",
+            receiptError
+          );
+        }
+      }
       break;
     }
 

@@ -1,6 +1,8 @@
 import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { Doc } from "./_generated/dataModel";
+import { isNotifiableUserId } from "./notificationUtils";
 
 export const listReviews = query({
   args: {},
@@ -50,8 +52,12 @@ export const createReview = mutation({
       throw new Error("Vous avez déjà laissé un avis pour ce fournisseur");
     }
     
-    // Verify supplier exists
-    const supplier = await ctx.db.get(args.supplierId as any);
+    // Verify supplier exists. Cast Doc<"suppliers"> : suppliers.supplierId
+    // est historiquement un string (pas un Id), et sans le cast ctx.db.get
+    // retournerait l'union de toutes les tables du schéma.
+    const supplier = (await ctx.db.get(
+      args.supplierId as any
+    )) as Doc<"suppliers"> | null;
     if (!supplier) {
       throw new Error("Fournisseur non trouvé");
     }
@@ -96,6 +102,28 @@ export const createReview = mutation({
       rating: averageRating,
       reviews_count: BigInt(totalReviews),
     });
+
+    // Notifier le fournisseur du nouvel avis (best-effort, garde anti-invité)
+    if (isNotifiableUserId(supplier.userId)) {
+      try {
+        await ctx.db.insert("notifications", {
+          userId: supplier.userId,
+          type: "review",
+          title: "Nouvel avis reçu",
+          message: `Un client a laissé un avis de ${args.rating}/5 sur votre page.`,
+          data: {
+            reviewId: reviewId as unknown as string,
+            supplierId: args.supplierId,
+            rating: args.rating,
+          },
+          read: false,
+          actionUrl: `/supplier/${args.supplierId}`,
+          createdAt: new Date().toISOString(),
+        });
+      } catch (notifError) {
+        console.error("Failed to create review notification:", notifError);
+      }
+    }
     
     return { success: true, reviewId };
   }

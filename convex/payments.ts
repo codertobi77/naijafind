@@ -13,8 +13,11 @@ import {
 } from "./pricing";
 import {
   initializeMonerooPayment,
+  getSiteUrl,
   type MonerooCustomer,
 } from "./moneroo";
+import { isNotifiableUserId } from "./notificationUtils";
+import { subscriptionExpiryReminderTemplate } from "./emailTemplates";
 // Type-only : les annotations de retour des handlers ci-dessous cassent la
 // boucle d'inférence (corps → internal.* → ApiFromModules → type du handler)
 // responsable de la cascade TS2589/TS7022 sur l'ensemble du codebase.
@@ -487,5 +490,111 @@ export const checkExpiredFeatured = internalMutation({
       expired: expiredSuppliers.length,
       updated,
     };
+  },
+});
+
+/**
+ * Rappel avant expiration : notifier les fournisseurs dont le statut Vitrine
+ * ou l'abonnement expire sous 3 jours (notification in-app + email).
+ *
+ * Idempotence : le champ expiryReminderSentAt est posé sur le doc supplier —
+ * au plus un rappel tous les 7 jours par fournisseur (la fenêtre de 3 jours
+ * couvre au maximum 3 exécutions quotidiennes du cron sans cette garde).
+ *
+ * Appelée quotidiennement par cron (crons.ts : notifyExpiringSoon).
+ */
+export const _notifyExpiringSoon = internalMutation({
+  args: {},
+  handler: async (
+    ctx
+  ): Promise<{ checked: number; notified: number }> => {
+    const now = new Date().toISOString();
+    const inThreeDays = new Date(
+      Date.now() + 3 * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    // Scan borné de la table suppliers (taille modérée ; checkExpiredFeatured
+    // scanne déjà l'index `featured` de la même façon).
+    const suppliers = await ctx.db.query("suppliers").take(10000);
+
+    let notified = 0;
+
+    for (const supplier of suppliers) {
+      const expiringFeatured =
+        !!supplier.featuredUntil &&
+        supplier.featuredUntil > now &&
+        supplier.featuredUntil <= inThreeDays;
+      const expiringSubscription =
+        !!supplier.subscriptionExpiresAt &&
+        supplier.subscriptionExpiresAt > now &&
+        supplier.subscriptionExpiresAt <= inThreeDays;
+
+      if (!expiringFeatured && !expiringSubscription) continue;
+
+      // Idempotence : un seul rappel par cycle de 7 jours
+      if (supplier.expiryReminderSentAt) {
+        const lastReminder = new Date(supplier.expiryReminderSentAt).getTime();
+        if (Date.now() - lastReminder < 7 * 24 * 60 * 60 * 1000) continue;
+      }
+
+      // Garde anti-invité
+      if (!isNotifiableUserId(supplier.userId)) continue;
+
+      const kind = expiringFeatured ? "vitrine" : "abonnement";
+      const expiresAt = expiringFeatured
+        ? supplier.featuredUntil!
+        : supplier.subscriptionExpiresAt!;
+
+      // Notification in-app
+      try {
+        await ctx.db.insert("notifications", {
+          userId: supplier.userId,
+          type: "system",
+          title: "Votre statut expire bientôt",
+          message:
+            kind === "vitrine"
+              ? "Votre statut Vitrine expire dans moins de 3 jours. Renouvelez-le depuis votre tableau de bord pour garder votre visibilité."
+              : "Votre abonnement expire dans moins de 3 jours. Renouvelez-le depuis votre tableau de bord pour garder vos avantages.",
+          data: {
+            supplierId: supplier._id as unknown as string,
+            kind,
+            expiresAt,
+          },
+          read: false,
+          actionUrl: "/dashboard",
+          createdAt: now,
+        });
+      } catch (notifError) {
+        console.error(
+          `Rappel expiration : échec de la notification in-app pour ${supplier._id}:`,
+          notifError
+        );
+      }
+
+      // Email de rappel (best-effort)
+      try {
+        await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
+          to: supplier.email,
+          subject: "Votre statut Suji expire bientôt",
+          html: subscriptionExpiryReminderTemplate({
+            siteUrl: getSiteUrl(),
+            kind,
+            expiresAt,
+          }),
+        });
+      } catch (emailError) {
+        console.error(
+          `Rappel expiration : échec de l'email pour ${supplier._id}:`,
+          emailError
+        );
+      }
+
+      // Marquer le rappel comme envoyé (avant notified++ pour rester idempotent
+      // même si l'un des deux canaux a échoué — l'essentiel est envoyé)
+      await ctx.db.patch(supplier._id, { expiryReminderSentAt: now });
+      notified++;
+    }
+
+    return { checked: suppliers.length, notified };
   },
 });

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Notification, NotificationType } from '../../hooks/useNotifications';
 import type { Id } from '@convex/_generated/dataModel';
 
@@ -11,23 +12,43 @@ interface NotificationDropdownProps {
   onDelete: (id: Id<'notifications'>) => void;
 }
 
-const notificationIcons: Record<NotificationType, string> = {
+// Maps typées « au mieux » : le schéma Convex stocke `type` en string libre,
+// on indexe donc par string avec un fallback visuel pour tout type imprévu.
+const notificationIcons: Record<string, string> = {
   order: 'ri-shopping-cart-line',
   review: 'ri-star-line',
   message: 'ri-mail-line',
   system: 'ri-information-line',
   verification: 'ri-shield-check-line',
   approval: 'ri-check-double-line',
+  purchase_request: 'ri-file-list-3-line',
+  purchase_request_update: 'ri-file-edit-line',
+  new_quote: 'ri-price-tag-3-line',
+  payment_success: 'ri-money-dollar-circle-line',
+  subscription_expired: 'ri-alarm-warning-line',
+  contact_request: 'ri-user-add-line',
 };
 
-const notificationColors: Record<NotificationType, string> = {
+const notificationColors: Record<string, string> = {
   order: 'bg-blue-100 text-blue-600',
   review: 'bg-yellow-100 text-yellow-600',
   message: 'bg-green-100 text-green-600',
   system: 'bg-gray-100 text-gray-600',
   verification: 'bg-purple-100 text-purple-600',
   approval: 'bg-green-100 text-green-600',
+  purchase_request: 'bg-blue-100 text-blue-600',
+  purchase_request_update: 'bg-indigo-100 text-indigo-600',
+  new_quote: 'bg-emerald-100 text-emerald-600',
+  payment_success: 'bg-green-100 text-green-600',
+  subscription_expired: 'bg-orange-100 text-orange-600',
+  contact_request: 'bg-teal-100 text-teal-600',
 };
+
+const FALLBACK_ICON = 'ri-notification-3-line';
+const FALLBACK_COLOR = 'bg-gray-100 text-gray-600';
+
+const iconFor = (type: NotificationType | string) => notificationIcons[type] ?? FALLBACK_ICON;
+const colorFor = (type: NotificationType | string) => notificationColors[type] ?? FALLBACK_COLOR;
 
 export function NotificationDropdown({
   notifications,
@@ -40,6 +61,7 @@ export function NotificationDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const navigate = useNavigate();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -77,8 +99,8 @@ export function NotificationDropdown({
       onMarkRead(notification._id);
     }
     if (notification.actionUrl) {
-      // Handle navigation - could use router here
-      window.location.href = notification.actionUrl;
+      // Navigation SPA (recharge complète avant : window.location.href)
+      navigate(notification.actionUrl);
     }
     setIsOpen(false);
   };
@@ -158,10 +180,10 @@ export function NotificationDropdown({
                     {/* Icon */}
                     <div
                       className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                        notificationColors[notification.type]
+                        colorFor(notification.type)
                       }`}
                     >
-                      <i className={`${notificationIcons[notification.type]} text-lg`} />
+                      <i className={`${iconFor(notification.type)} text-lg`} />
                     </div>
 
                     {/* Content */}
@@ -204,13 +226,17 @@ export function NotificationDropdown({
           {/* Footer */}
           {notifications.length > 0 && (
             <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-2">
-              <a
-                href="/notifications"
-                className="flex items-center justify-center gap-1 text-xs font-medium text-green-600 hover:text-green-700 transition-colors"
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  navigate('/notifications');
+                }}
+                className="flex w-full items-center justify-center gap-1 text-xs font-medium text-green-600 hover:text-green-700 transition-colors"
               >
                 Voir toutes les notifications
                 <i className="ri-arrow-right-line" />
-              </a>
+              </button>
             </div>
           )}
         </div>

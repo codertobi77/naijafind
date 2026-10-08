@@ -30,6 +30,18 @@ crons.interval(
   {}
 );
 
+/**
+ * Cron job (module Moneroo) : une fois par jour, rappeler les fournisseurs
+ * dont le statut Vitrine ou l'abonnement expire sous 3 jours
+ * (notification in-app + email — idempotent via expiryReminderSentAt).
+ */
+crons.interval(
+  "notifyExpiringSoon",
+  { hours: 24 },
+  internal.payments._notifyExpiringSoon,
+  {}
+);
+
 // NOTE: The stats cron jobs below have been temporarily disabled
 // To re-enable, uncomment the relevant sections below
 

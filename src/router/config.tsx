@@ -30,6 +30,10 @@ const PaymentSuccess = lazy(() => import('../pages/payment/success/page'));
 const PaymentFailed = lazy(() => import('../pages/payment/failed/page'));
 const NotFound = lazy(() => import('../pages/NotFound'));
 const Admin = lazy(() => import('../pages/admin/page'));
+const Notifications = lazy(() => import('../pages/notifications/page'));
+const NewsletterUnsubscribe = lazy(
+  () => import('../pages/newsletter/unsubscribe/page')
+);
 
 const routes: RouteObject[] = [
   {
@@ -111,6 +115,14 @@ const routes: RouteObject[] = [
   {
     path: '/dashboard/purchase-requests/:requestId',
     element: <DashboardPurchaseRequestDetail />,
+  },
+  {
+    path: '/notifications',
+    element: <Notifications />,
+  },
+  {
+    path: '/newsletter/unsubscribe',
+    element: <NewsletterUnsubscribe />,
   },
   {
     path: '/payment/success',

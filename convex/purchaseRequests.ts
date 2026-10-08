@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 // Type-only : annotations de retour des fonctions internes ajoutées
 // (module paiements) — casse la boucle d'inférence TS7022/TS2589.
 import type { Doc, Id } from "./_generated/dataModel";
+import { isNotifiableUserId } from "./notificationUtils";
 
 /**
  * Internal: Create purchase request (called from action)
@@ -18,23 +19,38 @@ export const _createPurchaseRequest = mutation({
     processingOption: v.optional(v.union(v.literal('normal'), v.literal('xpress'))),
     userId: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ requestId: Id<"purchaseRequests">; requestNumber: number }> => {
     const now = new Date().toISOString();
     // Normal par défaut : les anciens appelants (sans l'argument) restent rétro-compatibles.
     const processingOption = args.processingOption ?? 'normal';
-    // Échéance de traitement calculée côté serveur : +72h (xpress) ou +7 jours (normal).
+    // Échéance de traitement calculée côté serveur : +72h (xpress) ou +14 jours
+    // (normal — délai affiché « 1 à 2 semaines »).
     const expectedResponseAt = new Date(
       Date.now() +
         (processingOption === 'xpress'
           ? 72 * 60 * 60 * 1000
-          : 7 * 24 * 60 * 60 * 1000)
+          : 14 * 24 * 60 * 60 * 1000)
     ).toISOString();
-    return await ctx.db.insert("purchaseRequests", {
+
+    // N° de suivi séquentiel : max des numéros existants + 1 via l'index
+    // (les documents antérieurs sans numéro sont exclus de l'index).
+    const lastNumbered = await ctx.db
+      .query("purchaseRequests")
+      .withIndex("requestNumber", (q) => q.gte("requestNumber", 1))
+      .order("desc")
+      .first();
+    const requestNumber = (lastNumbered?.requestNumber ?? 0) + 1;
+
+    const requestId = await ctx.db.insert("purchaseRequests", {
       description: args.description,
       quantity: args.quantity,
       unit: args.unit,
       whatsapp: args.whatsapp,
       attachment: args.attachment,
+      requestNumber,
       processingOption,
       expectedResponseAt,
       status: 'pending',
@@ -42,6 +58,7 @@ export const _createPurchaseRequest = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    return { requestId, requestNumber };
   },
 });
 
@@ -159,7 +176,11 @@ export const createPurchaseRequest = action({
   handler: async (
     ctx,
     args
-  ): Promise<{ success: boolean; requestId: Id<"purchaseRequests"> }> => {
+  ): Promise<{
+    success: boolean;
+    requestId: Id<"purchaseRequests">;
+    requestNumber: number;
+  }> => {
     // Apply rate limiting - max 3 requests per hour per phone/IP
     await ctx.runAction(internal.rateLimit.enforceRateLimit, {
       identifier: args.whatsapp,
@@ -178,15 +199,18 @@ export const createPurchaseRequest = action({
     }
     
     // Create purchase request via internal mutation
-    const requestId = await ctx.runMutation(internal.purchaseRequests._createPurchaseRequest, {
-      description: args.description,
-      quantity: args.quantity,
-      unit: args.unit,
-      whatsapp: args.whatsapp,
-      attachment: args.attachment,
-      processingOption: args.processingOption,
-      userId: userId,
-    });
+    const { requestId, requestNumber } = await ctx.runMutation(
+      internal.purchaseRequests._createPurchaseRequest,
+      {
+        description: args.description,
+        quantity: args.quantity,
+        unit: args.unit,
+        whatsapp: args.whatsapp,
+        attachment: args.attachment,
+        processingOption: args.processingOption,
+        userId: userId,
+      }
+    );
     
     // Find matching suppliers and notify them
     try {
@@ -207,6 +231,7 @@ export const createPurchaseRequest = action({
           message: `${args.description} - ${args.quantity} ${args.unit}`,
           data: { 
             requestId,
+            requestNumber,
             purchaseRequest: args,
             matchScore: supplier.matchScore,
           },
@@ -218,7 +243,7 @@ export const createPurchaseRequest = action({
       // Don't fail the request if notification fails
     }
     
-    return { success: true, requestId };
+    return { success: true, requestId, requestNumber };
   }
 });
 
@@ -250,6 +275,17 @@ export const deletePurchaseRequest = mutation({
       if (!user?.is_admin) {
         throw new Error("Accès refusé");
       }
+    }
+    
+    // Supprimer d'abord les devis rattachés (sinon ils restent orphelins).
+    // La pièce jointe vit sur le document demande (URL) : sa suppression
+    // emporte la référence au fichier joint.
+    const relatedQuotes = await ctx.db
+      .query("quotes")
+      .withIndex("requestId", (q) => q.eq("requestId", args.id))
+      .take(100);
+    for (const quote of relatedQuotes) {
+      await ctx.db.delete(quote._id);
     }
     
     await ctx.db.delete(args.id);
@@ -346,16 +382,19 @@ export const updatePurchaseRequestStatus = mutation({
     });
     
     // Notify the requester about status update
-    await ctx.db.insert("notifications", {
-      userId: request.userId,
-      type: 'purchase_request_update',
-      title: 'Mise à jour de votre demande',
-      message: `Votre demande a été marquée comme: ${args.status}${args.message ? ` - ${args.message}` : ''}`,
-      data: { requestId: args.id, status: args.status, message: args.message },
-      read: false,
-      actionUrl: `/dashboard/purchase-requests/${args.id}`,
-      createdAt: now,
-    });
+    // (garde anti-invité : pas de notification « poubelle » pour 'anonymous'/'guest:*')
+    if (isNotifiableUserId(request.userId)) {
+      await ctx.db.insert("notifications", {
+        userId: request.userId,
+        type: 'purchase_request_update',
+        title: 'Mise à jour de votre demande',
+        message: `Votre demande a été marquée comme: ${args.status}${args.message ? ` - ${args.message}` : ''}`,
+        data: { requestId: args.id, status: args.status, message: args.message },
+        read: false,
+        actionUrl: `/dashboard/purchase-requests/${args.id}`,
+        createdAt: now,
+      });
+    }
     
     return { success: true };
   }
@@ -412,23 +451,25 @@ export const submitQuote = mutation({
       createdAt: now,
     });
     
-    // Notify requester
-    await ctx.db.insert("notifications", {
-      userId: request.userId,
-      type: 'new_quote',
-      title: 'Nouvelle offre reçue',
-      message: `${supplier.business_name} vous propose une offre pour votre demande`,
-      data: { 
-        quoteId,
-        requestId: args.requestId,
-        supplierId: args.supplierId,
-        price: args.price,
-        currency: args.currency,
-      },
-      read: false,
-      actionUrl: `/dashboard/purchase-requests/${args.requestId}`,
-      createdAt: now,
-    });
+    // Notify requester (garde anti-invité)
+    if (isNotifiableUserId(request.userId)) {
+      await ctx.db.insert("notifications", {
+        userId: request.userId,
+        type: 'new_quote',
+        title: 'Nouvelle offre reçue',
+        message: `${supplier.business_name} vous propose une offre pour votre demande`,
+        data: { 
+          quoteId,
+          requestId: args.requestId,
+          supplierId: args.supplierId,
+          price: args.price,
+          currency: args.currency,
+        },
+        read: false,
+        actionUrl: `/dashboard/purchase-requests/${args.requestId}`,
+        createdAt: now,
+      });
+    }
     
     return { success: true, quoteId };
   }
@@ -571,20 +612,22 @@ export const updatePurchaseRequestStatusAdmin = mutation({
       updatedAt: now,
     });
     
-    // Notify the requester
-    await ctx.db.insert("notifications", {
-      userId: request.userId,
-      type: 'purchase_request_update',
-      title: 'Mise à jour de votre demande',
-      message: `Votre demande a été mise à jour: ${args.status}${args.notes ? ` - ${args.notes}` : ''}`,
-      data: { requestId: args.id, status: args.status, notes: args.notes },
-      read: false,
-      actionUrl: `/dashboard/purchase-requests/${args.id}`,
-      createdAt: now,
-    });
+    // Notify the requester (garde anti-invité)
+    if (isNotifiableUserId(request.userId)) {
+      await ctx.db.insert("notifications", {
+        userId: request.userId,
+        type: 'purchase_request_update',
+        title: 'Mise à jour de votre demande',
+        message: `Votre demande a été mise à jour: ${args.status}${args.notes ? ` - ${args.notes}` : ''}`,
+        data: { requestId: args.id, status: args.status, notes: args.notes },
+        read: false,
+        actionUrl: `/dashboard/purchase-requests/${args.id}`,
+        createdAt: now,
+      });
+    }
     
     return { success: true };
-  },
+  }
 });
 
 /**
