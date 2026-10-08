@@ -2,18 +2,27 @@ import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { escapeHtml } from "./htmlEscape";
+import { getSiteUrl } from "./moneroo";
+import { isNotifiableUserId } from "./notificationUtils";
+import {
+  contactEmailTemplate,
+  newsletterCampaignTemplate,
+  newsletterWelcomeBackTemplate,
+  newsletterWelcomeTemplate,
+  supplierMessageTemplate,
+} from "./emailTemplates";
 
-// Destinataire et URL de base configurables via les variables d'environnement Convex :
-//   npx convex env add CONTACT_EMAIL "contact@votredomaine.com"
-//   npx convex env add APP_URL "https://votredomaine.com"
-const CONTACT_EMAIL = process.env.CONTACT_EMAIL || "contact@Suji.com";
-const APP_URL = process.env.APP_URL || "https://Suji.com";
+// Destinataire interne configurable via la variable d'environnement Convex :
+//   npx convex env set CONTACT_EMAIL suji@olufona.com --prod
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL || "suji@olufona.com";
+
+// Taille maximale d'un lot Resend (limite de l'endpoint batch : 100 envois).
+const BATCH_SIZE = 100;
 
 /**
  * Email service using Resend
- * This requires backend implementation for security
- * Resend API key should be stored in Convex environment variables
+ * La clé RESEND_API_KEY doit être stockée dans les variables d'environnement Convex.
+ * Chaque envoi est journalisé dans la table email_log par sendEmailAction.
  */
 
 export const sendContactEmail = mutation({
@@ -40,15 +49,15 @@ export const sendContactEmail = mutation({
     try {
       await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
         to: CONTACT_EMAIL,
-        subject: `[Contact Form] ${escapeHtml(args.subject)}`,
-        html: `
-          <h2>New Contact Form Submission</h2>
-          <p><strong>From:</strong> ${escapeHtml(args.name)} (${escapeHtml(args.email)})</p>
-          <p><strong>Subject:</strong> ${escapeHtml(args.subject)}</p>
-          <p><strong>Type:</strong> ${escapeHtml(args.type || "general")}</p>
-          <p><strong>Message:</strong></p>
-          <p>${escapeHtml(args.message)}</p>
-        `,
+        subject: `[Formulaire de contact] ${args.subject}`,
+        html: contactEmailTemplate({
+          siteUrl: getSiteUrl(),
+          name: args.name,
+          email: args.email,
+          subject: args.subject,
+          type: args.type || "general",
+          message: args.message,
+        }),
       });
     } catch (emailError) {
       console.error("Failed to send contact email:", emailError);
@@ -70,7 +79,7 @@ export const sendSupplierContactEmail = mutation({
   handler: async (ctx, args) => {
     // Get supplier details from suppliers table
     const supplier = await ctx.db.get(args.supplierId as Id<"suppliers">);
-      
+
     if (!supplier) {
       throw new Error("Supplier not found");
     }
@@ -87,256 +96,51 @@ export const sendSupplierContactEmail = mutation({
       created_at: new Date().toISOString(),
     });
 
-    // Send email notification to supplier
+    // Send email notification to supplier (répondre au client via reply_to)
     try {
       await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
         to: supplier.email,
-        subject: `[Suji] New message from ${escapeHtml(args.senderName)}`,
-        html: `
-          <h2>New Message for ${escapeHtml(supplier.business_name)}</h2>
-          <p><strong>From:</strong> ${escapeHtml(args.senderName)}</p>
-          <p><strong>Email:</strong> ${escapeHtml(args.senderEmail)}</p>
-          ${args.senderPhone ? `<p><strong>Phone:</strong> ${escapeHtml(args.senderPhone)}</p>` : ""}
-          <p><strong>Subject:</strong> ${escapeHtml(args.subject)}</p>
-          <p><strong>Message:</strong></p>
-          <p>${escapeHtml(args.message)}</p>
-          <hr>
-          <p><small>Reply to this message by responding directly to this email or contact ${escapeHtml(args.senderEmail)}</small></p>
-        `,
+        subject: `[Suji] Nouveau message de ${args.senderName}`,
+        html: supplierMessageTemplate({
+          siteUrl: getSiteUrl(),
+          supplierName: supplier.business_name,
+          senderName: args.senderName,
+          senderEmail: args.senderEmail,
+          senderPhone: args.senderPhone,
+          subject: args.subject,
+          message: args.message,
+        }),
+        reply_to: args.senderEmail,
       });
     } catch (emailError) {
       console.error("Failed to send supplier notification:", emailError);
     }
 
+    // Notification in-app pour le fournisseur (même pattern que admin.ts approveSupplier)
+    if (isNotifiableUserId(supplier.userId)) {
+      try {
+        await ctx.db.insert("notifications", {
+          userId: supplier.userId,
+          type: "message",
+          title: "Nouveau message",
+          message: `${args.senderName} vous a envoyé un message : « ${args.subject} »`,
+          data: {
+            messageId: messageId as unknown as string,
+            senderName: args.senderName,
+            senderEmail: args.senderEmail,
+          },
+          read: false,
+          actionUrl: "/dashboard",
+          createdAt: new Date().toISOString(),
+        });
+      } catch (notifError) {
+        console.error("Failed to create supplier message notification:", notifError);
+      }
+    }
+
     return { success: true, id: messageId };
   },
 });
-
-export const sendVerificationEmail = mutation({
-  args: {
-    email: v.string(),
-    userId: v.string(),
-    verificationType: v.string(), // "email" | "supplier_verification"
-  },
-  handler: async (ctx, args) => {
-    // Generate verification token
-    const verificationToken = generateVerificationToken();
-    
-    // Store verification token
-    await ctx.db.insert("verification_tokens", {
-      userId: args.userId,
-      email: args.email,
-      token: verificationToken,
-      type: args.verificationType,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
-      created_at: new Date().toISOString(),
-    });
-
-    // Send verification email using Resend
-    const verificationLink = `${APP_URL}/verify?token=${verificationToken}`;
-    
-    try {
-      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
-        to: args.email,
-        subject: "Verify your Suji account",
-        html: `
-          <h2>Welcome to Suji!</h2>
-          <p>Please verify your email address by clicking the link below:</p>
-          <p><a href="${verificationLink}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Verify Email</a></p>
-          <p>Or copy and paste this link into your browser:</p>
-          <p>${verificationLink}</p>
-          <p>This link will expire in 24 hours.</p>
-          <hr>
-          <p><small>If you didn't create an account on Suji, please ignore this email.</small></p>
-        `,
-      });
-    } catch (emailError) {
-      console.error("Failed to send verification email:", emailError);
-    }
-    
-    return { success: true, token: verificationToken };
-  },
-});
-
-export const sendPasswordResetEmail = mutation({
-  args: {
-    email: v.string(),
-  },
-  handler: async (ctx, args) => {
-    // Find user by email
-    const user = await ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", args.email))
-      .first();
-
-    if (!user) {
-      // Don't reveal if email exists or not for security
-      return { success: true };
-    }
-
-    // Generate reset token
-    const resetToken = generateVerificationToken();
-
-    // Store reset token
-    await ctx.db.insert("password_reset_tokens", {
-      userId: user._id as unknown as string,
-      email: args.email,
-      token: resetToken,
-      expiresAt: new Date(Date.now() + 1 * 60 * 60 * 1000).toISOString(), // 1 hour
-      created_at: new Date().toISOString(),
-    });
-
-    // Send password reset email using Resend
-    const resetLink = `${APP_URL}/reset-password?token=${resetToken}`;
-    
-    try {
-      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
-        to: args.email,
-        subject: "Reset your Suji password",
-        html: `
-          <h2>Password Reset Request</h2>
-          <p>You requested to reset your password. Click the link below to create a new password:</p>
-          <p><a href="${resetLink}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Reset Password</a></p>
-          <p>Or copy and paste this link into your browser:</p>
-          <p>${resetLink}</p>
-          <p>This link will expire in 1 hour.</p>
-          <hr>
-          <p><small>If you didn't request a password reset, please ignore this email and your password will remain unchanged.</small></p>
-        `,
-      });
-    } catch (emailError) {
-      console.error("Failed to send password reset email:", emailError);
-    }
-    
-    return { success: true };
-  },
-});
-
-export const sendSupplierApprovalEmail = mutation({
-  args: {
-    supplierId: v.string(),
-    approved: v.boolean(),
-    reason: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Non autorisé");
-
-    // Check if user is admin
-    const user = await ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", identity.email))
-      .first();
-
-    if (!user || !user.is_admin) {
-      throw new Error("Accès refusé. Seuls les administrateurs peuvent effectuer cette action.");
-    }
-
-    // Get supplier details from suppliers table
-    const supplier = await ctx.db.get(args.supplierId as Id<"suppliers">);
-      
-    if (!supplier) {
-      throw new Error("Supplier not found");
-    }
-
-    // Send approval/rejection email using Resend
-    const emailSubject = args.approved 
-      ? "Your Suji supplier account has been approved!" 
-      : "Update on your Suji supplier application";
-    
-    const dashboardLink = `${APP_URL}/dashboard`;
-    const emailHtml = args.approved
-      ? `
-        <h2>Congratulations! Your supplier account is now active</h2>
-        <p>Dear ${escapeHtml(supplier.business_name)},</p>
-        <p>We're excited to inform you that your supplier account has been approved and is now active on Suji!</p>
-        <p>You can now:</p>
-        <ul>
-          <li>Access your full dashboard</li>
-          <li>List your products and services</li>
-          <li>Receive customer inquiries</li>
-          <li>Build your business presence</li>
-        </ul>
-        <p><a href="${dashboardLink}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Go to Dashboard</a></p>
-        <p>Best regards,<br>The Suji Team</p>
-      `
-      : `
-        <h2>Update on your supplier application</h2>
-        <p>Dear ${escapeHtml(supplier.business_name)},</p>
-        <p>Thank you for your interest in joining Suji. After reviewing your application, we need you to provide additional information or make some updates before we can approve your account.</p>
-        ${args.reason ? `<p><strong>Reason:</strong> ${escapeHtml(args.reason)}</p>` : ""}
-        <p>Please review your application and make the necessary updates. If you have any questions, feel free to contact our support team.</p>
-        <p><a href="${dashboardLink}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Review Application</a></p>
-        <p>Best regards,<br>The Suji Team</p>
-      `;
-    
-    try {
-      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
-        to: supplier.email,
-        subject: emailSubject,
-        html: emailHtml,
-      });
-    } catch (emailError) {
-      console.error("Failed to send approval email:", emailError);
-    }
-    
-    return { success: true };
-  },
-});
-
-export const sendWelcomeEmail = mutation({
-  args: {
-    email: v.string(),
-    firstName: v.optional(v.string()),
-    userType: v.string(),
-  },
-  handler: async (ctx, args) => {
-    // Send welcome email using Resend
-    const isSupplier = args.userType === "supplier";
-    const baseUrl = APP_URL;
-    const welcomeHtml = `
-      <h2>Welcome to Suji${args.firstName ? `, ${escapeHtml(args.firstName)}` : ""}!</h2>
-      <p>We're thrilled to have you join our community.</p>
-      ${isSupplier ? `
-        <p>As a supplier, you can now:</p>
-        <ul>
-          <li>Create your business profile</li>
-          <li>Showcase your products and services</li>
-          <li>Connect with customers across Nigeria</li>
-          <li>Grow your business presence online</li>
-        </ul>
-        <p><a href="${baseUrl}/auth/supplier-setup" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Complete Your Profile</a></p>
-      ` : `
-        <p>Start exploring thousands of suppliers and businesses across Nigeria.</p>
-        <p><a href="${baseUrl}/search" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Find Suppliers</a></p>
-      `}
-      <p>If you have any questions, our support team is always here to help.</p>
-      <p>Best regards,<br>The Suji Team</p>
-    `;
-    
-    try {
-      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
-        to: args.email,
-        subject: "Welcome to Suji!",
-        html: welcomeHtml,
-      });
-    } catch (emailError) {
-      console.error("Failed to send welcome email:", emailError);
-    }
-    
-    return { success: true };
-  },
-});
-
-// Helper function to generate verification tokens
-function generateVerificationToken(): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let token = "";
-  for (let i = 0; i < 32; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
-}
 
 /**
  * Newsletter subscription
@@ -351,13 +155,13 @@ export const subscribeToNewsletter = mutation({
   handler: async (ctx, args) => {
     // Normalize email
     const normalizedEmail = args.email.toLowerCase().trim();
-    
+
     // Check if email already exists
     const existing = await ctx.db
       .query("newsletter_subscriptions")
       .withIndex("email", (q) => q.eq("email", normalizedEmail))
       .first();
-    
+
     if (existing) {
       if (existing.status === "active") {
         return { success: true, message: "Email already subscribed", alreadySubscribed: true };
@@ -370,33 +174,25 @@ export const subscribeToNewsletter = mutation({
         subscribedAt: new Date().toISOString(),
         unsubscribedAt: undefined,
       });
-      
+
       // Send welcome back email
       try {
         await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
           to: normalizedEmail,
-          subject: "Welcome back to Suji newsletter!",
-          html: `
-          <h2>Welcome back!</h2>
-          <p>Hi ${escapeHtml(args.name) || "there"},</p>
-            <p>You've successfully resubscribed to the Suji newsletter. We're excited to have you back!</p>
-            <p>You'll now receive:</p>
-            <ul>
-              <li>Exclusive supplier offers and deals</li>
-              <li>New supplier announcements</li>
-              <li>Industry insights and trends</li>
-              <li>Tips for finding the best suppliers in Nigeria</li>
-            </ul>
-            <p>Best regards,<br>The Suji Team</p>
-          `,
+          subject: "Bon retour dans la newsletter Suji !",
+          html: newsletterWelcomeBackTemplate({
+            siteUrl: getSiteUrl(),
+            name: args.name,
+            email: normalizedEmail,
+          }),
         });
       } catch (emailError) {
         console.error("Failed to send welcome back email:", emailError);
       }
-      
+
       return { success: true, message: "Successfully resubscribed", alreadySubscribed: false };
     }
-    
+
     // Create new subscription
     const subscriptionId = await ctx.db.insert("newsletter_subscriptions", {
       email: normalizedEmail,
@@ -405,26 +201,17 @@ export const subscribeToNewsletter = mutation({
       status: "active",
       subscribedAt: new Date().toISOString(),
     });
-    
+
     // Send welcome email
     try {
       await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
         to: normalizedEmail,
-        subject: "Welcome to Suji newsletter!",
-        html: `
-          <h2>Welcome to Suji!</h2>
-          <p>Hi ${escapeHtml(args.name) || "there"},</p>
-          <p>Thank you for subscribing to our newsletter. You're now part of a community that stays informed about the best suppliers and businesses in Nigeria.</p>
-          <p>Here's what you can expect:</p>
-          <ul>
-            <li>Exclusive offers from verified suppliers</li>
-            <li>New supplier spotlights</li>
-            <li>Industry news and updates</li>
-            <li>Tips for business growth</li>
-          </ul>
-          <p><a href="${APP_URL}/search" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Start Exploring</a></p>
-          <p>Best regards,<br>The Suji Team</p>
-        `,
+        subject: "Bienvenue dans la newsletter Suji !",
+        html: newsletterWelcomeTemplate({
+          siteUrl: getSiteUrl(),
+          name: args.name,
+          email: normalizedEmail,
+        }),
       });
     } catch (emailError) {
       console.error("Failed to schedule welcome email:", emailError);
@@ -443,28 +230,29 @@ export const unsubscribeFromNewsletter = mutation({
   },
   handler: async (ctx, args) => {
     const normalizedEmail = args.email.toLowerCase().trim();
-    
+
     const subscription = await ctx.db
       .query("newsletter_subscriptions")
       .withIndex("email", (q) => q.eq("email", normalizedEmail))
       .first();
-    
+
     if (!subscription) {
       return { success: false, message: "Email not found" };
     }
-    
+
     await ctx.db.patch(subscription._id, {
       status: "unsubscribed",
       unsubscribedAt: new Date().toISOString(),
     });
-    
+
     return { success: true, message: "Successfully unsubscribed" };
   },
 });
 
 /**
  * Send newsletter to all active subscribers
- * Admin only function
+ * Admin only function — envoi par lots via l'endpoint batch Resend
+ * (chunks de BATCH_SIZE, une action planifiée par chunk).
  */
 export const sendNewsletter = mutation({
   args: {
@@ -475,47 +263,57 @@ export const sendNewsletter = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
-    
+
     // Check if user is admin
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email))
       .first();
-    
+
     if (!user || !user.is_admin) {
       throw new Error("Access denied. Admin only.");
     }
-    
+
     // Get all active subscribers
     const subscribers = await ctx.db
       .query("newsletter_subscriptions")
       .withIndex("status", (q) => q.eq("status", "active"))
       .collect();
-    
+
     if (subscribers.length === 0) {
       return { success: true, sent: 0, message: "No active subscribers" };
     }
-    
-    // Schedule emails for each subscriber (batch processing)
+
+    // Encapsuler le contenu admin dans le layout Suji avec pied de page
+    // de désinscription (lien générique : la page gère la saisie de l'email,
+    // un lien par destinataire étant impossible en envoi par lots).
+    const html = newsletterCampaignTemplate({
+      siteUrl: getSiteUrl(),
+      subject: args.subject,
+      html: args.html,
+    });
+
+    // Envoi par chunks de BATCH_SIZE destinataires (limite Resend batch : 100)
     let scheduledCount = 0;
-    for (const subscriber of subscribers) {
+    for (let i = 0; i < subscribers.length; i += BATCH_SIZE) {
+      const chunk = subscribers.slice(i, i + BATCH_SIZE).map((s) => s.email);
       try {
-        await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
-          to: subscriber.email,
+        await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailBatchAction as any, {
+          to: chunk,
           subject: args.subject,
-          html: args.html,
+          html,
         });
-        scheduledCount++;
+        scheduledCount += chunk.length;
       } catch (error) {
-        console.error(`Failed to schedule email for ${subscriber.email}:`, error);
+        console.error(`Failed to schedule newsletter batch ${i / BATCH_SIZE}:`, error);
       }
     }
-    
-    return { 
-      success: true, 
-      sent: scheduledCount, 
+
+    return {
+      success: true,
+      sent: scheduledCount,
       total: subscribers.length,
-      message: `Newsletter scheduled for ${scheduledCount} subscribers` 
+      message: `Newsletter scheduled for ${scheduledCount} subscribers`,
     };
   },
 });
@@ -530,24 +328,24 @@ export const getNewsletterSubscribers = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
-    
+
     // Check if user is admin
     const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", identity.email))
       .first();
-    
+
     if (!user || !user.is_admin) {
       throw new Error("Access denied. Admin only.");
     }
-    
+
     let query;
     if (args.status && args.status !== "all") {
       query = ctx.db.query("newsletter_subscriptions").withIndex("status", (q) => q.eq("status", args.status));
     } else {
       query = ctx.db.query("newsletter_subscriptions");
     }
-    
+
     const subscribers = await query.collect();
     return { success: true, subscribers, count: subscribers.length };
   },

@@ -1,56 +1,195 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { sendContactEmail } from '../../../convex/emails';
-import { sendEmailAction } from '../../../convex/sendEmail';
+import { describe, it, expect } from 'vitest';
+import {
+  contactEmailTemplate,
+  supplierMessageTemplate,
+  newsletterWelcomeTemplate,
+  newsletterWelcomeBackTemplate,
+  newsletterUnsubscribeTemplate,
+  newsletterCampaignTemplate,
+  xpressGuestReceiptTemplate,
+  subscriptionExpiryReminderTemplate,
+  newsletterUnsubscribeUrl,
+  genericUnsubscribeUrl,
+} from '../../../convex/emailTemplates';
+import { escapeHtml } from '../../../convex/htmlEscape';
 
-// Mock global fetch
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+const SITE_URL = 'https://suji.ng';
 
-describe('Email Functions', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+describe('emailTemplates — layout commun', () => {
+  it("inclut le footer « L'équipe Suji » avec l'URL du site", () => {
+    const html = contactEmailTemplate({
+      siteUrl: SITE_URL,
+      name: 'Awa',
+      email: 'awa@example.com',
+      subject: 'Bonjour',
+      type: 'general',
+      message: 'Coucou',
+    });
+    expect(html).toContain(`L'équipe Suji`);
+    expect(html).toContain(SITE_URL);
+    expect(html).toContain('<!DOCTYPE html>');
   });
 
-  describe('sendEmailAction', () => {
-    it('should send email via Resend API', async () => {
-      // Mock successful response
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue({ id: 'mock-email-id' }),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
-      const ctx = {
-        RESEND_API_KEY: 'test-key',
-      };
-      const args = {
-        to: 'test@example.com',
-        subject: 'Test Subject',
-        html: '<p>Test email content</p>',
-      };
-
-      // We can't directly test the Convex internal action due to complex type definitions,
-      // but we verify that the function structure exists conceptually
-      expect(sendEmailAction).toBeDefined();
+  it("n'affiche pas de lien de désinscription en dehors de la newsletter", () => {
+    const html = contactEmailTemplate({
+      siteUrl: SITE_URL,
+      name: 'Awa',
+      email: 'awa@example.com',
+      subject: 'Bonjour',
+      type: 'general',
+      message: 'Coucou',
     });
+    expect(html).not.toContain('Se désabonner');
+  });
+});
 
-    it('should handle failed email sending', async () => {
-      // Mock failed response
-      const mockResponse = {
-        ok: false,
-        json: vi.fn().mockResolvedValue({ error: 'API Error' }),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
-      // Conceptual test to verify error handling exists
-      expect(sendEmailAction).toBeDefined();
+describe('emailTemplates — échappement HTML', () => {
+  it('échappe les caractères HTML injectés dans le message de contact', () => {
+    const html = contactEmailTemplate({
+      siteUrl: SITE_URL,
+      name: 'Awa <b>Boom</b>',
+      email: 'awa@example.com',
+      subject: '<script>alert(1)</script>',
+      type: 'general',
+      message: 'Texte <img src=x onerror=alert(1)> & "quotes"',
     });
+    expect(html).not.toContain('<script>');
+    expect(html).not.toContain('<img src=x');
+    // Chaîne échappée calculée (jamais d'entité littérale dans ce fichier)
+    expect(html).toContain(escapeHtml('<script>'));
+    expect(html).toContain(escapeHtml('"'));
   });
 
-  describe('sendContactEmail', () => {
-    it('should handle contact form submission', () => {
-      // Conceptual test to verify the function exists
-      expect(sendContactEmail).toBeDefined();
+  it('échappe le contenu du message fournisseur', () => {
+    const html = supplierMessageTemplate({
+      siteUrl: SITE_URL,
+      supplierName: 'Suji Corp',
+      senderName: 'Awa',
+      senderEmail: 'awa@example.com',
+      subject: 'Devis',
+      message: '<script>alert("xss")</script>',
     });
+    expect(html).not.toContain('<script>');
+    expect(html).toContain(escapeHtml('<script>'));
+  });
+});
+
+describe('emailTemplates — liens de désinscription', () => {
+  it("newsletterUnsubscribeUrl encode l'email du destinataire", () => {
+    const url = newsletterUnsubscribeUrl(SITE_URL, 'awa+tag@example.com');
+    expect(url).toBe(`${SITE_URL}/newsletter/unsubscribe?email=awa%2Btag%40example.com`);
+  });
+
+  it('genericUnsubscribeUrl pointe vers la page sans paramètre', () => {
+    expect(genericUnsubscribeUrl(SITE_URL)).toBe(`${SITE_URL}/newsletter/unsubscribe`);
+  });
+
+  it("l'email de bienvenue contient le lien de désinscription personnalisé", () => {
+    const html = newsletterWelcomeTemplate({
+      siteUrl: SITE_URL,
+      email: 'awa@example.com',
+    });
+    expect(html).toContain(`${SITE_URL}/newsletter/unsubscribe?email=awa%40example.com`);
+    expect(html).toContain('Se désabonner de la newsletter');
+  });
+
+  it("l'email de retour contient le lien de désinscription personnalisé", () => {
+    const html = newsletterWelcomeBackTemplate({
+      siteUrl: SITE_URL,
+      email: 'awa@example.com',
+    });
+    expect(html).toContain(`${SITE_URL}/newsletter/unsubscribe?email=awa%40example.com`);
+  });
+
+  it('la campagne encapsule le HTML admin avec le lien générique', () => {
+    const html = newsletterCampaignTemplate({
+      siteUrl: SITE_URL,
+      subject: 'Nouveautés du mois',
+      html: '<p>Contenu admin <strong>enrichi</strong></p>',
+    });
+    expect(html).toContain('<p>Contenu admin <strong>enrichi</strong></p>');
+    expect(html).toContain(`${SITE_URL}/newsletter/unsubscribe`);
+    expect(html).toContain('Nouveautés du mois');
+  });
+
+  it('la confirmation de désinscription ne propose pas de lien pré-rempli', () => {
+    const html = newsletterUnsubscribeTemplate({
+      siteUrl: SITE_URL,
+      email: 'awa@example.com',
+    });
+    expect(html).toContain('Désinscription confirmée');
+    expect(html).not.toContain('unsubscribe?email=');
+  });
+});
+
+describe('emailTemplates — reçu Xpress invité', () => {
+  it('mentionne le montant, le délai 48-72h et le lien du site', () => {
+    const html = xpressGuestReceiptTemplate({
+      siteUrl: SITE_URL,
+      amount: 15000,
+      currency: 'XOF',
+    });
+    // fr-FR : séparateur de milliers = espace insécable (U+00A0 ou U+202F selon ICU)
+    expect(html).toMatch(/15[\s\u00A0\u202F]000\s*XOF/);
+    expect(html).toContain('48 à 72 heures');
+    expect(html).toContain(SITE_URL);
+  });
+
+  it('ne mentionne plus « Nigeria »', () => {
+    const html = xpressGuestReceiptTemplate({
+      siteUrl: SITE_URL,
+      amount: 15000,
+      currency: 'XOF',
+    });
+    expect(html.toLowerCase()).not.toContain('nigeria');
+  });
+});
+
+describe("emailTemplates — rappel d'expiration", () => {
+  it('mentionne le statut concerné, la date et renvoie vers le dashboard', () => {
+    const html = subscriptionExpiryReminderTemplate({
+      siteUrl: SITE_URL,
+      kind: 'vitrine',
+      expiresAt: '2026-10-11T00:00:00.000Z',
+    });
+    expect(html).toContain('votre statut Vitrine');
+    expect(html).toContain('2026-10-11');
+    expect(html).toContain(`${SITE_URL}/dashboard`);
+  });
+
+  it('formule le rappel pour un abonnement', () => {
+    const html = subscriptionExpiryReminderTemplate({
+      siteUrl: SITE_URL,
+      kind: 'abonnement',
+      expiresAt: '2026-10-11T00:00:00.000Z',
+    });
+    expect(html).toContain('votre abonnement');
+  });
+});
+
+describe('emailTemplates — message fournisseur', () => {
+  it('inclut le téléphone quand il est fourni', () => {
+    const html = supplierMessageTemplate({
+      siteUrl: SITE_URL,
+      supplierName: 'Suji Corp',
+      senderName: 'Awa',
+      senderEmail: 'awa@example.com',
+      senderPhone: '+225 07 00 00 00 00',
+      subject: 'Devis',
+      message: 'Bonjour, je souhaite un devis.',
+    });
+    expect(html).toContain('+225 07 00 00 00 00');
+  });
+
+  it('omet la ligne téléphone quand il est absent', () => {
+    const html = supplierMessageTemplate({
+      siteUrl: SITE_URL,
+      supplierName: 'Suji Corp',
+      senderName: 'Awa',
+      senderEmail: 'awa@example.com',
+      subject: 'Devis',
+      message: 'Bonjour, je souhaite un devis.',
+    });
+    expect(html).not.toContain('Téléphone');
   });
 });

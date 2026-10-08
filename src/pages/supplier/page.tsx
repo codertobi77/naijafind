@@ -314,6 +314,7 @@ export default function SupplierDetail() {
   // Review mutation
   const createReviewMutation = useMutation(api.reviews.createReview);
   const createContactRequestMutation = useMutation(api.notifications.createContactRequest);
+  const sendSupplierContactEmailMutation = useMutation(api.emails.sendSupplierContactEmail);
   
   // Fetch products for the supplier
   const productsQueryResult = useConvexQuerySkippable(
@@ -439,18 +440,18 @@ export default function SupplierDetail() {
     try {
       const formData = new FormData(e.target as HTMLFormElement);
 
-      const response = await fetch('https://readdy.ai/api/form/d3i6i9b2p8nb8r4n7e70', {
-        method: 'POST',
-        body: formData,
+      await sendSupplierContactEmailMutation({
+        supplierId: supplierId || '',
+        senderName: String(formData.get('name') || ''),
+        senderEmail: String(formData.get('email') || ''),
+        senderPhone: String(formData.get('phone') || '') || undefined,
+        subject: String(formData.get('subject') || ''),
+        message: String(formData.get('message') || ''),
       });
 
-      if (response.ok) {
-        showToast('success', t('supplier.contact_success'));
-        setShowContactForm(false);
-        (e.target as HTMLFormElement).reset();
-      } else {
-        showToast('error', t('supplier.contact_error'));
-      }
+      showToast('success', t('supplier.contact_success'));
+      setShowContactForm(false);
+      (e.target as HTMLFormElement).reset();
     } catch (error) {
       console.error(t('supplier.form_error'), error);
       showToast('error', t('supplier.contact_error'));
@@ -1473,7 +1474,6 @@ export default function SupplierDetail() {
             <form
               onSubmit={handleContactSubmit}
               className="space-y-4"
-              data-readdy-form
               id={`contact-supplier-${transformedSupplier?.id}`}
             >
               <div>
@@ -1546,10 +1546,6 @@ export default function SupplierDetail() {
                 ></textarea>
                 <p className="text-xs text-gray-500 mt-1">{t('supplier.max_characters')}</p>
               </div>
-
-              <input type="hidden" name="supplier_name" value={transformedSupplier?.name} />
-              <input type="hidden" name="supplier_id" value={transformedSupplier?.id} />
-              <input type="hidden" name="supplier_email" value={transformedSupplier?.email} />
 
               <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <button

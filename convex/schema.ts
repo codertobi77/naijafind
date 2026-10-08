@@ -50,6 +50,7 @@ export default defineSchema({
     subscriptionPlan: v.optional(v.string()), // 'basic' | 'premium' (absent = gratuit)
     subscriptionExpiresAt: v.optional(v.string()), // Date ISO de fin d'abonnement
     featuredUntil: v.optional(v.string()), // Date ISO de fin du statut Vitrine
+    expiryReminderSentAt: v.optional(v.string()), // Date ISO du dernier rappel d'expiration envoyé (idempotence du cron)
   })
     .index("userId", ["userId"])
     .index("approved", ["approved"])
@@ -412,9 +413,13 @@ export default defineSchema({
     contactEmail: v.optional(v.string()),
     contactPhone: v.optional(v.string()),
     preferredDeliveryDate: v.optional(v.string()),
-    // Option de traitement : 'normal' (gratuit, ~1 semaine) | 'xpress' (payant, 48-72h)
+    // N° de suivi séquentiel, communiqué à l'utilisateur à la publication de sa
+    // demande (écran de succès) et affiché dans le dashboard. Les lignes
+    // antérieures au champ n'en ont pas (undefined).
+    requestNumber: v.optional(v.number()),
+    // Option de traitement : 'normal' (gratuit, 1 à 2 semaines) | 'xpress' (payant, 48-72h)
     processingOption: v.optional(v.union(v.literal('normal'), v.literal('xpress'))),
-    expectedResponseAt: v.optional(v.string()), // Date ISO d'échéance (createdAt + 7j ou + 72h)
+    expectedResponseAt: v.optional(v.string()), // Date ISO d'échéance (createdAt + 14j ou + 72h)
     status: v.string(), // 'pending', 'contacted', 'quoted', 'completed', 'cancelled'
     userId: v.string(),
     createdAt: v.string(),
@@ -422,7 +427,8 @@ export default defineSchema({
   })
     .index("userId", ["userId"])
     .index("status", ["status"])
-    .index("createdAt", ["createdAt"]),
+    .index("createdAt", ["createdAt"])
+    .index("requestNumber", ["requestNumber"]),
 
   // Supplier Search Tracking: Track what users are searching for
   supplierSearches: defineTable({
@@ -482,4 +488,17 @@ export default defineSchema({
     .index("status", ["status"])
     .index("type", ["type"])
     .index("purchaseRequestId", ["purchaseRequestId"]),
+
+  // Journal d'envoi d'emails (module Resend) — une ligne par tentative d'envoi,
+  // quel que soit le résultat (succès, échec API, configuration absente).
+  email_log: defineTable({
+    to: v.string(), // Adresse du destinataire
+    subject: v.string(),
+    status: v.string(), // 'sent' | 'failed'
+    resendId: v.optional(v.string()), // ID Resend en cas de succès
+    error: v.optional(v.string()), // Message d'erreur en cas d'échec
+    createdAt: v.string(),
+  })
+    .index("status", ["status"])
+    .index("createdAt", ["createdAt"]),
 });
