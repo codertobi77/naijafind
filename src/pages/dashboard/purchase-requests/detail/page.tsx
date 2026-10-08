@@ -152,6 +152,11 @@ export default function DashboardPurchaseRequestDetailPage() {
             {t('supplierFlow.back_to_requests')}
           </Link>
           <div className="flex items-center gap-2">
+            {request.requestNumber != null && (
+              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">
+                {t('supplierFlow.request_number_value', { number: request.requestNumber })}
+              </span>
+            )}
             <StatusBadge status={request.status} />
             <ProcessingOptionBadge option={request.processingOption} />
           </div>

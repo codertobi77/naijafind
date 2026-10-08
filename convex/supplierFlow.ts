@@ -47,6 +47,7 @@ export type PurchaseRequestSummary = {
   unit: string;
   budget: string | undefined;
   whatsapp: string;
+  requestNumber: number | undefined; // N° de suivi (lignes antérieures : undefined)
   attachment: string | undefined;
   location: string | undefined;
   currency: string | undefined;
@@ -71,6 +72,7 @@ export type OpenPurchaseRequest = {
   unit: string;
   budget: string | undefined;
   whatsapp: string;
+  requestNumber: number | undefined; // N° de suivi (lignes antérieures : undefined)
   attachment: string | undefined;
   location: string | undefined;
   currency: string | undefined;
@@ -96,6 +98,7 @@ export type MyPurchaseRequest = {
   unit: string;
   budget: string | undefined;
   whatsapp: string;
+  requestNumber: number | undefined; // N° de suivi (lignes antérieures : undefined)
   attachment: string | undefined;
   location: string | undefined;
   currency: string | undefined;
@@ -195,6 +198,7 @@ export const getOpenPurchaseRequests = query({
         unit: request.unit,
         budget: request.budget,
         whatsapp: request.whatsapp,
+        requestNumber: request.requestNumber,
         attachment: request.attachment,
         location: request.location,
         currency: request.currency,
@@ -255,6 +259,7 @@ export const getMyPurchaseRequests = query({
           unit: request.unit,
           budget: request.budget,
           whatsapp: request.whatsapp,
+          requestNumber: request.requestNumber,
           attachment: request.attachment,
           location: request.location,
           currency: request.currency,
@@ -374,6 +379,7 @@ export const getPurchaseRequestDetail = query({
         unit: request.unit,
         budget: request.budget,
         whatsapp: request.whatsapp,
+        requestNumber: request.requestNumber,
         attachment: request.attachment,
         location: request.location,
         currency: request.currency,

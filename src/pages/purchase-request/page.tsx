@@ -35,6 +35,9 @@ export default function PurchaseRequestPage() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  // N° de suivi de la demande (cf. convex/purchaseRequests.ts) : communiqué
+  // à l'utilisateur sur l'écran de succès pour le suivi depuis le dashboard.
+  const [successRequestNumber, setSuccessRequestNumber] = useState<number | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   // URL de checkout Moneroo pour activer le Xpress après publication de la demande.
   const [xpressCheckoutUrl, setXpressCheckoutUrl] = useState<string | null>(null);
@@ -120,6 +123,7 @@ export default function PurchaseRequestPage() {
           }
         }
         setIsSubmitting(false);
+        setSuccessRequestNumber(result.requestNumber ?? null);
         setIsSuccess(true);
         
         // En mode Xpress, pas de redirection automatique : l'utilisateur doit
@@ -159,10 +163,24 @@ export default function PurchaseRequestPage() {
             <p className="text-gray-600 mb-6">
               {t('purchase_request.success_message', 'Votre demande a été envoyée à nos fournisseurs qualifiés. Vous recevrez rapidement des propositions adaptées à vos besoins.')}
             </p>
+            {/* N° de suivi communiqué à l'utilisateur pour suivre sa demande */}
+            {successRequestNumber != null && (
+              <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+                <p className="text-sm font-medium text-green-700">
+                  {t('purchase_request.request_number', 'N° de votre demande')} :{' '}
+                  <span className="text-lg font-bold text-green-800">
+                    N° {successRequestNumber}
+                  </span>
+                </p>
+                <p className="mt-1 text-xs text-green-600">
+                  {t('purchase_request.request_number_hint', 'Conservez ce numéro pour suivre votre demande depuis votre tableau de bord.')}
+                </p>
+              </div>
+            )}
             {formData.processingOption === 'xpress' ? (
               xpressUnavailable ? (
                 <p className="mb-6 rounded-lg bg-gray-50 px-4 py-3 text-sm font-medium text-gray-600">
-                  {t('purchase_request.xpress_unavailable_note', 'Le paiement Xpress est momentanément indisponible. Votre demande reste publiée en mode Normal (environ 1 semaine).')}
+                  {t('purchase_request.xpress_unavailable_note', 'Le paiement Xpress est momentanément indisponible. Votre demande reste publiée en mode Normal (1 à 2 semaines).')}
                 </p>
               ) : (
                 <>
@@ -182,7 +200,7 @@ export default function PurchaseRequestPage() {
               )
             ) : (
               <p className="mb-6 rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-                {t('purchase_request.success_normal', 'Votre demande sera traitée sous environ 1 semaine.')}
+                {t('purchase_request.success_normal', 'Votre demande sera traitée sous 1 à 2 semaines.')}
               </p>
             )}
             <div className="bg-blue-50 rounded-lg p-4 mb-6">
@@ -325,7 +343,7 @@ export default function PurchaseRequestPage() {
               )}
             </div>
 
-            {/* Processing option: Normal (free, ~1 week) / Xpress (paid, 48-72h) */}
+            {/* Processing option: Normal (free, 1 to 2 weeks) / Xpress (paid, 48-72h) */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                 <Zap className="w-4 h-4 text-green-600" />
@@ -350,7 +368,7 @@ export default function PurchaseRequestPage() {
                     )}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    {t('purchase_request.processing_normal_desc', 'Traitement sous 1 semaine — Gratuit')}
+                    {t('purchase_request.processing_normal_desc', 'Traitement sous 1 à 2 semaines — Gratuit')}
                   </p>
                 </button>
                 <button

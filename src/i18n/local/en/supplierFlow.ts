@@ -18,6 +18,24 @@ export const supplierFlow = {
   "supplierFlow.delete_error": "Error while deleting the request",
   "supplierFlow.open_attachment": "Open the attachment",
 
+  // Tracking number, full description (modal) and bulk selection
+  "supplierFlow.request_number": "Request No.",
+  "supplierFlow.request_number_value": "No. {{number}}",
+  "supplierFlow.description_title": "Full request description",
+  "supplierFlow.read_description": "Read full description",
+  "supplierFlow.filter_by_status": "Status",
+  "supplierFlow.filter_all": "All",
+  "supplierFlow.select_all": "Select all",
+  "supplierFlow.select_one": "Select this request",
+  "supplierFlow.selected_count": "{{nb}} selected",
+  "supplierFlow.clear_selection": "Clear selection",
+  "supplierFlow.delete_selected": "Delete selection",
+  "supplierFlow.delete_selected_confirm": "Delete {{nb}} request(s)? Associated quotes and attachments will also be deleted.",
+  "supplierFlow.delete_selected_confirm_yes": "Yes, delete",
+  "supplierFlow.bulk_delete_success": "{{nb}} request(s) deleted",
+  "supplierFlow.bulk_deleting": "Deleting…",
+  "supplierFlow.no_matching_filter": "No requests match this status.",
+
   // Purchase request statuses
   "supplierFlow.status_pending": "Pending",
   "supplierFlow.status_contacted": "Contacted",
@@ -28,7 +46,7 @@ export const supplierFlow = {
   // Processing option (Normal/Xpress)
   "supplierFlow.processing_xpress_badge": "Xpress · 48-72h",
   "supplierFlow.processing_label": "Processing",
-  "supplierFlow.processing_normal_full": "Normal — free, response within ~1 week",
+  "supplierFlow.processing_normal_full": "Normal — free, response within 1 to 2 weeks",
   "supplierFlow.processing_xpress_full": "Xpress — paid, response within 48-72h",
   "supplierFlow.expected_response_label": "Response expected by",
   "supplierFlow.xpress_upgrade_button": "Upgrade to Xpress — 15,000 FCFA",

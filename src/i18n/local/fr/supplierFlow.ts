@@ -18,6 +18,24 @@ export const supplierFlow = {
   "supplierFlow.delete_error": "Erreur lors de la suppression de la demande",
   "supplierFlow.open_attachment": "Ouvrir la pièce jointe",
 
+  // N° de suivi, description complète (modal) et sélection multiple
+  "supplierFlow.request_number": "N°Demande",
+  "supplierFlow.request_number_value": "N° {{number}}",
+  "supplierFlow.description_title": "Description complète de la demande",
+  "supplierFlow.read_description": "Lire la description complète",
+  "supplierFlow.filter_by_status": "Statut",
+  "supplierFlow.filter_all": "Tous",
+  "supplierFlow.select_all": "Tout sélectionner",
+  "supplierFlow.select_one": "Sélectionner cette demande",
+  "supplierFlow.selected_count": "{{nb}} sélectionnée(s)",
+  "supplierFlow.clear_selection": "Effacer la sélection",
+  "supplierFlow.delete_selected": "Supprimer la sélection",
+  "supplierFlow.delete_selected_confirm": "Supprimer {{nb}} demande(s) ? Les devis et pièces jointes associés seront également supprimés.",
+  "supplierFlow.delete_selected_confirm_yes": "Oui, supprimer",
+  "supplierFlow.bulk_delete_success": "{{nb}} demande(s) supprimée(s)",
+  "supplierFlow.bulk_deleting": "Suppression en cours…",
+  "supplierFlow.no_matching_filter": "Aucune demande ne correspond à ce statut.",
+
   // Statuts d'une demande d'achat
   "supplierFlow.status_pending": "En attente",
   "supplierFlow.status_contacted": "Contacté",
@@ -28,7 +46,7 @@ export const supplierFlow = {
   // Option de traitement (Normal/Xpress)
   "supplierFlow.processing_xpress_badge": "Xpress · 48-72h",
   "supplierFlow.processing_label": "Traitement",
-  "supplierFlow.processing_normal_full": "Normal — gratuit, réponse sous ~1 semaine",
+  "supplierFlow.processing_normal_full": "Normal — gratuit, réponse sous 1 à 2 semaines",
   "supplierFlow.processing_xpress_full": "Xpress — payant, réponse sous 48-72h",
   "supplierFlow.expected_response_label": "Réponse attendue avant le",
   "supplierFlow.xpress_upgrade_button": "Passer en Xpress — 15 000 FCFA",
