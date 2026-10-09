@@ -159,6 +159,145 @@ export const _markRequestAsXpress = internalMutation({
 });
 
 /**
+ * Internal: Créer la demande d'achat portée par un paiement « xpress_new »
+ * (flux « Xpress direct » : checkout Moneroo AVANT toute création de demande).
+ * Appelée par le module paiements :
+ *   - paiement confirmé  → processingOption 'xpress' (fulfillSuccessfulPayment) ;
+ *   - paiement annulé/échoué → processingOption 'normal' (fallback : la demande
+ *     est quand même enregistrée, l'utilisateur pourra réessayer le Xpress).
+ *
+ * Idempotent : sans effet si le paiement est déjà lié à une demande
+ * (purchaseRequestId posé) — protège du double appel webhook + page de retour.
+ * La mutation est transactionnelle : insert demande + lien paiement insécables.
+ */
+export const _createRequestFromXpressPayment = internalMutation({
+  args: {
+    paymentId: v.id("payments"),
+    processingOption: v.string(), // 'normal' | 'xpress' — contrôlé par l'appelant interne
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    success: boolean;
+    reason?: "payment_not_found" | "invalid_payload" | "already_linked";
+    requestId?: Id<"purchaseRequests">;
+    requestNumber?: number;
+    description?: string;
+    quantity?: number;
+    unit?: string;
+  }> => {
+    const payment = await ctx.db.get(args.paymentId);
+    if (!payment) {
+      return { success: false, reason: "payment_not_found" as const };
+    }
+
+    // Garde d'idempotence : la demande a déjà été créée pour ce paiement
+    if (payment.purchaseRequestId) {
+      const existing = await ctx.db.get(payment.purchaseRequestId);
+      return {
+        success: true,
+        reason: "already_linked" as const,
+        requestId: payment.purchaseRequestId,
+        requestNumber: existing?.requestNumber,
+        description: existing?.description,
+        quantity: existing?.quantity,
+        unit: existing?.unit,
+      };
+    }
+
+    // Payload du formulaire, stocké en JSON dans metadata.payload à
+    // l'initialisation du checkout (convex/payments.ts → initializeXpressCheckout)
+    let payload: {
+      description: string;
+      quantity: number;
+      unit: string;
+      whatsapp: string;
+      attachment?: string;
+    } | null = null;
+    try {
+      payload = payment.metadata?.payload
+        ? JSON.parse(payment.metadata.payload)
+        : null;
+    } catch {
+      payload = null;
+    }
+    if (
+      !payload ||
+      typeof payload.description !== "string" ||
+      !payload.description.trim() ||
+      typeof payload.quantity !== "number" ||
+      !(payload.quantity > 0) ||
+      typeof payload.unit !== "string" ||
+      !payload.unit.trim() ||
+      typeof payload.whatsapp !== "string" ||
+      !payload.whatsapp.trim()
+    ) {
+      console.error(
+        "xpress_new : payload invalide pour le paiement",
+        payment._id
+      );
+      return { success: false, reason: "invalid_payload" as const };
+    }
+
+    const processingOption =
+      args.processingOption === "xpress" ? "xpress" : "normal";
+    const now = new Date().toISOString();
+    // Échéance de traitement calculée côté serveur : +72h (xpress) ou +14 jours
+    // (normal — délai affiché « 1 à 2 semaines »).
+    const expectedResponseAt = new Date(
+      Date.now() +
+        (processingOption === "xpress"
+          ? 72 * 60 * 60 * 1000
+          : 14 * 24 * 60 * 60 * 1000)
+    ).toISOString();
+
+    // N° de suivi séquentiel : max des numéros existants + 1 via l'index
+    const lastNumbered = await ctx.db
+      .query("purchaseRequests")
+      .withIndex("requestNumber", (q) => q.gte("requestNumber", 1))
+      .order("desc")
+      .first();
+    const requestNumber = (lastNumbered?.requestNumber ?? 0) + 1;
+
+    const requestId = await ctx.db.insert("purchaseRequests", {
+      description: payload.description,
+      quantity: payload.quantity,
+      unit: payload.unit,
+      whatsapp: payload.whatsapp,
+      attachment:
+        typeof payload.attachment === "string" && payload.attachment
+          ? payload.attachment
+          : undefined,
+      requestNumber,
+      processingOption,
+      expectedResponseAt,
+      status: "pending",
+      // userId du paiement : tokenIdentifier (authentifié) ou guest:<email>
+      userId: payment.userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Lier le paiement à la demande : garde d'idempotence pour tout appel
+    // ultérieur (webhook + page de retour concurrents).
+    await ctx.db.patch(payment._id, {
+      purchaseRequestId: requestId,
+      updatedAt: now,
+    });
+
+    return {
+      success: true,
+      requestId,
+      requestNumber,
+      description: payload.description,
+      quantity: payload.quantity,
+      unit: payload.unit,
+    };
+  },
+});
+
+/**
  * Create a new purchase request
  * Simplified version with image support
  */

@@ -8,7 +8,9 @@ import { Package, FileText, Send, ChevronDown, MessageCircle, Zap, Check, Mail }
 import FileUpload from '../../components/base/FileUpload';
 
 // Option Xpress (paiement Moneroo, 15 000 FCFA / XOF) : carte sélectionnable,
-// checkout Moneroo initialisé à la soumission puis CTA sur l'écran de succès.
+// redirection IMMÉDIATE vers le checkout Moneroo à la soumission — aucune
+// demande n'est créée en base avant le paiement (elle le sera au traitement
+// du paiement : confirmé → Xpress, annulé/échoué → Normal).
 // Passer à false pour la désactiver à nouveau (carte grisée « Bientôt disponible »).
 const XPRESS_ENABLED: boolean = true;
 
@@ -20,7 +22,7 @@ export default function PurchaseRequestPage() {
   // Get product name from query params if coming from product details
   const productFromQuery = searchParams.get('product') || '';
   const createPurchaseRequest = useAction(api.purchaseRequests.createPurchaseRequest);
-  const initializeXpressPayment = useAction(api.payments.initializeXpressPayment);
+  const initializeXpressCheckout = useAction(api.payments.initializeXpressCheckout);
   
   const [formData, setFormData] = useState({
     description: productFromQuery,
@@ -39,10 +41,6 @@ export default function PurchaseRequestPage() {
   // à l'utilisateur sur l'écran de succès pour le suivi depuis le dashboard.
   const [successRequestNumber, setSuccessRequestNumber] = useState<number | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  // URL de checkout Moneroo pour activer le Xpress après publication de la demande.
-  const [xpressCheckoutUrl, setXpressCheckoutUrl] = useState<string | null>(null);
-  // true si l'initialisation du paiement Xpress a échoué (la demande reste en Normal).
-  const [xpressUnavailable, setXpressUnavailable] = useState(false);
 
   // Quantity units - now internationalized
   // NB : appels t() directs (littéraux). Ne pas passer t en paramètre (key: string) => string :
@@ -95,9 +93,27 @@ export default function PurchaseRequestPage() {
     setIsSubmitting(true);
     
     try {
-      // La demande est TOUJOURS publiée en Normal : le passage en Xpress
-      // (traitement prioritaire sous 48-72h) n'est effectif qu'après paiement
-      // confirmé du montant Xpress (15 000 XOF) via Moneroo.
+      // Flux « Xpress direct » : aucune création de demande avant le paiement.
+      // Le payload du formulaire est transmis à initializeXpressCheckout (stocké
+      // côté serveur sur le doc payments) puis on redirige IMMÉDIATEMENT vers
+      // le checkout Moneroo — la demande sera créée au traitement du paiement
+      // (confirmé → Xpress, annulé/échoué → Normal ; cf. convex/paymentsProcessing.ts).
+      if (formData.processingOption === 'xpress') {
+        const checkout = await initializeXpressCheckout({
+          description: formData.description,
+          quantity: Number(formData.quantity),
+          unit: formData.unit,
+          whatsapp: formData.whatsapp,
+          attachment: attachment || undefined,
+          customerEmail: formData.customerEmail.trim(),
+        });
+        window.location.href = checkout.checkoutUrl;
+        // Redirection en cours : conserver isSubmitting (l'écran reste bloqué
+        // jusqu'au départ effectif vers Moneroo).
+        return;
+      }
+
+      // Option Normal : publication gratuite, demande créée immédiatement.
       const result = await createPurchaseRequest({
         description: formData.description,
         quantity: Number(formData.quantity),
@@ -108,36 +124,24 @@ export default function PurchaseRequestPage() {
       });
       
       if (result.success) {
-        if (formData.processingOption === 'xpress') {
-          // Initialiser le checkout Moneroo sans bloquer la publication :
-          // en cas d'échec, la demande reste publiée en Normal.
-          try {
-            const checkout = await initializeXpressPayment({
-              requestId: result.requestId,
-              customerEmail: formData.customerEmail.trim(),
-            });
-            setXpressCheckoutUrl(checkout.checkoutUrl);
-          } catch (paymentError) {
-            console.error('Xpress payment initialization failed:', paymentError);
-            setXpressUnavailable(true);
-          }
-        }
         setIsSubmitting(false);
         setSuccessRequestNumber(result.requestNumber ?? null);
         setIsSuccess(true);
         
-        // En mode Xpress, pas de redirection automatique : l'utilisateur doit
-        // pouvoir activer le Xpress depuis l'écran de succès.
-        if (formData.processingOption !== 'xpress') {
-          setTimeout(() => {
-            navigate('/');
-          }, 5000);
-        }
+        setTimeout(() => {
+          navigate('/');
+        }, 5000);
       }
     } catch (error) {
       console.error('Error submitting purchase request:', error);
       setIsSubmitting(false);
-      alert(t('purchase_request.errors.submission', 'Une erreur est survenue. Veuillez réessayer.'));
+      // Xpress : échec de l'initialisation du checkout — l'utilisateur reste
+      // sur le formulaire, ses données sont conservées (aucune demande créée).
+      alert(
+        formData.processingOption === 'xpress'
+          ? t('purchase_request.errors.xpress_init_failed', "Impossible d'initialiser le paiement Xpress. Vos données sont conservées — veuillez réessayer.")
+          : t('purchase_request.errors.submission', 'Une erreur est survenue. Veuillez réessayer.')
+      );
     }
   };
 
@@ -177,32 +181,11 @@ export default function PurchaseRequestPage() {
                 </p>
               </div>
             )}
-            {formData.processingOption === 'xpress' ? (
-              xpressUnavailable ? (
-                <p className="mb-6 rounded-lg bg-gray-50 px-4 py-3 text-sm font-medium text-gray-600">
-                  {t('purchase_request.xpress_unavailable_note', 'Le paiement Xpress est momentanément indisponible. Votre demande reste publiée en mode Normal (1 à 2 semaines).')}
-                </p>
-              ) : (
-                <>
-                  <p className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
-                    {t('purchase_request.xpress_pending_note', 'Votre demande est publiée en mode Normal. Activez le Xpress pour un traitement prioritaire sous 48-72h.')}
-                  </p>
-                  {xpressCheckoutUrl && (
-                    <a
-                      href={xpressCheckoutUrl}
-                      className="mb-6 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-8 py-3 font-semibold text-white transition-all hover:from-amber-600 hover:to-orange-600 hover:shadow-lg"
-                    >
-                      <Zap className="w-5 h-5" />
-                      {t('purchase_request.activate_xpress', 'Activer le Xpress maintenant — 15 000 FCFA')}
-                    </a>
-                  )}
-                </>
-              )
-            ) : (
-              <p className="mb-6 rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-                {t('purchase_request.success_normal', 'Votre demande sera traitée sous 1 à 2 semaines.')}
-              </p>
-            )}
+            {/* L'écran de succès n'est atteint qu'en option Normal : le flux Xpress
+                redirige directement vers le checkout Moneroo à la soumission. */}
+            <p className="mb-6 rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+              {t('purchase_request.success_normal', 'Votre demande sera traitée sous 1 à 2 semaines.')}
+            </p>
             <div className="bg-blue-50 rounded-lg p-4 mb-6">
               <p className="text-sm text-blue-700">
                 <strong>{t('purchase_request.next_steps', 'Prochaines étapes :')}</strong>

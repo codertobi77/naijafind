@@ -4,6 +4,7 @@ import {
   internalMutation,
   query,
 } from "./_generated/server";
+import type { GenericActionCtx } from "convex/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import {
@@ -21,7 +22,7 @@ import { subscriptionExpiryReminderTemplate } from "./emailTemplates";
 // Type-only : les annotations de retour des handlers ci-dessous cassent la
 // boucle d'inférence (corps → internal.* → ApiFromModules → type du handler)
 // responsable de la cascade TS2589/TS7022 sur l'ensemble du codebase.
-import type { Doc, Id } from "./_generated/dataModel";
+import type { DataModel, Doc, Id } from "./_generated/dataModel";
 
 // ==========================================
 // MODULE DE PAIEMENT MONEROO — actions publiques + crons
@@ -200,9 +201,119 @@ export const initializeFeaturedUpgrade = action({
 });
 
 /**
- * Initialiser le paiement Xpress d'une demande d'achat (15 000 XOF).
- * Public : les invités peuvent payer (la demande est créée en Normal,
- * puis passée en Xpress après confirmation du paiement).
+ * Cœur partagé des paiements Xpress pour une demande EXISTANTE : réutilise
+ * un checkout en attente s'il y en a un, sinon initialise un nouveau paiement
+ * Moneroo et enregistre le doc payments correspondant (xpress_upgrade).
+ * Fonction simple (pas une fonction Convex) : appelée par
+ * initializeXpressPayment et retryXpressCheckout.
+ */
+async function startXpressUpgradeCheckout({
+  ctx,
+  requestId,
+  email,
+  phone,
+  userId,
+  givenName,
+  familyName,
+}: {
+  ctx: GenericActionCtx<DataModel>;
+  requestId: Id<"purchaseRequests">;
+  email: string;
+  phone?: string;
+  userId: string;
+  givenName?: string;
+  familyName?: string;
+}): Promise<{
+  checkoutUrl: string;
+  monerooPaymentId: string;
+  reused?: boolean;
+  paymentId?: Id<"payments">;
+}> {
+  // Rate limiting: max 5 initialisations / heure / email
+  await ctx.runAction(internal.rateLimit.enforceRateLimit, {
+    identifier: email,
+    action: "xpress_payment_init",
+    limit: 5,
+    windowMinutes: 60,
+  });
+
+  const request = await ctx.runQuery(
+    internal.purchaseRequests._getRequestById,
+    { requestId }
+  );
+  if (!request) {
+    throw new Error("Demande introuvable");
+  }
+  if (request.processingOption === "xpress") {
+    throw new Error("Cette demande est déjà en traitement Xpress");
+  }
+
+  // Réutiliser le checkout en attente s'il existe (évite les doublons Moneroo)
+  const existing = await ctx.runQuery(
+    internal.paymentsData._getPendingXpressPayment,
+    { requestId }
+  );
+  if (existing?.monerooCheckoutUrl) {
+    return {
+      checkoutUrl: existing.monerooCheckoutUrl,
+      monerooPaymentId: existing.monerooPaymentId,
+      reused: true,
+    };
+  }
+
+  const customer: MonerooCustomer = {
+    email,
+    first_name: givenName ?? "Client",
+    last_name: familyName ?? "Naijafind",
+  };
+  if (phone) {
+    customer.phone = phone;
+  }
+
+  const checkout = await initializeMonerooPayment({
+    amount: XPRESS_PRICING.amount,
+    currency: XPRESS_PRICING.currency,
+    description: XPRESS_PRICING.description,
+    customer,
+    metadata: {
+      type: "xpress_upgrade",
+      requestId,
+      guestEmail: email,
+    },
+  });
+
+  const paymentId = await ctx.runMutation(
+    internal.paymentsData._createPayment,
+    {
+      userId,
+      purchaseRequestId: requestId,
+      type: "xpress_upgrade",
+      amount: XPRESS_PRICING.amount,
+      currency: XPRESS_PRICING.currency,
+      monerooPaymentId: checkout.id,
+      monerooCheckoutUrl: checkout.checkoutUrl,
+      description: XPRESS_PRICING.description,
+      metadata: {
+        requestId,
+        guestEmail: email,
+      },
+      guestEmail: userId.startsWith("guest:") ? email : undefined,
+    }
+  );
+
+  return {
+    checkoutUrl: checkout.checkoutUrl,
+    monerooPaymentId: checkout.id,
+    paymentId,
+  };
+}
+
+/**
+ * Initialiser le paiement Xpress d'une demande d'achat EXISTANTE
+ * (15 000 XOF) — flux « upgrade » : dashboard (list/detail), réessai après
+ * annulation d'un checkout direct. Public : les invités peuvent payer
+ * (la demande est créée en Normal, puis passée en Xpress après confirmation
+ * du paiement).
  */
 export const initializeXpressPayment = action({
   args: {
@@ -225,6 +336,74 @@ export const initializeXpressPayment = action({
       throw new Error("Adresse email invalide");
     }
 
+    const identity = await ctx.auth.getUserIdentity();
+    const userId = identity?.tokenIdentifier ?? `guest:${email}`;
+
+    const { checkoutUrl, monerooPaymentId, reused, paymentId } =
+      await startXpressUpgradeCheckout({
+        ctx,
+        requestId: args.requestId,
+        email,
+        phone: args.customerPhone,
+        userId,
+        givenName: identity?.given_name as string | undefined,
+        familyName: identity?.family_name as string | undefined,
+      });
+
+    return {
+      success: true,
+      checkoutUrl,
+      monerooPaymentId,
+      reused,
+      paymentId,
+    };
+  },
+});
+
+/**
+ * Initialiser un checkout Xpress SANS demande préalable (flux « Xpress
+ * direct ») : l'utilisateur est redirigé immédiatement vers la page de
+ * checkout Moneroo — aucune page intermédiaire, aucune création de demande
+ * en base avant le paiement.
+ *
+ * Le payload complet du formulaire est stocké en JSON dans metadata.payload
+ * du doc payments (type "xpress_new") : la demande sera créée au traitement
+ * du paiement — en Xpress si confirmé, en Normal si annulé/échoué (fallback,
+ * cf. paymentsProcessing.ts).
+ */
+export const initializeXpressCheckout = action({
+  args: {
+    description: v.string(),
+    quantity: v.number(),
+    unit: v.string(),
+    whatsapp: v.string(),
+    attachment: v.optional(v.string()),
+    customerEmail: v.string(),
+    customerPhone: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    success: boolean;
+    checkoutUrl: string;
+    monerooPaymentId: string;
+  }> => {
+    const email = args.customerEmail.trim().toLowerCase();
+    if (!EMAIL_REGEX.test(email)) {
+      throw new Error("Adresse email invalide");
+    }
+    const description = args.description.trim();
+    if (!description) {
+      throw new Error("La description est requise");
+    }
+    if (!(args.quantity > 0)) {
+      throw new Error("La quantité doit être supérieure à 0");
+    }
+    if (!args.unit.trim() || !args.whatsapp.trim()) {
+      throw new Error("Champs manquants");
+    }
+
     // Rate limiting: max 5 initialisations / heure / email
     await ctx.runAction(internal.rateLimit.enforceRateLimit, {
       identifier: email,
@@ -236,30 +415,18 @@ export const initializeXpressPayment = action({
     const identity = await ctx.auth.getUserIdentity();
     const userId = identity?.tokenIdentifier ?? `guest:${email}`;
 
-    const request = await ctx.runQuery(
-      internal.purchaseRequests._getRequestById,
-      { requestId: args.requestId }
-    );
-    if (!request) {
-      throw new Error("Demande introuvable");
-    }
-    if (request.processingOption === "xpress") {
-      throw new Error("Cette demande est déjà en traitement Xpress");
-    }
-
-    // Réutiliser le checkout en attente s'il existe (évite les doublons Moneroo)
-    const existing = await ctx.runQuery(
-      internal.paymentsData._getPendingXpressPayment,
-      { requestId: args.requestId }
-    );
-    if (existing?.monerooCheckoutUrl) {
-      return {
-        success: true,
-        checkoutUrl: existing.monerooCheckoutUrl,
-        monerooPaymentId: existing.monerooPaymentId,
-        reused: true,
-      };
-    }
+    // Payload du formulaire, stocké côté serveur pour la création de la
+    // demande au traitement du paiement (metadata est un record<string,
+    // string> → sérialisation JSON). Les métadonnées envoyées à Moneroo
+    // restent minimales (taille limitée côté prestataire).
+    const payload = JSON.stringify({
+      description,
+      quantity: args.quantity,
+      unit: args.unit,
+      whatsapp: args.whatsapp.trim(),
+      attachment: args.attachment ?? undefined,
+      customerEmail: email,
+    });
 
     const customer: MonerooCustomer = {
       email,
@@ -276,36 +443,101 @@ export const initializeXpressPayment = action({
       description: XPRESS_PRICING.description,
       customer,
       metadata: {
-        type: "xpress_upgrade",
-        requestId: args.requestId,
+        type: "xpress_new",
         guestEmail: email,
       },
     });
 
-    const paymentId = await ctx.runMutation(
-      internal.paymentsData._createPayment,
-      {
-        userId,
-        purchaseRequestId: args.requestId,
-        type: "xpress_upgrade",
-        amount: XPRESS_PRICING.amount,
-        currency: XPRESS_PRICING.currency,
-        monerooPaymentId: checkout.id,
-        monerooCheckoutUrl: checkout.checkoutUrl,
-        description: XPRESS_PRICING.description,
-        metadata: {
-          requestId: args.requestId,
-          guestEmail: email,
-        },
-        guestEmail: identity ? undefined : email,
-      }
-    );
+    await ctx.runMutation(internal.paymentsData._createPayment, {
+      userId,
+      type: "xpress_new",
+      amount: XPRESS_PRICING.amount,
+      currency: XPRESS_PRICING.currency,
+      monerooPaymentId: checkout.id,
+      monerooCheckoutUrl: checkout.checkoutUrl,
+      description: XPRESS_PRICING.description,
+      metadata: {
+        type: "xpress_new",
+        payload,
+        guestEmail: email,
+      },
+      guestEmail: identity ? undefined : email,
+    });
 
     return {
       success: true,
-      paymentId,
-      monerooPaymentId: checkout.id,
       checkoutUrl: checkout.checkoutUrl,
+      monerooPaymentId: checkout.id,
+    };
+  },
+});
+
+/**
+ * Réessayer le Xpress pour une demande issue du flux « Xpress direct » dont
+ * le paiement a été annulé/échoué : la demande existe déjà en Normal (créée
+ * au fallback) — on initialise un NOUVEAU paiement xpress_upgrade pour cette
+ * même demande. Public : appelé depuis la page de retour de paiement.
+ */
+export const retryXpressCheckout = action({
+  args: {
+    monerooPaymentId: v.string(),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    success: boolean;
+    checkoutUrl: string;
+    monerooPaymentId: string;
+    reused?: boolean;
+    paymentId?: Id<"payments">;
+  }> => {
+    // Rate limiting: max 5 essais / heure / paiement d'origine
+    await ctx.runAction(internal.rateLimit.enforceRateLimit, {
+      identifier: `retry:${args.monerooPaymentId}`,
+      action: "xpress_retry",
+      limit: 5,
+      windowMinutes: 60,
+    });
+
+    const payment = await ctx.runQuery(
+      internal.paymentsData._getPaymentByMonerooId,
+      { monerooPaymentId: args.monerooPaymentId }
+    );
+    if (!payment) {
+      throw new Error("Paiement introuvable");
+    }
+    if (payment.type !== "xpress_new") {
+      throw new Error("Ce paiement ne correspond pas à un checkout Xpress direct");
+    }
+    if (payment.status === "completed") {
+      throw new Error("Ce paiement a déjà été confirmé");
+    }
+    if (!payment.purchaseRequestId) {
+      throw new Error("La demande associée n'a pas encore été enregistrée");
+    }
+
+    const email = (
+      payment.guestEmail ?? payment.metadata?.guestEmail ?? ""
+    ).toLowerCase();
+    if (!EMAIL_REGEX.test(email)) {
+      throw new Error("Adresse email introuvable pour ce paiement");
+    }
+
+    const { checkoutUrl, monerooPaymentId, reused, paymentId } =
+      await startXpressUpgradeCheckout({
+        ctx,
+        requestId: payment.purchaseRequestId,
+        email,
+        userId: payment.userId,
+      });
+
+    return {
+      success: true,
+      checkoutUrl,
+      monerooPaymentId,
+      reused,
+      paymentId,
     };
   },
 });
@@ -323,7 +555,13 @@ export const verifyPaymentPublic = action({
   handler: async (
     ctx,
     args
-  ): Promise<{ success: boolean; status: string; type: string | null }> => {
+  ): Promise<{
+    success: boolean;
+    status: string;
+    type: string | null;
+    requestId?: string;
+    requestNumber?: number;
+  }> => {
     // Rate limiting: max 10 vérifications / heure / paiement
     await ctx.runAction(internal.rateLimit.enforceRateLimit, {
       identifier: `verify:${args.monerooPaymentId}`,
@@ -332,6 +570,8 @@ export const verifyPaymentPublic = action({
       windowMinutes: 60,
     });
 
+    // Le passage webhook crée la demande le cas échéant : paiement confirmé
+    // → xpress ; paiement annulé/échoué → fallback normal (flux xpress_new).
     await ctx.runAction(internal.paymentsProcessing._processMonerooWebhook, {
       event: "payment.initiated",
       monerooPaymentId: args.monerooPaymentId,
@@ -344,7 +584,27 @@ export const verifyPaymentPublic = action({
     if (!payment) {
       return { success: false, status: "unknown", type: null };
     }
-    return { success: true, status: payment.status, type: payment.type };
+
+    // Flux « Xpress direct » : exposer la demande créée au paiement (N° de
+    // suivi, actions « réessayer / formulaire » sur la page de retour).
+    let requestId: string | undefined;
+    let requestNumber: number | undefined;
+    if (payment.type === "xpress_new" && payment.purchaseRequestId) {
+      const request = await ctx.runQuery(
+        internal.purchaseRequests._getRequestById,
+        { requestId: payment.purchaseRequestId }
+      );
+      requestId = payment.purchaseRequestId;
+      requestNumber = request?.requestNumber ?? undefined;
+    }
+
+    return {
+      success: true,
+      status: payment.status,
+      type: payment.type,
+      requestId,
+      requestNumber,
+    };
   },
 });
 

@@ -23,6 +23,65 @@ import { fetchMonerooVerification, mapMonerooStatus, getSiteUrl } from "./monero
 import { xpressGuestReceiptTemplate } from "./emailTemplates";
 
 /**
+ * Créer la demande d'achat portée par un paiement « xpress_new » (flux
+ * « Xpress direct » : checkout AVANT création) puis notifier les
+ * fournisseurs correspondants (best-effort, comme createPurchaseRequest).
+ * Fonction simple (pas une fonction Convex) : appelée par
+ * fulfillSuccessfulPayment (paiement confirmé → 'xpress') et par le passage
+ * failed de _processMonerooWebhook (annulation → fallback 'normal').
+ * L'idempotence est garantie par la mutation cible (garde sur
+ * payment.purchaseRequestId).
+ */
+async function createRequestFromXpressPayment(
+  ctx: GenericActionCtx<DataModel>,
+  payment: Doc<"payments">,
+  processingOption: "normal" | "xpress"
+): Promise<void> {
+  const created = await ctx.runMutation(
+    internal.purchaseRequests._createRequestFromXpressPayment,
+    { paymentId: payment._id, processingOption }
+  );
+  if (!created.success || !created.requestId) {
+    console.error(
+      `xpress_new : échec de création de la demande pour le paiement ${payment._id} (${created.reason ?? "inconnu"})`
+    );
+    return;
+  }
+
+  // Notifier les fournisseurs correspondants (best-effort : ne doit jamais
+  // faire échouer le traitement du paiement).
+  try {
+    if (created.description) {
+      const matchingSuppliers = await ctx.runQuery(
+        internal.purchaseRequests._findMatchingSuppliers,
+        { description: created.description, limit: 20 }
+      );
+      for (const supplier of matchingSuppliers) {
+        await ctx.runMutation(
+          internal.purchaseRequests._createNotification,
+          {
+            userId: supplier.userId,
+            type: "purchase_request",
+            title: "Nouvelle demande d'achat",
+            message: `${created.description} - ${created.quantity ?? ""} ${created.unit ?? ""}`.trim(),
+            data: {
+              requestId: created.requestId,
+              requestNumber: created.requestNumber,
+            },
+            actionUrl: `/dashboard/purchase-requests/${created.requestId}`,
+          }
+        );
+      }
+    }
+  } catch (notifyError) {
+    console.error(
+      "xpress_new : échec de la notification des fournisseurs :",
+      notifyError
+    );
+  }
+}
+
+/**
  * Crédite les avantages d'un paiement réussi (Vitrine, abonnement, Xpress).
  * Fonction simple (pas une fonction Convex) : appelée en direct par
  * _processMonerooWebhook ci-dessous — aucun runAction intra-module.
@@ -87,6 +146,36 @@ async function fulfillSuccessfulPayment(
         internal.purchaseRequests._markRequestAsXpress,
         { requestId: payment.purchaseRequestId }
       );
+
+      // Reçu email pour les invités (Xpress payé sans compte) : ils n'ont
+      // ni notification in-app ni page de suivi — le reçu email est leur
+      // seule confirmation. Best-effort : n'échoue jamais le paiement.
+      if (payment.guestEmail) {
+        try {
+          await ctx.runAction(internal.sendEmail.sendEmailAction, {
+            to: payment.guestEmail,
+            subject: "Paiement Xpress confirmé — traitement sous 48-72h",
+            html: xpressGuestReceiptTemplate({
+              siteUrl: getSiteUrl(),
+              amount: payment.amount,
+              currency: payment.currency,
+            }),
+          });
+        } catch (receiptError) {
+          console.error(
+            "Échec de l'envoi du reçu Xpress (invité) :",
+            receiptError
+          );
+        }
+      }
+      break;
+    }
+
+    case "xpress_new": {
+      // Flux « Xpress direct » : la demande n'existait PAS avant le paiement —
+      // c'est ici qu'elle est créée, en Xpress (payée). Le payload du
+      // formulaire vient du doc payments (metadata.payload).
+      await createRequestFromXpressPayment(ctx, payment, "xpress");
 
       // Reçu email pour les invités (Xpress payé sans compte) : ils n'ont
       // ni notification in-app ni page de suivi — le reçu email est leur
@@ -217,6 +306,16 @@ export const _processMonerooWebhook = internalAction({
 
     if (newStatus === "completed") {
       await fulfillSuccessfulPayment(ctx, payment);
+    } else if (
+      newStatus === "failed" &&
+      payment.type === "xpress_new" &&
+      !payment.purchaseRequestId
+    ) {
+      // Flux « Xpress direct » : paiement annulé/échoué → la demande est quand
+      // même enregistrée en option Normal. Couvre le webhook payment.cancelled/
+      // payment.failed ET la re-vérification au retour utilisateur (la création
+      // est idempotente via la garde purchaseRequestId).
+      await createRequestFromXpressPayment(ctx, payment, "normal");
     }
 
     return { success: true, status: newStatus };

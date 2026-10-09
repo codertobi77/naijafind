@@ -13,14 +13,15 @@ import {
   FileText,
   LayoutDashboard,
   AlertTriangle,
+  Zap,
 } from 'lucide-react';
 
 type VerifyState =
   | { kind: 'checking' }
   | { kind: 'missing' }
-  | { kind: 'completed'; type: string | null }
+  | { kind: 'completed'; type: string | null; requestId?: string; requestNumber?: number }
   | { kind: 'pending' }
-  | { kind: 'failed' };
+  | { kind: 'failed'; type: string | null; requestId?: string; requestNumber?: number };
 
 /**
  * Vue partagée des pages de retour de paiement Moneroo
@@ -49,6 +50,11 @@ export function PaymentResultView({ outcome }: { outcome: 'success' | 'failed' }
   );
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Flux « Xpress direct » (xpress_new) : réessai du paiement pour la demande
+  // créée en Normal au fallback d'annulation.
+  const retryXpressCheckout = useAction(api.payments.retryXpressCheckout);
+  const [isRetrying, setIsRetrying] = useState(false);
+
   const verify = useCallback(async () => {
     if (!paymentId) {
       setState({ kind: 'missing' });
@@ -61,9 +67,19 @@ export function PaymentResultView({ outcome }: { outcome: 'success' | 'failed' }
         // Paiement inconnu localement : aucune trace de ce paiement.
         setState({ kind: 'missing' });
       } else if (result.status === 'completed') {
-        setState({ kind: 'completed', type: result.type });
+        setState({
+          kind: 'completed',
+          type: result.type,
+          requestId: result.requestId,
+          requestNumber: result.requestNumber,
+        });
       } else if (result.status === 'failed') {
-        setState({ kind: 'failed' });
+        setState({
+          kind: 'failed',
+          type: result.type,
+          requestId: result.requestId,
+          requestNumber: result.requestNumber,
+        });
       } else {
         setState({ kind: 'pending' });
       }
@@ -76,6 +92,24 @@ export function PaymentResultView({ outcome }: { outcome: 'success' | 'failed' }
       setIsRefreshing(false);
     }
   }, [paymentId, verifyPaymentPublic]);
+
+  /**
+   * Flux « Xpress direct » annulé : réessayer le Xpress pour la MÊME demande
+   * (enregistrée en Normal au fallback) — nouveau checkout xpress_upgrade
+   * puis redirection immédiate vers Moneroo.
+   */
+  const handleRetryXpress = useCallback(async () => {
+    if (!paymentId) return;
+    setIsRetrying(true);
+    try {
+      const checkout = await retryXpressCheckout({ monerooPaymentId: paymentId });
+      window.location.href = checkout.checkoutUrl;
+    } catch (error) {
+      console.error('Xpress retry failed:', error);
+      setIsRetrying(false);
+      alert(t('payment.modal_error', 'Impossible d\'initialiser le paiement. Veuillez réessayer.'));
+    }
+  }, [paymentId, retryXpressCheckout, t]);
 
   useEffect(() => {
     if (paymentId) {
@@ -148,10 +182,47 @@ export function PaymentResultView({ outcome }: { outcome: 'success' | 'failed' }
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <CheckCircle2 className="w-10 h-10 text-green-600" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                {t('payment.success_title', 'Paiement confirmé !')}
-              </h2>
-              <p className="text-gray-600 mb-6">{successMessage(state.type)}</p>
+              {state.type === 'xpress_new' ? (
+                // Flux « Xpress direct » : la demande vient d'être créée en
+                // Xpress au moment du paiement — texte de succès dédié.
+                <>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                    {t('payment.xpress_success_title', 'Demande publiée avec succès !')}
+                  </h2>
+                  <p className="text-gray-600 mb-6">
+                    {t('payment.xpress_success_message', 'Votre demande a été enregistrée et sera traitée en priorité : vous recevrez des propositions de fournisseurs sous 72 heures ouvrées.')}
+                  </p>
+                  {state.requestNumber != null && (
+                    <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+                      <p className="text-sm font-medium text-green-700">
+                        {t('purchase_request.request_number', 'N° de votre demande')} :{' '}
+                        <span className="text-lg font-bold text-green-800">
+                          N° {state.requestNumber}
+                        </span>
+                      </p>
+                      <p className="mt-1 text-xs text-green-600">
+                        {t('purchase_request.request_number_hint', 'Conservez ce numéro pour suivre votre demande depuis votre tableau de bord.')}
+                      </p>
+                    </div>
+                  )}
+                  <div className="bg-blue-50 rounded-lg p-4 mb-6 text-left">
+                    <p className="text-sm text-blue-700">
+                      <strong>{t('payment.xpress_success_steps', 'Prochaines étapes :')}</strong>
+                    </p>
+                    <ul className="text-sm text-blue-600 mt-2 list-disc list-inside">
+                      <li>{t('payment.xpress_success_step1', 'Vous recevrez des propositions de fournisseurs par email et WhatsApp sous 72 heures ouvrées.')}</li>
+                      <li>{t('payment.xpress_success_step2', 'Notre équipe SUJI vous accompagne pour comparer les offres et choisir le meilleur fournisseur.')}</li>
+                    </ul>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                    {t('payment.success_title', 'Paiement confirmé !')}
+                  </h2>
+                  <p className="text-gray-600 mb-6">{successMessage(state.type)}</p>
+                </>
+              )}
               {renderButtons(state.type === 'subscription' || state.type === 'featured_upgrade')}
             </>
           )}
@@ -183,7 +254,58 @@ export function PaymentResultView({ outcome }: { outcome: 'success' | 'failed' }
             </>
           )}
 
-          {state.kind === 'failed' && (
+          {state.kind === 'failed' && state.type === 'xpress_new' && state.requestId && (
+            // Flux « Xpress direct » annulé/échoué : la demande a tout de même
+            // été enregistrée en Normal (fallback au traitement du paiement).
+            <>
+              <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <XCircle className="w-10 h-10 text-amber-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                {t('payment.xpress_cancelled_title', 'Paiement annulé')}
+              </h2>
+              <p className="text-gray-600 mb-6">
+                {t('payment.xpress_cancelled_message', 'Votre demande a tout de même été enregistrée en mode Normal (traitement sous 1 à 2 semaines). Vous pouvez réessayer le Xpress pour cette même demande afin de bénéficier du traitement prioritaire sous 72 heures ouvrées.')}
+              </p>
+              {state.requestNumber != null && (
+                <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-left">
+                  <p className="text-sm font-medium text-blue-700">
+                    {t('purchase_request.request_number', 'N° de votre demande')} :{' '}
+                    <span className="text-lg font-bold text-blue-800">
+                      N° {state.requestNumber}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-xs text-blue-600">
+                    {t('purchase_request.request_number_hint', 'Conservez ce numéro pour suivre votre demande depuis votre tableau de bord.')}
+                  </p>
+                </div>
+              )}
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button
+                  onClick={() => void handleRetryXpress()}
+                  disabled={isRetrying}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3 font-semibold text-white transition-all hover:from-amber-600 hover:to-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isRetrying ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  ) : (
+                    <Zap className="w-5 h-5" />
+                  )}
+                  {isRetrying
+                    ? t('payment.xpress_retrying', 'Redirection vers le paiement...')
+                    : t('payment.xpress_retry', 'Réessayer le Xpress — 15 000 FCFA')}
+                </button>
+                <Link
+                  to="/purchase-request"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-100 px-6 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-200"
+                >
+                  {t('payment.back_to_form', 'Retourner au formulaire')}
+                </Link>
+              </div>
+            </>
+          )}
+
+          {state.kind === 'failed' && !(state.type === 'xpress_new' && state.requestId) && (
             <>
               <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <XCircle className="w-10 h-10 text-red-600" />
