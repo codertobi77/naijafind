@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { Header } from '../../components/base';
 import { useNotifications } from '../../hooks/useNotifications';
 import type { Notification } from '../../hooks/useNotifications';
+// Icônes/couleurs par type : source unique partagée avec NotificationDropdown
+import { iconFor, colorFor } from '../../lib/notificationVisuals';
 
 /**
  * Page « Toutes les notifications » (/notifications) :
@@ -132,8 +134,12 @@ export default function NotificationsPage() {
                     onClick={() => handleNotificationClick(notification)}
                     className="flex flex-1 items-start gap-4 text-left"
                   >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600">
-                      <i className="ri-notification-3-line text-lg" />
+                    <span
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${colorFor(
+                        notification.type
+                      )}`}
+                    >
+                      <i className={`${iconFor(notification.type)} text-lg`} />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-start justify-between gap-2">

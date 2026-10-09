@@ -267,6 +267,10 @@ export const common = {
   "notifications.hours_ago": "{{count}}h ago",
   "notifications.yesterday": "Yesterday",
   "notifications.days_ago": "{{count}} days ago",
+  "notifications.title": "Notifications",
+  "notifications.none_unread": "No unread notifications",
+  "notifications.view_all": "View all notifications",
+  "notifications.dropdown_empty": "You don't have any notifications yet",
 
   // Newsletter unsubscribe (page /newsletter/unsubscribe)
   "newsletter_unsubscribe.title": "Newsletter unsubscribe",

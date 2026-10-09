@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   contactEmailTemplate,
+  contactConfirmationTemplate,
   supplierMessageTemplate,
+  supplierReplyTemplate,
   newsletterWelcomeTemplate,
   newsletterWelcomeBackTemplate,
   newsletterUnsubscribeTemplate,
@@ -164,6 +166,60 @@ describe("emailTemplates — rappel d'expiration", () => {
       expiresAt: '2026-10-11T00:00:00.000Z',
     });
     expect(html).toContain('votre abonnement');
+  });
+});
+
+describe("emailTemplates — accusé de réception contact", () => {
+  it("salue l'expéditeur, mentionne son sujet et ne propose pas de désinscription", () => {
+    const html = contactConfirmationTemplate({
+      siteUrl: SITE_URL,
+      name: 'Awa',
+      subject: 'Demande de partenariat',
+    });
+    expect(html).toContain('Bonjour Awa');
+    expect(html).toContain('Demande de partenariat');
+    expect(html).not.toContain('Se désabonner');
+  });
+
+  it('échappe le nom et le sujet injectés', () => {
+    const html = contactConfirmationTemplate({
+      siteUrl: SITE_URL,
+      name: 'Awa <b>X</b>',
+      subject: '<script>alert(1)</script>',
+    });
+    expect(html).not.toContain('<script>');
+    expect(html).toContain(escapeHtml('<script>'));
+  });
+});
+
+describe('emailTemplates — réponse fournisseur', () => {
+  it("inclut le fournisseur, le sujet d'origine, la réponse et l'email de contact", () => {
+    const html = supplierReplyTemplate({
+      siteUrl: SITE_URL,
+      supplierName: 'Suji Corp',
+      customerName: 'Awa',
+      originalSubject: 'Devis machine',
+      message: 'Bonjour, voici notre proposition.',
+      supplierEmail: 'contact@suji-corp.example',
+    });
+    expect(html).toContain('Suji Corp');
+    expect(html).toContain('Devis machine');
+    expect(html).toContain('Bonjour, voici notre proposition.');
+    expect(html).toContain('mailto:contact@suji-corp.example');
+    expect(html).not.toContain('Se désabonner');
+  });
+
+  it('échappe le message du fournisseur', () => {
+    const html = supplierReplyTemplate({
+      siteUrl: SITE_URL,
+      supplierName: 'Suji Corp',
+      customerName: 'Awa',
+      originalSubject: 'Devis',
+      message: '<script>alert("xss")</script>',
+      supplierEmail: 'contact@suji-corp.example',
+    });
+    expect(html).not.toContain('<script>');
+    expect(html).toContain(escapeHtml('<script>'));
   });
 });
 

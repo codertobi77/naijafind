@@ -480,7 +480,7 @@ export default function AdminPage(){
   const { t } = useTranslation();
   const { formatCurrency } = useCurrency();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications' | 'import' | 'productImport' | 'adBanners' | 'claims' | 'purchaseRequests'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'categories' | 'featured' | 'products' | 'notifications' | 'import' | 'productImport' | 'adBanners' | 'claims' | 'purchaseRequests' | 'newsletter'>('overview');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -2008,6 +2008,8 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
         return <AdBannerManager />;
       case 'claims':
         return <SupplierClaimsManager />;
+      case 'newsletter':
+        return <NewsletterManager />;
       case 'purchaseRequests':
         return (
           <div className="space-y-6">
@@ -2982,6 +2984,18 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                 <i className="ri-shield-user-line text-lg" />
                 {!sidebarCollapsed && <span className="font-medium">{t('claims.sidebar.menu')}</span>}
               </button>
+              <button
+                onClick={() => { setActiveTab('newsletter'); setSidebarOpen(false); }}
+                className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                  activeTab === 'newsletter'
+                    ? 'bg-green-600 text-white shadow'
+                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
+                } ${sidebarCollapsed ? 'justify-center' : 'space-x-3'}`}
+                title={sidebarCollapsed ? t('admin.newsletter') : undefined}
+              >
+                <i className="ri-mail-send-line text-lg" />
+                {!sidebarCollapsed && <span className="font-medium">{t('admin.newsletter')}</span>}
+              </button>
             </div>
           </nav>
 
@@ -3043,6 +3057,8 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                 {activeTab === 'migrateProducts' && 'Migration des Produits'}
                 {activeTab === 'adBanners' && 'Ad Banners'}
                 {activeTab === 'claims' && t('claims.sidebar.page_title')}
+                {activeTab === 'purchaseRequests' && "Demandes d'achat"}
+                {activeTab === 'newsletter' && t('admin.newsletter')}
               </h1>
             </div>
             <div className="flex items-center space-x-3 sm:space-x-6">
@@ -3508,6 +3524,278 @@ function SupplierClaimsManager() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Newsletter Manager Component (composeur de campagne, abonnés, journal email_log)
+function NewsletterManager() {
+  const { t } = useTranslation();
+  const { showToast } = useToast();
+  const [campaignForm, setCampaignForm] = useState({ subject: '', html: '' });
+  const [sendingCampaign, setSendingCampaign] = useState(false);
+  const [subscriberFilter, setSubscriberFilter] = useState<'all' | 'active' | 'unsubscribed'>('active');
+  const [logFilter, setLogFilter] = useState<'all' | 'sent' | 'failed'>('all');
+
+  const sendNewsletter = useMutation(api.emails.sendNewsletter);
+
+  const { data: subscribersData, isLoading: subscribersLoading } = useConvexQuery(
+    api.emails.getNewsletterSubscribers,
+    { status: subscriberFilter },
+    { staleTime: 30 * 1000 }
+  );
+  const subscribers = subscribersData?.subscribers ?? [];
+
+  const { data: emailLog, isLoading: emailLogLoading } = useConvexQuery(
+    api.emailLog.getEmailLog,
+    { limit: 100, status: logFilter === 'all' ? undefined : logFilter },
+    { staleTime: 30 * 1000 }
+  );
+  const { data: emailLogStats, refetch: refetchEmailLogStats } = useConvexQuery(
+    api.emailLog.getEmailLogStats,
+    {},
+    { staleTime: 30 * 1000 }
+  );
+
+  const handleSendCampaign = async () => {
+    if (!campaignForm.subject.trim() || !campaignForm.html.trim()) {
+      showToast('error', t('admin.newsletter_fields_required'));
+      return;
+    }
+    setSendingCampaign(true);
+    try {
+      const result = await sendNewsletter({
+        subject: campaignForm.subject,
+        html: campaignForm.html,
+      });
+      showToast('success', t('admin.newsletter_sent', { count: result?.sent ?? 0 }));
+      setCampaignForm({ subject: '', html: '' });
+      // Le journal email_log va se remplir via les actions planifiées (chunks batch)
+      void refetchEmailLogStats();
+    } catch (error: any) {
+      console.error('Error sending newsletter:', error);
+      showToast('error', error.message || t('admin.newsletter_send_error'));
+    } finally {
+      setSendingCampaign(false);
+    }
+  };
+
+  const filterButtonClass = (active: boolean) =>
+    `rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+      active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+    }`;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">{t('admin.newsletter')}</h2>
+          <p className="mt-1 text-gray-600">{t('admin.newsletter_description')}</p>
+        </div>
+      </div>
+
+      {/* Composeur de campagne */}
+      <div className="rounded-lg border bg-white p-6">
+        <h3 className="mb-4 text-lg font-semibold">{t('admin.newsletter_campaign')}</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {t('admin.newsletter_subject')} *
+            </label>
+            <input
+              type="text"
+              value={campaignForm.subject}
+              onChange={(e) => setCampaignForm({ ...campaignForm, subject: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-green-500"
+              placeholder={t('admin.newsletter_subject_placeholder')}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {t('admin.newsletter_content')} *
+            </label>
+            <textarea
+              value={campaignForm.html}
+              onChange={(e) => setCampaignForm({ ...campaignForm, html: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-transparent focus:ring-2 focus:ring-green-500"
+              rows={8}
+              placeholder={t('admin.newsletter_content_placeholder')}
+            />
+          </div>
+          <button
+            onClick={() => void handleSendCampaign()}
+            disabled={sendingCampaign}
+            className="rounded-lg bg-green-600 px-4 py-2 text-white transition-colors hover:bg-green-700 disabled:opacity-50"
+          >
+            {sendingCampaign ? (
+              <span className="flex items-center gap-2">
+                <i className="ri-loader-4-line animate-spin" />
+                {t('admin.sending')}
+              </span>
+            ) : (
+              t('admin.newsletter_send')
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Abonnés */}
+      <div className="rounded-lg border bg-white p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold">{t('admin.newsletter_subscribers')}</h3>
+          <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+            {(['active', 'unsubscribed', 'all'] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setSubscriberFilter(f)}
+                className={filterButtonClass(subscriberFilter === f)}
+              >
+                {f === 'active'
+                  ? t('admin.newsletter_filter_active')
+                  : f === 'unsubscribed'
+                    ? t('admin.newsletter_filter_unsubscribed')
+                    : t('admin.all')}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="px-2 py-3 text-left font-semibold text-gray-600">{t('admin.email')}</th>
+                <th className="px-2 py-3 text-left font-semibold text-gray-600">{t('admin.name')}</th>
+                <th className="px-2 py-3 text-left font-semibold text-gray-600">{t('admin.newsletter_sector')}</th>
+                <th className="px-2 py-3 text-left font-semibold text-gray-600">{t('admin.newsletter_subscribed_at')}</th>
+                <th className="px-2 py-3 text-left font-semibold text-gray-600">{t('admin.status')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {subscribersLoading ? (
+                <tr>
+                  <td colSpan={5} className="p-4 text-center text-gray-400">
+                    <i className="ri-loader-4-line animate-spin text-xl" />
+                  </td>
+                </tr>
+              ) : subscribers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-4 text-center text-gray-400">
+                    {t('admin.newsletter_no_subscribers')}
+                  </td>
+                </tr>
+              ) : (
+                subscribers.map((subscriber: any) => (
+                  <tr key={subscriber._id} className="border-b hover:bg-gray-50">
+                    <td className="px-2 py-3 font-medium">{subscriber.email}</td>
+                    <td className="px-2 py-3">{subscriber.name || '-'}</td>
+                    <td className="px-2 py-3">{subscriber.sector || '-'}</td>
+                    <td className="px-2 py-3">
+                      {subscriber.subscribedAt
+                        ? new Date(subscriber.subscribedAt).toLocaleDateString('fr-FR')
+                        : '-'}
+                    </td>
+                    <td className="px-2 py-3">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          subscriber.status === 'active'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {subscriber.status === 'active'
+                          ? t('admin.newsletter_status_active')
+                          : t('admin.newsletter_status_unsubscribed')}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Journal d'envoi des emails (email_log) */}
+      <div className="rounded-lg border bg-white p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold">{t('admin.email_log')}</h3>
+          <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+            {(['all', 'sent', 'failed'] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setLogFilter(f)}
+                className={filterButtonClass(logFilter === f)}
+              >
+                {f === 'all'
+                  ? t('admin.all')
+                  : f === 'sent'
+                    ? t('admin.email_log_filter_sent')
+                    : t('admin.email_log_filter_failed')}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mb-4 flex flex-wrap gap-3">
+          <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
+            {t('admin.email_log_sent_total')} : {emailLogStats?.sent ?? 0}
+          </span>
+          <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-800">
+            {t('admin.email_log_failed_total')} : {emailLogStats?.failed ?? 0}
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="px-2 py-3 text-left font-semibold text-gray-600">{t('admin.date')}</th>
+                <th className="px-2 py-3 text-left font-semibold text-gray-600">{t('admin.email_log_recipient')}</th>
+                <th className="px-2 py-3 text-left font-semibold text-gray-600">{t('admin.email_log_subject')}</th>
+                <th className="px-2 py-3 text-left font-semibold text-gray-600">{t('admin.status')}</th>
+                <th className="px-2 py-3 text-left font-semibold text-gray-600">{t('admin.email_log_error')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {emailLogLoading ? (
+                <tr>
+                  <td colSpan={5} className="p-4 text-center text-gray-400">
+                    <i className="ri-loader-4-line animate-spin text-xl" />
+                  </td>
+                </tr>
+              ) : !emailLog || emailLog.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-4 text-center text-gray-400">
+                    {t('admin.email_log_empty')}
+                  </td>
+                </tr>
+              ) : (
+                emailLog.map((entry: any) => (
+                  <tr key={entry._id} className="border-b hover:bg-gray-50">
+                    <td className="whitespace-nowrap px-2 py-3 text-gray-500">
+                      {new Date(entry.createdAt).toLocaleString('fr-FR')}
+                    </td>
+                    <td className="px-2 py-3 font-medium">{entry.to}</td>
+                    <td className="max-w-xs truncate px-2 py-3">{entry.subject}</td>
+                    <td className="px-2 py-3">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          entry.status === 'sent'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {entry.status === 'sent' ? t('admin.sent') : t('admin.email_log_failed')}
+                      </span>
+                    </td>
+                    <td className="max-w-xs truncate px-2 py-3 text-red-600" title={entry.error || undefined}>
+                      {entry.error || '-'}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Notification, NotificationType } from '../../hooks/useNotifications';
+import { useTranslation } from 'react-i18next';
+import type { Notification } from '../../hooks/useNotifications';
 import type { Id } from '@convex/_generated/dataModel';
+// Icônes/couleurs par type : source unique partagée avec la page /notifications
+import { iconFor, colorFor } from '../../lib/notificationVisuals';
 
 interface NotificationDropdownProps {
   notifications: Notification[];
@@ -12,44 +15,6 @@ interface NotificationDropdownProps {
   onDelete: (id: Id<'notifications'>) => void;
 }
 
-// Maps typées « au mieux » : le schéma Convex stocke `type` en string libre,
-// on indexe donc par string avec un fallback visuel pour tout type imprévu.
-const notificationIcons: Record<string, string> = {
-  order: 'ri-shopping-cart-line',
-  review: 'ri-star-line',
-  message: 'ri-mail-line',
-  system: 'ri-information-line',
-  verification: 'ri-shield-check-line',
-  approval: 'ri-check-double-line',
-  purchase_request: 'ri-file-list-3-line',
-  purchase_request_update: 'ri-file-edit-line',
-  new_quote: 'ri-price-tag-3-line',
-  payment_success: 'ri-money-dollar-circle-line',
-  subscription_expired: 'ri-alarm-warning-line',
-  contact_request: 'ri-user-add-line',
-};
-
-const notificationColors: Record<string, string> = {
-  order: 'bg-blue-100 text-blue-600',
-  review: 'bg-yellow-100 text-yellow-600',
-  message: 'bg-green-100 text-green-600',
-  system: 'bg-gray-100 text-gray-600',
-  verification: 'bg-purple-100 text-purple-600',
-  approval: 'bg-green-100 text-green-600',
-  purchase_request: 'bg-blue-100 text-blue-600',
-  purchase_request_update: 'bg-indigo-100 text-indigo-600',
-  new_quote: 'bg-emerald-100 text-emerald-600',
-  payment_success: 'bg-green-100 text-green-600',
-  subscription_expired: 'bg-orange-100 text-orange-600',
-  contact_request: 'bg-teal-100 text-teal-600',
-};
-
-const FALLBACK_ICON = 'ri-notification-3-line';
-const FALLBACK_COLOR = 'bg-gray-100 text-gray-600';
-
-const iconFor = (type: NotificationType | string) => notificationIcons[type] ?? FALLBACK_ICON;
-const colorFor = (type: NotificationType | string) => notificationColors[type] ?? FALLBACK_COLOR;
-
 export function NotificationDropdown({
   notifications,
   unreadCount,
@@ -58,6 +23,7 @@ export function NotificationDropdown({
   onMarkAllRead,
   onDelete,
 }: NotificationDropdownProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -87,11 +53,11 @@ export function NotificationDropdown({
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'À l\'instant';
-    if (diffMins < 60) return `Il y a ${diffMins} min`;
-    if (diffHours < 24) return `Il y a ${diffHours}h`;
-    if (diffDays === 1) return 'Hier';
-    return `Il y a ${diffDays} jours`;
+    if (diffMins < 1) return t('notifications.just_now');
+    if (diffMins < 60) return t('notifications.minutes_ago', { count: diffMins });
+    if (diffHours < 24) return t('notifications.hours_ago', { count: diffHours });
+    if (diffDays === 1) return t('notifications.yesterday');
+    return t('notifications.days_ago', { count: diffDays });
   };
 
   const handleNotificationClick = (notification: Notification) => {
@@ -111,7 +77,7 @@ export function NotificationDropdown({
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         className="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-        aria-label="Notifications"
+        aria-label={t('notifications.title')}
       >
         <i className="ri-notification-line text-xl" />
         {unreadCount > 0 && (
@@ -126,11 +92,11 @@ export function NotificationDropdown({
           {/* Header */}
           <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-4 py-3">
             <div>
-              <h3 className="font-semibold text-gray-900">Notifications</h3>
+              <h3 className="font-semibold text-gray-900">{t('notifications.title')}</h3>
               <p className="text-xs text-gray-500">
                 {unreadCount > 0
-                  ? `${unreadCount} non lue${unreadCount > 1 ? 's' : ''}`
-                  : 'Aucune notification non lue'}
+                  ? t('notifications.unread_count', { count: unreadCount })
+                  : t('notifications.none_unread')}
               </p>
             </div>
             <div className="flex items-center gap-1">
@@ -139,7 +105,7 @@ export function NotificationDropdown({
                   onClick={onMarkAllRead}
                   className="rounded-lg px-3 py-1.5 text-xs font-medium text-green-600 hover:bg-green-50 transition-colors"
                 >
-                  Tout lire
+                  {t('notifications.mark_all_read')}
                 </button>
               )}
               <button
@@ -162,9 +128,9 @@ export function NotificationDropdown({
                 <div className="mb-3 rounded-full bg-gray-100 p-3">
                   <i className="ri-notification-off-line text-2xl text-gray-400" />
                 </div>
-                <p className="text-sm font-medium text-gray-900">Aucune notification</p>
+                <p className="text-sm font-medium text-gray-900">{t('notifications.empty_title')}</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Vous n\'avez pas encore de notifications
+                  {t('notifications.dropdown_empty')}
                 </p>
               </div>
             ) : (
@@ -212,7 +178,7 @@ export function NotificationDropdown({
                           onDelete(notification._id);
                         }}
                         className="rounded p-1 text-gray-300 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
-                        aria-label="Supprimer"
+                        aria-label={t('btn.delete')}
                       >
                         <i className="ri-delete-bin-line text-sm" />
                       </button>
@@ -234,7 +200,7 @@ export function NotificationDropdown({
                 }}
                 className="flex w-full items-center justify-center gap-1 text-xs font-medium text-green-600 hover:text-green-700 transition-colors"
               >
-                Voir toutes les notifications
+                {t('notifications.view_all')}
                 <i className="ri-arrow-right-line" />
               </button>
             </div>

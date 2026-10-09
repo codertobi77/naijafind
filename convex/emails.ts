@@ -1,12 +1,14 @@
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { getSiteUrl } from "./moneroo";
 import { isNotifiableUserId } from "./notificationUtils";
 import {
+  contactConfirmationTemplate,
   contactEmailTemplate,
   newsletterCampaignTemplate,
+  newsletterUnsubscribeTemplate,
   newsletterWelcomeBackTemplate,
   newsletterWelcomeTemplate,
   supplierMessageTemplate,
@@ -61,6 +63,22 @@ export const sendContactEmail = mutation({
       });
     } catch (emailError) {
       console.error("Failed to send contact email:", emailError);
+    }
+
+    // Accusé de réception pour l'expéditeur (best-effort : jamais bloquant)
+    try {
+      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
+        to: args.email,
+        subject: "Nous avons bien reçu votre message — Suji",
+        html: contactConfirmationTemplate({
+          siteUrl: getSiteUrl(),
+          name: args.name,
+          subject: args.subject,
+        }),
+        reply_to: CONTACT_EMAIL,
+      });
+    } catch (emailError) {
+      console.error("Failed to send contact confirmation email:", emailError);
     }
 
     return { success: true, id: contactId };
@@ -245,6 +263,20 @@ export const unsubscribeFromNewsletter = mutation({
       unsubscribedAt: new Date().toISOString(),
     });
 
+    // Email de confirmation de désinscription (best-effort : jamais bloquant)
+    try {
+      await ctx.scheduler.runAfter(0, internal.sendEmail.sendEmailAction as any, {
+        to: normalizedEmail,
+        subject: "Désinscription confirmée — Suji",
+        html: newsletterUnsubscribeTemplate({
+          siteUrl: getSiteUrl(),
+          email: normalizedEmail,
+        }),
+      });
+    } catch (emailError) {
+      console.error("Failed to send unsubscribe confirmation email:", emailError);
+    }
+
     return { success: true, message: "Successfully unsubscribed" };
   },
 });
@@ -319,9 +351,11 @@ export const sendNewsletter = mutation({
 });
 
 /**
- * Get newsletter subscribers (admin only)
+ * Get newsletter subscribers (admin only).
+ * Query (et non mutation) : lecture pure via ctx.db, consommée par
+ * useConvexQuery dans l'onglet admin Newsletter (refetch réactif sur filtre).
  */
-export const getNewsletterSubscribers = mutation({
+export const getNewsletterSubscribers = query({
   args: {
     status: v.optional(v.string()), // 'active' | 'unsubscribed' | 'all'
   },
@@ -339,9 +373,12 @@ export const getNewsletterSubscribers = mutation({
       throw new Error("Access denied. Admin only.");
     }
 
+    // `const` local : conserve le narrowing (string, pas string | undefined)
+    // à l'intérieur de la callback withIndex (même pattern que getAllPurchaseRequests).
+    const status = args.status;
     let query;
-    if (args.status && args.status !== "all") {
-      query = ctx.db.query("newsletter_subscriptions").withIndex("status", (q) => q.eq("status", args.status));
+    if (status && status !== "all") {
+      query = ctx.db.query("newsletter_subscriptions").withIndex("status", (q) => q.eq("status", status));
     } else {
       query = ctx.db.query("newsletter_subscriptions");
     }

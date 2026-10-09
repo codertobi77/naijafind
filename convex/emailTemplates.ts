@@ -111,6 +111,28 @@ export function contactEmailTemplate(args: {
 }
 
 /**
+ * Accusé de réception envoyé à l'expéditeur du formulaire de contact
+ * (en complément du reçu interne contactEmailTemplate).
+ */
+export function contactConfirmationTemplate(args: {
+  siteUrl: string;
+  name: string;
+  subject: string;
+}): string {
+  const body = `
+    <p>Bonjour ${escapeHtml(args.name)},</p>
+    <p>Nous avons bien reçu votre message <strong>« ${escapeHtml(args.subject)} »</strong> et nous vous en remercions.</p>
+    <p>Notre équipe traite votre demande et vous répondra à cette adresse email dans les meilleurs délais.</p>
+    ${ctaButton("Découvrir Suji", `${args.siteUrl}/search`)}
+  `;
+  return wrapLayout({
+    title: "Nous avons bien reçu votre message",
+    bodyHtml: body,
+    siteUrl: args.siteUrl,
+  });
+}
+
+/**
  * Message d'un client à un fournisseur (formulaire de contact de la page
  * fournisseur). `reply_to` est géré par l'appelant.
  */
@@ -136,6 +158,31 @@ export function supplierMessageTemplate(args: {
   `;
   return wrapLayout({
     title: "Nouveau message client",
+    bodyHtml: body,
+    siteUrl: args.siteUrl,
+  });
+}
+
+/**
+ * Réponse d'un fournisseur à un message client (dashboard fournisseur).
+ */
+export function supplierReplyTemplate(args: {
+  siteUrl: string;
+  supplierName: string;
+  customerName: string;
+  originalSubject: string;
+  message: string;
+  supplierEmail: string;
+}): string {
+  const body = `
+    <p>Bonjour ${escapeHtml(args.customerName)},</p>
+    <p>Le fournisseur <strong>${escapeHtml(args.supplierName)}</strong> a répondu à votre message concernant le sujet : « <em>${escapeHtml(args.originalSubject)}</em> ».</p>
+    <p><strong>Sa réponse :</strong></p>
+    <p style="white-space:pre-wrap;background-color:#f9fafb;border-left:4px solid ${BRAND_COLOR};border-radius:8px;padding:12px;">${escapeHtml(args.message)}</p>
+    <p style="color:#6b7280;font-size:12px;margin-top:24px;">Pour continuer à échanger, répondez directement à cet email ou contactez le fournisseur à l'adresse suivante : <a href="mailto:${escapeHtml(args.supplierEmail)}" style="color:${BRAND_COLOR};text-decoration:none;">${escapeHtml(args.supplierEmail)}</a></p>
+  `;
+  return wrapLayout({
+    title: "Nouvelle réponse de votre fournisseur",
     bodyHtml: body,
     siteUrl: args.siteUrl,
   });
