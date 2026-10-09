@@ -1,6 +1,7 @@
 import { mutation, query, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { Doc } from "./_generated/dataModel";
 
 // Helper function to ensure user exists
 async function ensureUserHelper(ctx: any, args: any) {
@@ -317,5 +318,84 @@ export const _getUserByEmail = internalQuery({
       .withIndex("email", (q) => q.eq("email", args.email))
       .first();
     return user;
+  },
+});
+
+/**
+ * Résultat de recherche d'utilisateurs (ciblage des notifications admin).
+ * `userId` est la cible à passer aux mutations de notification : le
+ * tokenIdentifier Clerk (identité réelle lue par getNotifications), avec
+ * repli sur l'_id pour les users importés sans tokenIdentifier — ces
+ * notifications sont repointées vers le tokenIdentifier à la première
+ * connexion (cf. ensureUserHelper).
+ */
+export interface UserSearchResult {
+  userId: string;
+  name: string;
+  email: string;
+  user_type: string;
+}
+
+/**
+ * Admin : rechercher des utilisateurs par nom ou email (formulaire de
+ * notifications du dashboard). Recherche insensible à la casse.
+ */
+export const searchUsers = query({
+  args: {
+    query: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<UserSearchResult[]> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Non autorisé");
+
+    // Réservé aux administrateurs (même garde que sendAdminNotification)
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier)
+      )
+      .first();
+    if (!currentUser?.is_admin && currentUser?.user_type !== "admin") {
+      throw new Error("Non autorisé : administrateurs uniquement");
+    }
+
+    const search = args.query.trim();
+    const needle = search.toLowerCase();
+    if (needle.length < 2) return [];
+    const limit = Math.min(args.limit ?? 10, 20);
+
+    const toResult = (u: Doc<"users">): UserSearchResult => ({
+      userId: u.tokenIdentifier || (u._id as unknown as string),
+      name: [u.firstName, u.lastName].filter(Boolean).join(" ").trim(),
+      email: u.email || "",
+      user_type: u.user_type || "user",
+    });
+
+    // 1) Préfixe email via l'index (plage lexicographique)
+    const emailMatches = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.gte("email", search).lt("email", search + "\uffff"))
+      .take(limit);
+
+    const results: UserSearchResult[] = emailMatches.map(toResult);
+    const seen = new Set(emailMatches.map((u) => u._id.toString()));
+
+    // 2) Nom ou email (insensible à la casse) — scan borné complémentaire,
+    // même pattern que les autres recherches du projet (filtre JS sur take borné)
+    if (results.length < limit) {
+      const candidates = await ctx.db.query("users").take(2000);
+      for (const u of candidates) {
+        if (results.length >= limit) break;
+        if (seen.has(u._id.toString())) continue;
+        const hay = `${u.firstName || ""} ${u.lastName || ""} ${u.email || ""}`.toLowerCase();
+        if (hay.includes(needle)) {
+          seen.add(u._id.toString());
+          results.push(toResult(u));
+        }
+      }
+    }
+
+    return results;
   },
 });

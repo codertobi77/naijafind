@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, usePaginatedQuery, useAction } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { useConvexAuth } from 'convex/react';
-import { useConvexQuery } from '../../hooks/useConvexQuery';
+import { useConvexQuery, useConvexQuerySkippable } from '../../hooks/useConvexQuery';
 import { useTranslation } from 'react-i18next';
 import useCurrency from '../../hooks/useCurrency';
 import type { Id, Doc } from '@convex/_generated/dataModel';
@@ -18,6 +18,14 @@ import { getAttachmentKind } from '../../lib/cloudinary';
 // Define proper TypeScript interfaces based on Convex data model
 type Supplier = Doc<"suppliers">;
 type Category = Doc<"categories">;
+
+// Destinataire sélectionnable pour une notification admin (résultat de convex/users.ts searchUsers)
+interface NotificationUserOption {
+  userId: string;
+  name: string;
+  email: string;
+  user_type: string;
+}
 
 // Types
 
@@ -273,6 +281,153 @@ function IconAutocomplete({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// Searchable User Select Component (formulaire de notifications admin)
+// Recherche par nom ou email, puis sélection du destinataire dans la liste.
+function UserSearchSelect({
+  selected,
+  onSelect,
+}: {
+  selected: NotificationUserOption | null;
+  onSelect: (user: NotificationUserOption | null) => void;
+}) {
+  const { t } = useTranslation();
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Debounce la saisie pour limiter les appels Convex
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Fermer la liste au clic extérieur (pattern IconAutocomplete)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Recherche côté serveur uniquement à partir de 2 caractères
+  const { data: searchResults, isLoading } = useConvexQuerySkippable(
+    api.users.searchUsers,
+    debouncedSearch.length >= 2 ? { query: debouncedSearch, limit: 10 } : undefined,
+    { staleTime: 60 * 1000 }
+  );
+  const results = (searchResults ?? []) as NotificationUserOption[];
+
+  const handleSelect = (user: NotificationUserOption) => {
+    onSelect(user);
+    setIsOpen(false);
+  };
+
+  const handleClear = () => {
+    onSelect(null);
+    setSearch('');
+    setDebouncedSearch('');
+  };
+
+  // Destinataire déjà sélectionné : résumé avec bouton pour retirer
+  if (selected) {
+    return (
+      <div className="flex items-center justify-between gap-2 border border-green-300 bg-green-50 rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <i className="ri-user-3-line text-green-600 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate">
+              {selected.name || t('admin.user_without_name')}
+            </p>
+            {selected.email && (
+              <p className="text-xs text-gray-500 truncate">{selected.email}</p>
+            )}
+          </div>
+          <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+            {selected.user_type}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={handleClear}
+          className="shrink-0 text-gray-400 hover:text-gray-600"
+          aria-label={t('admin.reset')}
+        >
+          <i className="ri-close-line text-lg" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <i className="ri-search-line absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          className="w-full px-3 py-2 pl-9 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          placeholder={t('admin.user_search_placeholder')}
+        />
+        {isLoading && (
+          <i className="ri-loader-4-line animate-spin absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+        )}
+      </div>
+
+      {isOpen && debouncedSearch.length < 2 && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-3 text-center text-gray-500 text-sm">
+          {t('admin.user_search_min_chars')}
+        </div>
+      )}
+
+      {isOpen && debouncedSearch.length >= 2 && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+          {isLoading && results.length === 0 ? (
+            <div className="px-3 py-4 text-center text-gray-500">
+              <i className="ri-loader-4-line animate-spin" />
+            </div>
+          ) : results.length === 0 ? (
+            <div className="px-3 py-4 text-center text-gray-500 text-sm">
+              {t('admin.user_search_no_results')}
+            </div>
+          ) : (
+            results.map((user) => (
+              <button
+                key={user.userId}
+                type="button"
+                onClick={() => handleSelect(user)}
+                className="w-full px-3 py-2 flex items-center gap-3 hover:bg-green-50 transition-colors text-left"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-900 truncate">
+                    {user.name || t('admin.user_without_name')}
+                  </p>
+                  {user.email && (
+                    <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                  )}
+                </div>
+                <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                  {user.user_type}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+
+      <p className="text-xs text-gray-500 mt-1">{t('admin.user_search_help')}</p>
     </div>
   );
 }
@@ -630,6 +785,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
   );
   const updatePurchaseRequestStatus = useMutation(api.purchaseRequests.updatePurchaseRequestStatusAdmin);
   const sendBulkNotification = useMutation(api.notifications.sendBulkNotification);
+  const sendAdminNotification = useMutation(api.notifications.sendAdminNotification);
 
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Id<"categories"> | null>(null);
@@ -653,6 +809,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
     sendToAll: false,
   });
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [selectedNotificationUser, setSelectedNotificationUser] = useState<NotificationUserOption | null>(null);
   const [sendingNotification, setSendingNotification] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
@@ -1871,18 +2028,15 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                 {!notificationForm.sendToAll && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t('admin.user_id')} *
+                      {t('admin.user_search')} *
                     </label>
-                    <input
-                      type="text"
-                      value={notificationForm.userId}
-                      onChange={(e) => setNotificationForm({...notificationForm, userId: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      placeholder={t('admin.user_id_placeholder')}
+                    <UserSearchSelect
+                      selected={selectedNotificationUser}
+                      onSelect={(user) => {
+                        setSelectedNotificationUser(user);
+                        setNotificationForm({ ...notificationForm, userId: user?.userId ?? '' });
+                      }}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {t('admin.user_id_help')}
-                    </p>
                   </div>
                 )}
 
@@ -1890,11 +2044,11 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                   <button
                     onClick={async () => {
                       if (!notificationForm.title.trim() || !notificationForm.message.trim()) {
-                        showToast('error', 'Le titre et le message sont requis');
+                        showToast('error', t('admin.fill_all_fields'));
                         return;
                       }
                       if (!notificationForm.sendToAll && !notificationForm.userId.trim()) {
-                        showToast('error', 'Veuillez sélectionner un utilisateur ou choisir "Envoyer à tous"');
+                        showToast('error', t('admin.select_user_or_all'));
                         return;
                       }
                       
@@ -1904,7 +2058,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                           // Get all user IDs from suppliers
                           const userIds = allSuppliers?.map((s: any) => s.userId) || [];
                           if (userIds.length === 0) {
-                            showToast('error', 'Aucun utilisateur trouvé');
+                            showToast('error', t('admin.user_search_no_results'));
                             return;
                           }
                           await sendBulkNotification({
@@ -1914,7 +2068,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                             type: notificationForm.type,
                             actionUrl: notificationForm.actionUrl || undefined,
                           });
-                          showToast('success', `Notification envoyée à ${userIds.length} utilisateurs`);
+                          showToast('success', t('admin.notification_sent_to_count', { count: userIds.length }));
                         } else {
                           await sendAdminNotification({
                             userId: notificationForm.userId,
@@ -1923,7 +2077,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                             type: notificationForm.type,
                             actionUrl: notificationForm.actionUrl || undefined,
                           });
-                          showToast('success', 'Notification envoyée avec succès');
+                          showToast('success', t('admin.notification_sent'));
                         }
                         // Reset form
                         setNotificationForm({
@@ -1934,9 +2088,10 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                           actionUrl: '',
                           sendToAll: false,
                         });
+                        setSelectedNotificationUser(null);
                       } catch (error: any) {
                         console.error('Error sending notification:', error);
-                        showToast('error', error.message || 'Erreur lors de l\'envoi');
+                        showToast('error', error.message || t('admin.error_sending_notification'));
                       } finally {
                         setSendingNotification(false);
                       }
@@ -1947,10 +2102,10 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                     {sendingNotification ? (
                       <span className="flex items-center gap-2">
                         <i className="ri-loader-4-line animate-spin" />
-                        Envoi...
+                        {t('admin.sending')}
                       </span>
                     ) : (
-                      'Envoyer la notification'
+                      t('admin.send_notification_button')
                     )}
                   </button>
                   <button
@@ -1963,10 +2118,11 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                         actionUrl: '',
                         sendToAll: false,
                       });
+                      setSelectedNotificationUser(null);
                     }}
                     className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors"
                   >
-                    Réinitialiser
+                    {t('admin.reset')}
                   </button>
                 </div>
               </div>
