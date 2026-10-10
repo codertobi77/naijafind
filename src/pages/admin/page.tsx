@@ -295,6 +295,7 @@ function UserSearchSelect({
   onSelect: (user: NotificationUserOption | null) => void;
 }) {
   const { t } = useTranslation();
+  const { isAuthenticated } = useConvexAuth();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -317,10 +318,13 @@ function UserSearchSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Recherche côté serveur uniquement à partir de 2 caractères
+  // Recherche côté serveur uniquement à partir de 2 caractères,
+  // et seulement une fois Clerk authentifié
   const { data: searchResults, isLoading } = useConvexQuerySkippable(
     api.users.searchUsers,
-    debouncedSearch.length >= 2 ? { query: debouncedSearch, limit: 10 } : undefined,
+    isAuthenticated && debouncedSearch.length >= 2
+      ? { query: debouncedSearch, limit: 10 }
+      : undefined,
     { staleTime: 60 * 1000 }
   );
   const results = (searchResults ?? []) as NotificationUserOption[];
@@ -667,10 +671,12 @@ export default function AdminPage(){
   });
 
   const { isAuthenticated, isLoading } = useConvexAuth();
+  // Requêtes admin : ne partir qu'une fois Clerk authentifié — sinon les
+  // gardes Convex jettent « Non autorisé » pendant le chargement de l'auth.
   const { data: meData } = useConvexQuery(
     api.users.me,
     {},
-    { staleTime: 2 * 60 * 1000 } // Cache user data for 2 minutes
+    { staleTime: 2 * 60 * 1000, enabled: isAuthenticated } // Cache user data for 2 minutes
   );
   // Use paginated query to load all pending suppliers without the 500 limit
   const {
@@ -724,7 +730,7 @@ export default function AdminPage(){
       sortOrder: categoryFilters.sortOrder,
       limit: 100,
     },
-    { staleTime: 5 * 60 * 1000 }
+    { staleTime: 5 * 60 * 1000, enabled: isAuthenticated }
   );
   const { data: allProducts } = useConvexQuery(
     api.products.getFilteredProducts,
@@ -739,18 +745,18 @@ export default function AdminPage(){
       sortOrder: productFilters.sortOrder,
       limit: 500,
     },
-    { staleTime: 2 * 60 * 1000 }
+    { staleTime: 2 * 60 * 1000, enabled: isAuthenticated }
   );
   const { data: allGalleries } = useConvexQuery(
     api.suppliers.listAllGalleriesAdmin,
     {},
-    { staleTime: 2 * 60 * 1000 }
+    { staleTime: 2 * 60 * 1000, enabled: isAuthenticated }
   );
 
   const { data: adminStats, refetch: refetchAdminStats } = useConvexQuery(
     api.statsOptimized.getAdminStats,
     {},
-    { staleTime: 5 * 1000 } // Cache stats for 5 seconds only
+    { staleTime: 5 * 1000, enabled: isAuthenticated } // Cache stats for 5 seconds only
   );
 
 // Statistiques en temps réel depuis les tables source (toujours à jour)
@@ -770,18 +776,18 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
   const { data: featuredSuppliers, refetch: refetchFeaturedSuppliers } = useConvexQuery(
     api.admin.getFeaturedSuppliers,
     {},
-    { staleTime: 2 * 60 * 1000 }
+    { staleTime: 2 * 60 * 1000, enabled: isAuthenticated }
   );
   // Purchase Requests data
   const { data: purchaseRequests, refetch: refetchPurchaseRequests } = useConvexQuery(
     api.purchaseRequests.getAllPurchaseRequests,
     { limit: 100 },
-    { staleTime: 30 * 1000 }
+    { staleTime: 30 * 1000, enabled: isAuthenticated }
   );
   const { data: purchaseRequestStats } = useConvexQuery(
     api.purchaseRequests.getPurchaseRequestStats,
     {},
-    { staleTime: 30 * 1000 }
+    { staleTime: 30 * 1000, enabled: isAuthenticated }
   );
   const updatePurchaseRequestStatus = useMutation(api.purchaseRequests.updatePurchaseRequestStatusAdmin);
   const sendBulkNotification = useMutation(api.notifications.sendBulkNotification);

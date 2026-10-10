@@ -347,7 +347,8 @@ export const searchUsers = query({
   },
   handler: async (ctx, args): Promise<UserSearchResult[]> => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Non autorisé");
+    // Auth pas encore prête (course au chargement) : vide plutôt qu'un throw
+    if (!identity) return [];
 
     // Réservé aux administrateurs (même garde que sendAdminNotification)
     const currentUser = await ctx.db

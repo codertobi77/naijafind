@@ -1,7 +1,8 @@
 import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import type { PaginationResult } from "convex/server";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 
 // Helper function to require admin authentication
 async function requireAdmin(ctx: any) {
@@ -268,7 +269,14 @@ export const getPendingSuppliersPaginated = query({
       numItems: v.number(),
     }),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<PaginationResult<Doc<"suppliers">>> => {
+    // Identité pas encore prête (course au chargement du dashboard) : page
+    // vide — la souscription repart dès que l'authentification Clerk arrive.
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { page: [], continueCursor: "", isDone: true };
+    }
+
     // Check if user is admin
     await requireAdmin(ctx);
 

@@ -1,5 +1,6 @@
 import { v } from 'convex/values';
 import { query, mutation } from './_generated/server';
+import type { Doc } from './_generated/dataModel';
 
 // Get all notifications for the current user
 export const getNotifications = query({
@@ -7,12 +8,14 @@ export const getNotifications = query({
     limit: v.optional(v.number()),
     onlyUnread: v.optional(v.boolean()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Doc<'notifications'>[]> => {
     // Identité Clerk : userId au format tokenIdentifier,
     // comme toutes les écritures de notifications.
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error('Not authenticated');
+      // Auth pas encore prête (course au chargement) : liste vide, comme
+      // getUnreadCount. La souscription repart dès que l'authentification arrive.
+      return [];
     }
 
     const userId = identity.tokenIdentifier;

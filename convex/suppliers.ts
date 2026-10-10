@@ -1,7 +1,8 @@
 import { query, mutation, action, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import type { PaginationResult } from "convex/server";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 
 // ==========================================
 // INTELLIGENT SEARCH UTILITIES
@@ -1548,10 +1549,15 @@ export const getAllSuppliersPaginated = query({
     sortBy: v.optional(v.string()), // 'name', 'created_at', 'category'
     sortOrder: v.optional(v.string()), // 'asc', 'desc'
   },
-  handler: async (ctx, args) => {
-    // Check if user is admin
+  handler: async (ctx, args): Promise<PaginationResult<Doc<"suppliers">>> => {
+    // Identité pas encore prête (course au chargement du dashboard) : page
+    // vide — la souscription repart dès que l'authentification Clerk arrive.
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Non autorisé");
+    if (!identity) {
+      return { page: [], continueCursor: "", isDone: true };
+    }
+
+    // Check if user is admin
     
     const user = await ctx.db
       .query("users")
@@ -1644,7 +1650,7 @@ export const getAllSuppliersPaginated = query({
       // Return in paginated format
       return {
         page: suppliers,
-        continueCursor: null, // No pagination for filtered results
+        continueCursor: "", // No pagination for filtered results
         isDone: true,
       };
     }
