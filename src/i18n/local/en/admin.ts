@@ -175,6 +175,7 @@ export const admin = {
   "admin.user_search_help": "Type at least 2 characters (name or email), then select the user from the list.",
   "admin.user_search_no_results": "No users found",
   "admin.user_search_min_chars": "Type at least 2 characters to search",
+  "admin.user_search_error": "Error while searching. Please try again.",
   "admin.user_without_name": "Unnamed user",
 
   // Newsletter & emails (admin tab)

@@ -350,13 +350,23 @@ export const searchUsers = query({
     // Auth pas encore prête (course au chargement) : vide plutôt qu'un throw
     if (!identity) return [];
 
-    // Réservé aux administrateurs (même garde que sendAdminNotification)
-    const currentUser = await ctx.db
+    // Réservé aux administrateurs (même garde que sendAdminNotification).
+    // Repli email : le doc users d'un admin créé via /admin/create n'a pas
+    // de tokenIdentifier tant qu'il n'est pas repassé par choose-role
+    // (ensureUserHelper) — comme les autres gardes admin du projet
+    // (requireAdmin, getAdminStats, …), on accepte aussi le lookup email.
+    let currentUser = await ctx.db
       .query("users")
       .withIndex("tokenIdentifier", (q) =>
         q.eq("tokenIdentifier", identity.tokenIdentifier)
       )
       .first();
+    if (!currentUser && identity.email) {
+      currentUser = await ctx.db
+        .query("users")
+        .withIndex("email", (q) => q.eq("email", identity.email))
+        .first();
+    }
     if (!currentUser?.is_admin && currentUser?.user_type !== "admin") {
       throw new Error("Non autorisé : administrateurs uniquement");
     }
@@ -400,3 +410,4 @@ export const searchUsers = query({
     return results;
   },
 });
+

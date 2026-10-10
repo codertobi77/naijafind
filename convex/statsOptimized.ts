@@ -167,6 +167,10 @@ export const getAdminStats = query({
     const pendingClaims = allClaims.filter(c => c.status === 'pending').length;
     const approvedClaims = allClaims.filter(c => c.status === 'approved').length;
     
+    // Count notifications sent by admins (via the admin notifications tab)
+    const allNotifications = await ctx.db.query("notifications").collect();
+    const sentNotifications = allNotifications.filter(n => (n.data as any)?.sentByAdmin === true).length;
+
     // Calculate average rating
     const ratedSuppliers = allSuppliers.filter(s => s.rating && s.rating > 0);
     const averageRating = ratedSuppliers.length > 0
@@ -188,6 +192,7 @@ export const getAdminStats = query({
       activeCategories,
       pendingClaims,
       approvedClaims,
+      sentNotifications,
       averageRating: Math.round(averageRating * 100) / 100,
     };
   },

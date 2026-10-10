@@ -320,12 +320,14 @@ function UserSearchSelect({
 
   // Recherche côté serveur uniquement à partir de 2 caractères,
   // et seulement une fois Clerk authentifié
-  const { data: searchResults, isLoading } = useConvexQuerySkippable(
+  const { data: searchResults, isLoading, error: searchError } = useConvexQuerySkippable(
     api.users.searchUsers,
     isAuthenticated && debouncedSearch.length >= 2
       ? { query: debouncedSearch, limit: 10 }
       : undefined,
-    { staleTime: 60 * 1000 }
+    // retry: false → une erreur de garde/serveur s'affiche immédiatement
+    // dans la liste au lieu d'être masquée en « aucun résultat »
+    { staleTime: 60 * 1000, retry: false }
   );
   const results = (searchResults ?? []) as NotificationUserOption[];
 
@@ -398,7 +400,11 @@ function UserSearchSelect({
 
       {isOpen && debouncedSearch.length >= 2 && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-          {isLoading && results.length === 0 ? (
+          {searchError ? (
+            <div className="px-3 py-4 text-center text-red-600 text-sm">
+              {t('admin.user_search_error')}
+            </div>
+          ) : isLoading && results.length === 0 ? (
             <div className="px-3 py-4 text-center text-gray-500">
               <i className="ri-loader-4-line animate-spin" />
             </div>
@@ -2138,14 +2144,14 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <StatCard
                 label="Fournisseurs"
-                value={allSuppliers?.length || 0}
+                value={adminStats?.totalSuppliers || 0}
                 icon="ri-store-line"
                 iconColor="text-blue-600"
                 iconBg="bg-blue-100"
               />
               <StatCard
                 label="Notifications envoyées"
-                value={unreadCount}
+                value={adminStats?.sentNotifications || 0}
                 icon="ri-notification-3-line"
                 iconColor="text-yellow-600"
                 iconBg="bg-yellow-100"

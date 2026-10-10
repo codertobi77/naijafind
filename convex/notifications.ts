@@ -227,11 +227,20 @@ export const sendAdminNotification = mutation({
       throw new Error('Not authenticated');
     }
 
-    // Verify the current user is an admin
-    const currentUser = await ctx.db
+    // Verify the current user is an admin.
+    // Repli email : cf. users.searchUsers — le doc d'un admin créé via
+    // /admin/create n'a pas de tokenIdentifier tant qu'il n'est pas
+    // repassé par choose-role (ensureUserHelper).
+    let currentUser = await ctx.db
       .query('users')
       .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
       .first();
+    if (!currentUser && identity.email) {
+      currentUser = await ctx.db
+        .query('users')
+        .withIndex('email', (q) => q.eq('email', identity.email))
+        .first();
+    }
     if (!currentUser?.is_admin && currentUser?.user_type !== 'admin') {
       throw new Error('Unauthorized: Only admins can send notifications');
     }
@@ -266,11 +275,17 @@ export const sendBulkNotification = mutation({
       throw new Error('Not authenticated');
     }
 
-    // Verify the current user is an admin
-    const currentUser = await ctx.db
+    // Verify the current user is an admin (repli email : cf. users.searchUsers)
+    let currentUser = await ctx.db
       .query('users')
       .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
       .first();
+    if (!currentUser && identity.email) {
+      currentUser = await ctx.db
+        .query('users')
+        .withIndex('email', (q) => q.eq('email', identity.email))
+        .first();
+    }
     if (!currentUser?.is_admin && currentUser?.user_type !== 'admin') {
       throw new Error('Unauthorized: Only admins can send bulk notifications');
     }
