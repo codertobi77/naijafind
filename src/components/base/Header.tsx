@@ -3,6 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
 import LanguageSelector from './LanguageSelector';
+import { NotificationDropdown } from './NotificationDropdown';
+import { useNotifications } from '../../hooks/useNotifications';
 import { useConvexQuery } from '../../hooks/useConvexQuery';
 import { api } from '@convex/_generated/api';
 
@@ -15,6 +17,16 @@ export default function Header() {
   const [isSendingBug, setIsSendingBug] = useState(false);
   const [bugSent, setBugSent] = useState(false);
   const { data: meData } = useConvexQuery(api.users.me, {}, { staleTime: 2 * 60 * 1000 });
+  // Cloche de notifications (temps réel Convex) : affichée pour tout utilisateur
+  // connecté sur toutes les pages qui utilisent ce header public.
+  const {
+    notifications,
+    unreadCount,
+    loading: notificationsLoading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+  } = useNotifications(30);
 
   const isActive = (path: string) => {
     if (path === '/') {
@@ -134,6 +146,18 @@ export default function Header() {
                   </Link>
                 )}
                 
+                {/* Notification Bell */}
+                <div className="flex-shrink-0">
+                  <NotificationDropdown
+                    notifications={notifications}
+                    unreadCount={unreadCount}
+                    loading={notificationsLoading}
+                    onMarkRead={markAsRead}
+                    onMarkAllRead={markAllAsRead}
+                    onDelete={deleteNotification}
+                  />
+                </div>
+
                 {/* User Avatar */}
                 <div className="hidden sm:block flex-shrink-0">
                   <UserButton 

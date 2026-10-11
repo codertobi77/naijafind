@@ -212,6 +212,79 @@ export const createContactRequest = mutation({
   },
 });
 
+// Garde admin des envois de notifications + auto-réparation du doc admin.
+// Typage volontairement lâche (ctx/identity: any) — même style qu'ensureUserHelper (convex/users.ts).
+async function requireAdminSender(ctx: any, identity: any) {
+  let currentUser = await ctx.db
+    .query('users')
+    .withIndex('tokenIdentifier', (q: any) => q.eq('tokenIdentifier', identity.tokenIdentifier))
+    .first();
+
+  // Repli email : cf. users.searchUsers — le doc d'un admin créé via /admin/create
+  // n'a pas de tokenIdentifier (ensureUserHelper ne s'exécute jamais pour lui,
+  // la réconciliation de choose-role est court-circuitée par check-role). Au
+  // premier envoi, on pose son tokenIdentifier réel et on repointe ses
+  // notifications historiques adressées à l'_id du doc (invisibles sinon : 
+  // getNotifications lit le tokenIdentifier).
+  if (!currentUser && identity.email) {
+    currentUser = await ctx.db
+      .query('users')
+      .withIndex('email', (q: any) => q.eq('email', identity.email))
+      .first();
+
+    if (currentUser && !currentUser.tokenIdentifier) {
+      // Réconciliation one-shot : pose le tokenIdentifier réel…
+      await ctx.db.patch(currentUser._id, {
+        tokenIdentifier: identity.tokenIdentifier,
+      });
+      // …et repointe les notifications adressées à l'ancien _id.
+      const legacyUserId = currentUser._id as unknown as string;
+      try {
+        const legacyNotifications = await ctx.db
+          .query('notifications')
+          .withIndex('userId', (q: any) => q.eq('userId', legacyUserId))
+          .take(1000);
+        for (const notification of legacyNotifications) {
+          await ctx.db.patch(notification._id, {
+            userId: identity.tokenIdentifier,
+          });
+        }
+      } catch (reconcileError) {
+        // Best-effort : sera retentée tant que le doc n'a pas son tokenIdentifier.
+        console.error('Réconciliation tokenIdentifier admin échouée :', reconcileError);
+      }
+      currentUser = { ...currentUser, tokenIdentifier: identity.tokenIdentifier };
+    }
+  }
+
+  if (!currentUser?.is_admin && currentUser?.user_type !== 'admin') {
+    throw new Error('Unauthorized: Only admins can send notifications');
+  }
+  return currentUser;
+}
+
+// Résout l'identité réelle d'un destinataire de notification.
+// searchUsers/getAllUserNotificationTargets renvoient `tokenIdentifier || _id` :
+// si la cible est un _id de doc users (compte sans tokenIdentifier au moment
+// de la recherche), la notification serait invisible pour son destinataire
+// (getNotifications lit le tokenIdentifier). Si le doc a désormais un
+// tokenIdentifier (ex. admin réconcilié par requireAdminSender), on l'utilise.
+async function resolveRecipientUserId(ctx: any, userId: string): Promise<string> {
+  // Un tokenIdentifier Clerk contient toujours '|' ou '://' (domaine + id).
+  if (userId.includes('|') || userId.includes('://')) {
+    return userId;
+  }
+  try {
+    const doc = await ctx.db.get(userId);
+    if (doc && (doc as any).tokenIdentifier) {
+      return (doc as any).tokenIdentifier as string;
+    }
+  } catch {
+    // Pas un _id de table valide (ex. 'anonymous', 'guest:…') : garder tel quel
+  }
+  return userId;
+}
+
 // Admin: Send custom notification to any user
 export const sendAdminNotification = mutation({
   args: {
@@ -227,26 +300,14 @@ export const sendAdminNotification = mutation({
       throw new Error('Not authenticated');
     }
 
-    // Verify the current user is an admin.
-    // Repli email : cf. users.searchUsers — le doc d'un admin créé via
-    // /admin/create n'a pas de tokenIdentifier tant qu'il n'est pas
-    // repassé par choose-role (ensureUserHelper).
-    let currentUser = await ctx.db
-      .query('users')
-      .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
-      .first();
-    if (!currentUser && identity.email) {
-      currentUser = await ctx.db
-        .query('users')
-        .withIndex('email', (q) => q.eq('email', identity.email))
-        .first();
-    }
-    if (!currentUser?.is_admin && currentUser?.user_type !== 'admin') {
-      throw new Error('Unauthorized: Only admins can send notifications');
-    }
+    // Garde admin + réconciliation du doc admin (repli email : cf. requireAdminSender)
+    await requireAdminSender(ctx, identity);
+
+    // Cible réelle : _id → tokenIdentifier si connu (cf. resolveRecipientUserId)
+    const userId = await resolveRecipientUserId(ctx, args.userId);
 
     const notificationId = await ctx.db.insert('notifications', {
-      userId: args.userId,
+      userId,
       type: args.type || 'system',
       title: args.title,
       message: args.message,
@@ -275,23 +336,16 @@ export const sendBulkNotification = mutation({
       throw new Error('Not authenticated');
     }
 
-    // Verify the current user is an admin (repli email : cf. users.searchUsers)
-    let currentUser = await ctx.db
-      .query('users')
-      .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
-      .first();
-    if (!currentUser && identity.email) {
-      currentUser = await ctx.db
-        .query('users')
-        .withIndex('email', (q) => q.eq('email', identity.email))
-        .first();
-    }
-    if (!currentUser?.is_admin && currentUser?.user_type !== 'admin') {
-      throw new Error('Unauthorized: Only admins can send bulk notifications');
-    }
+    // Garde admin + réconciliation du doc admin (repli email : cf. requireAdminSender)
+    await requireAdminSender(ctx, identity);
+
+    // Cibles réelles : _id → tokenIdentifier si connu (cf. resolveRecipientUserId)
+    const userIds = await Promise.all(
+      args.userIds.map((id) => resolveRecipientUserId(ctx, id))
+    );
 
     const notificationIds = await Promise.all(
-      args.userIds.map((userId) =>
+      userIds.map((userId) =>
         ctx.db.insert('notifications', {
           userId,
           type: args.type || 'system',
