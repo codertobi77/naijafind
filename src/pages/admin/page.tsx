@@ -790,14 +790,23 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
     { limit: 100 },
     { staleTime: 30 * 1000, enabled: isAuthenticated }
   );
-  const { data: purchaseRequestStats } = useConvexQuery(
+  const { data: purchaseRequestStats, refetch: refetchPurchaseRequestStats } = useConvexQuery(
     api.purchaseRequests.getPurchaseRequestStats,
     {},
     { staleTime: 30 * 1000, enabled: isAuthenticated }
   );
   const updatePurchaseRequestStatus = useMutation(api.purchaseRequests.updatePurchaseRequestStatusAdmin);
+  const deletePurchaseRequestsAdmin = useMutation(api.purchaseRequests.deletePurchaseRequestsAdmin);
   const sendBulkNotification = useMutation(api.notifications.sendBulkNotification);
   const sendAdminNotification = useMutation(api.notifications.sendAdminNotification);
+  // Cibles du bouton « Envoyer à tous les utilisateurs » : TOUS les users
+  // (fournisseurs ET acheteurs) calculées côté backend — et non plus seulement
+  // les fournisseurs chargés dans l'onglet Fournisseurs.
+  const { data: allNotificationTargets } = useConvexQuery(
+    api.users.getAllUserNotificationTargets,
+    {},
+    { staleTime: 60 * 1000, enabled: isAuthenticated && activeTab === 'notifications' }
+  );
 
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Id<"categories"> | null>(null);
@@ -825,6 +834,10 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
   const [sendingNotification, setSendingNotification] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  // Onglet demandes d'achat : sélection multiple + modal de détail
+  const [selectedRequestIds, setSelectedRequestIds] = useState<Id<"purchaseRequests">[]>([]);
+  const [viewingRequest, setViewingRequest] = useState<any | null>(null);
+  const [isDeletingRequests, setIsDeletingRequests] = useState(false);
   // Be more lenient with the admin check to allow for loading states
   const isAdmin = meData?.user?.is_admin === true || meData?.user?.user_type === 'admin';
   
@@ -2067,8 +2080,8 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                       setSendingNotification(true);
                       try {
                         if (notificationForm.sendToAll) {
-                          // Get all user IDs from suppliers
-                          const userIds = allSuppliers?.map((s: any) => s.userId) || [];
+                          // Cible TOUS les utilisateurs (fournisseurs ET acheteurs)
+                          const userIds = allNotificationTargets || [];
                           if (userIds.length === 0) {
                             showToast('error', t('admin.user_search_no_results'));
                             return;
@@ -2178,7 +2191,12 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
         return <SupplierClaimsManager />;
       case 'newsletter':
         return <NewsletterManager />;
-      case 'purchaseRequests':
+      case 'purchaseRequests': {
+        // Sélection multiple : ids des demandes affichées (limit 100)
+        const requests = (purchaseRequests as any[]) || [];
+        const requestIds = requests.map((r) => r._id as Id<"purchaseRequests">);
+        const allRequestsSelected =
+          requests.length > 0 && requests.every((r) => selectedRequestIds.includes(r._id));
         return (
           <div className="space-y-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -2240,11 +2258,36 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
 
             {/* Purchase Requests Table */}
             <div className="bg-white rounded-lg border p-6">
-              <h3 className="font-semibold mb-4">Toutes les demandes</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold">Toutes les demandes</h3>
+                {selectedRequestIds.length > 0 && (
+                  <button
+                    onClick={handleBulkDeleteRequests}
+                    disabled={isDeletingRequests}
+                    className="inline-flex items-center gap-2 bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                  >
+                    {isDeletingRequests ? (
+                      <i className="ri-loader-4-line animate-spin"></i>
+                    ) : (
+                      <i className="ri-delete-bin-line"></i>
+                    )}
+                    Supprimer la sélection ({selectedRequestIds.length})
+                  </button>
+                )}
+              </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="border-b">
+                      <th className="px-2 py-3 w-10">
+                        <input
+                          type="checkbox"
+                          checked={allRequestsSelected}
+                          onChange={() => toggleSelectAllRequests(requestIds)}
+                          className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                          aria-label="Tout sélectionner"
+                        />
+                      </th>
                       <th className="text-left px-2 py-3 font-semibold text-gray-600">Date</th>
                       <th className="text-left px-2 py-3 font-semibold text-gray-600">Description</th>
                       <th className="text-left px-2 py-3 font-semibold text-gray-600">Quantité</th>
@@ -2256,9 +2299,21 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                     </tr>
                   </thead>
                   <tbody>
-                    {purchaseRequests && purchaseRequests.length > 0 ? (
-                      purchaseRequests.map((request: any) => (
-                        <tr key={request._id} className="border-b hover:bg-gray-50">
+                    {requests.length > 0 ? (
+                      requests.map((request: any) => (
+                        <tr
+                          key={request._id}
+                          className={`border-b hover:bg-gray-50 ${selectedRequestIds.includes(request._id) ? 'bg-green-50/60' : ''}`}
+                        >
+                          <td className="px-2 py-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedRequestIds.includes(request._id)}
+                              onChange={() => toggleSelectRequest(request._id)}
+                              className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                              aria-label="Sélectionner la demande"
+                            />
+                          </td>
                           <td className="px-2 py-3">
                             {new Date(request.createdAt).toLocaleDateString('fr-FR')}
                           </td>
@@ -2300,6 +2355,14 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                             {renderPurchaseRequestAttachment(request)}
                           </td>
                           <td className="px-2 py-3">
+                            <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setViewingRequest(request)}
+                              title="Voir la demande"
+                              className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                            >
+                              <i className="ri-eye-line text-base"></i>
+                            </button>
                             <select
                               value={request.status}
                               onChange={async (e) => {
@@ -2323,12 +2386,13 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
                               <option value="completed">Terminé</option>
                               <option value="cancelled">Annulé</option>
                             </select>
+                            </div>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={8} className="text-center text-gray-400 p-4">
+                        <td colSpan={9} className="text-center text-gray-400 p-4">
                           Aucune demande d'achat
                         </td>
                       </tr>
@@ -2339,6 +2403,7 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
             </div>
           </div>
         );
+      }
       default:
         return null;
     }
@@ -2456,6 +2521,176 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
     setShowConfirmModal(false);
     setConfirmAction(null);
   };
+
+  // Onglet demandes d'achat : sélection multiple + suppression groupée
+  const toggleSelectRequest = (id: Id<"purchaseRequests">) => {
+    setSelectedRequestIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllRequests = (ids: Id<"purchaseRequests">[]) => {
+    setSelectedRequestIds((prev) =>
+      ids.length > 0 && ids.every((id) => prev.includes(id))
+        ? prev.filter((id) => !ids.includes(id))
+        : ids
+    );
+  };
+
+  const handleBulkDeleteRequests = () => {
+    const count = selectedRequestIds.length;
+    if (count === 0 || isDeletingRequests) return;
+    showConfirm(
+      'Supprimer les demandes sélectionnées',
+      `Voulez-vous vraiment supprimer ${count} demande(s) d'achat ? Cette action est irréversible et supprimera aussi les devis associés.`,
+      async () => {
+        setIsDeletingRequests(true);
+        try {
+          const result = await deletePurchaseRequestsAdmin({ ids: selectedRequestIds });
+          await refetchPurchaseRequests();
+          await refetchPurchaseRequestStats();
+          setSelectedRequestIds([]);
+          setViewingRequest(null);
+          showToast('success', `${result?.deleted ?? count} demande(s) supprimée(s)`);
+        } catch (error: any) {
+          console.error('Erreur suppression demandes:', error);
+          showToast('error', error.message || 'Erreur lors de la suppression');
+        } finally {
+          setIsDeletingRequests(false);
+        }
+      },
+      true
+    );
+  };
+
+  // Modal de détail d'une demande d'achat (onglet demandes d'achat)
+  function PurchaseRequestDetailsModal({
+    request,
+    isOpen,
+    onClose,
+  }: {
+    request: any;
+    isOpen: boolean;
+    onClose: () => void;
+  }) {
+    if (!isOpen || !request) return null;
+
+    const statusBadgeClass =
+      request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+      request.status === 'contacted' ? 'bg-blue-100 text-blue-800' :
+      request.status === 'quoted' ? 'bg-purple-100 text-purple-800' :
+      request.status === 'completed' ? 'bg-green-100 text-green-800' :
+      'bg-gray-100 text-gray-800';
+
+    const statusLabel =
+      request.status === 'pending' ? 'En attente' :
+      request.status === 'contacted' ? 'Contacté' :
+      request.status === 'quoted' ? 'Devis reçu' :
+      request.status === 'completed' ? 'Terminé' :
+      request.status === 'cancelled' ? 'Annulé' :
+      request.status;
+
+    const processingLabel =
+      request.processingOption === 'xpress'
+        ? 'Xpress (48-72h, payant)'
+        : request.processingOption === 'normal'
+          ? 'Normal (1 à 2 semaines, gratuit)'
+          : '-';
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900">
+                Demande d'achat {request.requestNumber ? `n° ${request.requestNumber}` : ''}
+              </h3>
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <i className="ri-close-line text-2xl"></i>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Description</label>
+                <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{request.description}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Quantité</label>
+                  <p className="mt-1 text-sm text-gray-900">{request.quantity} {request.unit}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Budget</label>
+                  <p className="mt-1 text-sm text-gray-900">{request.budget || '-'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">WhatsApp</label>
+                  <p className="mt-1 text-sm">
+                    <a
+                      href={`https://wa.me/${request.whatsapp.replace(/\D/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-green-600 hover:underline"
+                    >
+                      {request.whatsapp}
+                    </a>
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Statut</label>
+                  <p className="mt-1">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusBadgeClass}`}>
+                      {statusLabel}
+                    </span>
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Traitement</label>
+                  <p className="mt-1 text-sm text-gray-900">{processingLabel}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Échéance de réponse</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {request.expectedResponseAt ? new Date(request.expectedResponseAt).toLocaleDateString('fr-FR') : '-'}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Pièce jointe</label>
+                  <p className="mt-1 text-sm">{renderPurchaseRequestAttachment(request)}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Créée le</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {new Date(request.createdAt).toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Mise à jour</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {request.updatedAt ? new Date(request.updatedAt).toLocaleDateString('fr-FR') : '-'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={onClose}
+                className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // StatCard component
   function StatCard({
@@ -3291,6 +3526,13 @@ const pendingCount = adminStats?.pendingSuppliers || 0;
           setIsModalOpen(false);
           setSelectedSupplier(null);
         }}
+      />
+
+      {/* Modal détail d'une demande d'achat (onglet demandes d'achat) */}
+      <PurchaseRequestDetailsModal
+        request={viewingRequest}
+        isOpen={!!viewingRequest}
+        onClose={() => setViewingRequest(null)}
       />
 
       {/* Toast Notifications */}

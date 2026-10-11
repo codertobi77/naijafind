@@ -770,6 +770,58 @@ export const updatePurchaseRequestStatusAdmin = mutation({
 });
 
 /**
+ * Bulk delete purchase requests (admin only).
+ * Supprime aussi les devis rattachés à chaque demande (cf. deletePurchaseRequest).
+ * Les ids déjà absents sont ignorés silencieusement (double soumission possible
+ * côté UI) — le retour indique le nombre réellement supprimé.
+ */
+export const deletePurchaseRequestsAdmin = mutation({
+  args: {
+    ids: v.array(v.id("purchaseRequests")),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Non autorisé");
+    }
+
+    // Check if user is admin (même garde que updatePurchaseRequestStatusAdmin)
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", identity.email))
+      .first();
+
+    if (!user?.is_admin) {
+      throw new Error("Accès refusé. Admin uniquement.");
+    }
+
+    if (args.ids.length === 0) {
+      return { success: true, deleted: 0 };
+    }
+
+    let deleted = 0;
+    for (const id of args.ids) {
+      const request = await ctx.db.get(id);
+      if (!request) continue;
+
+      // Supprimer d'abord les devis rattachés (sinon ils restent orphelins)
+      const relatedQuotes = await ctx.db
+        .query("quotes")
+        .withIndex("requestId", (q) => q.eq("requestId", id))
+        .take(100);
+      for (const quote of relatedQuotes) {
+        await ctx.db.delete(quote._id);
+      }
+
+      await ctx.db.delete(id);
+      deleted++;
+    }
+
+    return { success: true, deleted };
+  },
+});
+
+/**
  * Internal: Find matching suppliers for a purchase request
  * Uses keyword matching and location proximity
  */

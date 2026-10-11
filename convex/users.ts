@@ -411,3 +411,56 @@ export const searchUsers = query({
   },
 });
 
+/**
+ * Admin : toutes les cibles de notification du bouton
+ * « Envoyer à tous les utilisateurs » du dashboard.
+ *
+ * Renvoie TOUS les users (fournisseurs ET acheteurs), avec le même mapping
+ * que searchUsers : tokenIdentifier Clerk, repli sur l'_id pour les users
+ * importés sans tokenIdentifier — ces notifications sont repointées vers le
+ * tokenIdentifier à la première connexion (cf. ensureUserHelper).
+ */
+export const getAllUserNotificationTargets = query({
+  args: {},
+  handler: async (ctx): Promise<string[]> => {
+    const identity = await ctx.auth.getUserIdentity();
+    // Auth pas encore prête (course au chargement) : vide plutôt qu'un throw
+    if (!identity) return [];
+
+    // Réservé aux administrateurs (garde identique à searchUsers : lookup
+    // tokenIdentifier puis repli email — le doc d'un admin créé via
+    // /admin/create n'a pas de tokenIdentifier avant le passage par
+    // choose-role).
+    let currentUser = await ctx.db
+      .query("users")
+      .withIndex("tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier)
+      )
+      .first();
+    if (!currentUser && identity.email) {
+      currentUser = await ctx.db
+        .query("users")
+        .withIndex("email", (q) => q.eq("email", identity.email))
+        .first();
+    }
+    if (!currentUser?.is_admin && currentUser?.user_type !== "admin") {
+      throw new Error("Non autorisé : administrateurs uniquement");
+    }
+
+    const users = await ctx.db.query("users").take(10000);
+
+    // Dédup : des docs legacy peuvent partager le même tokenIdentifier —
+    // chaque utilisateur ne doit recevoir qu'une seule notification.
+    const seen = new Set<string>();
+    const targets: string[] = [];
+    for (const u of users) {
+      const target = u.tokenIdentifier || (u._id as unknown as string);
+      if (!seen.has(target)) {
+        seen.add(target);
+        targets.push(target);
+      }
+    }
+    return targets;
+  },
+});
+
